@@ -1,4 +1,4 @@
--- OpenDAM SQLite Schema — Migration 001: Initial
+-- PolyStash SQLite Schema — Migration 001: Initial
 
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;

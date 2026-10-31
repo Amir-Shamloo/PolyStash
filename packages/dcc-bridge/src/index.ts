@@ -1,5 +1,5 @@
 /**
- * OpenDAM DCC Bridge Protocol
+ * PolyStash DCC Bridge Protocol
  * ============================
  * WebSocket-based protocol between the DAM desktop app and DCC host app plugins.
  *

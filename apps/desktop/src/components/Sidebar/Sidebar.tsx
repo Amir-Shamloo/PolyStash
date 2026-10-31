@@ -314,7 +314,7 @@ export function Sidebar() {
 
   const handleDropOnCollection = async (e: React.DragEvent, colId: string) => {
     e.preventDefault();
-    const rawData = e.dataTransfer.getData('application/opendam-asset-id') || e.dataTransfer.getData('text/plain');
+    const rawData = e.dataTransfer.getData('application/polystash-asset-id') || e.dataTransfer.getData('text/plain');
     if (!rawData) return;
 
     let assetId = rawData;

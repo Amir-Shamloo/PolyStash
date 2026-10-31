@@ -6,4 +6,4 @@ line-length = 100
 select = ["E", "F", "I", "UP"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["opendam_preview"]
+known-first-party = ["polystash_preview"]

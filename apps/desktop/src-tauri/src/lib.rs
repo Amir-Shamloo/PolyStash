@@ -23,7 +23,7 @@ pub fn run() {
     // Logging
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| "opendam=debug,info".parse().unwrap()),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| "polystash=debug,info".parse().unwrap()),
         )
         .init();
 
@@ -39,7 +39,7 @@ pub fn run() {
 
             std::fs::create_dir_all(&app_data_dir)?;
 
-            let db_path = app_data_dir.join("opendam.sqlite");
+            let db_path = app_data_dir.join("polystash.sqlite");
 
             let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
             let db = rt.block_on(async {
@@ -97,7 +97,7 @@ pub fn run() {
                     let mut changed = false;
 
                     for lib in &libs {
-                        let db_path = lib.root_path.join(".opendam").join("library.sqlite");
+                        let db_path = lib.root_path.join(".polystash").join("library.sqlite");
                         if let Ok(meta) = std::fs::metadata(&db_path) {
                             if let Ok(mtime) = meta.modified() {
                                 let prev = last_seen.entry(lib.id.clone()).or_insert(mtime);

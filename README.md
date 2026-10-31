@@ -1,8 +1,8 @@
-# OpenDAM 🗂️✨
+# PolyStash 🗂️✨
 
 <div align="center">
 
-![OpenDAM Banner](https://raw.githubusercontent.com/LawLaw09/OpenDAM/main/apps/desktop/src-tauri/icons/128x128.png)
+![PolyStash Banner](https://raw.githubusercontent.com/Amir-Shamloo/PolyStash/main/apps/desktop/src-tauri/icons/128x128.png)
 
 ### The First Free & Open-Source Digital Asset Management (DAM) System for 3D, CAD, Architecture & Design
 
@@ -19,20 +19,20 @@
 
 <br/><br/>
 
-[![OpenDAM User Interface](docs/images/opendam-ui.jpg)](https://github.com/LawLaw09/OpenDAM)
+[![PolyStash User Interface](docs/images/polystash-ui.jpg)](https://github.com/Amir-Shamloo/PolyStash)
 
 </div>
 
 ---
 
-## 🌟 Why OpenDAM?
+## 🌟 Why PolyStash?
 
 Proprietary asset managers force creative studios and 3D artists into expensive per-seat subscriptions, centralized cloud lock-in, or brittle network databases that corrupt over local file shares.
 
-**OpenDAM is different:**
+**PolyStash is different:**
 - **100% Free & Open Source (MIT)**: Zero per-seat fees, zero subscription costs.
 - **Local-First & Private**: Your files and databases never leave your machine or private office network. Zero telemetry, zero cloud tracking.
-- **Built for Teams & NAS**: Each library maintains its own self-contained database (`.opendam/library.sqlite`) directly inside the shared folder. Anyone who mounts the directory gets immediate access to the shared previews, tags, and collections without server setup.
+- **Built for Teams & NAS**: Each library maintains its own self-contained database (`.polystash/library.sqlite`) directly inside the shared folder. Anyone who mounts the directory gets immediate access to the shared previews, tags, and collections without server setup.
 - **Engineered for Speed**: SQLite FTS5 instant full-text search, in-memory directory caching, and batch commits that protect NAS hardware from I/O exhaustion.
 
 ---
@@ -47,12 +47,12 @@ Proprietary asset managers force creative studios and 3D artists into expensive 
 - **One-Click Path Copying**: Select an asset and hit `Ctrl + C` to instantly copy its full, absolute file path to your clipboard.
 
 ### 🏢 Network and NAS Architecture (Zero Stress on Storage)
-Network-attached storage (NAS) and office SMB shares have limited read/write capabilities. OpenDAM implements an ultra-efficient network protocol:
+Network-attached storage (NAS) and office SMB shares have limited read/write capabilities. PolyStash implements an ultra-efficient network protocol:
 - **In-Memory Traversal**: Startup scanning preloads file metadata in 1 single query. Unchanged files are verified in RAM in **0 microseconds with 0 database queries**, indexing 6,000+ assets in under 200 ms.
 - **Chunked Batch Transactions**: All database writes are committed in batches of 200 items, slashing network sync packets and SQLite lock contention by **over 98%**.
-- **Thumbnail Pre-Check**: Previews are rendered once into `.opendam/thumbs/`. OpenDAM pre-checks thumbnail existence on disk, completely eliminating redundant reads of 100MB+ CAD files across the network.
+- **Thumbnail Pre-Check**: Previews are rendered once into `.polystash/thumbs/`. PolyStash pre-checks thumbnail existence on disk, completely eliminating redundant reads of 100MB+ CAD files across the network.
 - **RAM Temp Storage**: Temp sorting buffers, FTS5 scratchpads, and index buffers are kept in local RAM (`PRAGMA temp_store = MEMORY`), writing zero temporary files to your NAS.
-- **Portable Relative Paths**: Paths inside `.opendam/library.sqlite` are stored relative to the library root. Team members mounting the share on `Z:\`, `Y:\`, or `\\server\share` share the exact same database without broken links.
+- **Portable Relative Paths**: Paths inside `.polystash/library.sqlite` are stored relative to the library root. Team members mounting the share on `Z:\`, `Y:\`, or `\\server\share` share the exact same database without broken links.
 
 ### 🗂️ Professional Organization & Safety
 - **Hierarchical Collections & Sub-Collections**: Organize assets into nested collection trees with live recursive asset count rollups.
@@ -67,10 +67,10 @@ Network-attached storage (NAS) and office SMB shares have limited read/write cap
 
 ### Windows (Recommended)
 1. Download the latest installer from the [Releases](https://github.com) page:
-   - **`OpenDAM_x64-setup.exe`** (Standard Windows Installer with Desktop & Start Menu shortcuts)
-   - **`opendam-desktop.exe`** (Portable standalone executable, no installation needed)
-2. Run the installer and launch **OpenDAM**.
-3. Click **"+"** under Libraries in the left sidebar, choose any folder with 3D or CAD files, and watch OpenDAM index your assets visually in seconds!
+   - **`PolyStash_x64-setup.exe`** (Standard Windows Installer with Desktop & Start Menu shortcuts)
+   - **`polystash-desktop.exe`** (Portable standalone executable, no installation needed)
+2. Run the installer and launch **PolyStash**.
+3. Click **"+"** under Libraries in the left sidebar, choose any folder with 3D or CAD files, and watch PolyStash index your assets visually in seconds!
 
 ---
 
@@ -99,8 +99,8 @@ Network-attached storage (NAS) and office SMB shares have limited read/write cap
 
 ```bash
 # Clone the repository
-git clone https://github.com/LawLaw09/OpenDAM.git
-cd opendam
+git clone https://github.com/Amir-Shamloo/PolyStash.git
+cd polystash
 
 # Install dependencies
 pnpm install
@@ -113,16 +113,16 @@ pnpm dev
 
 ```bash
 # Build the production Vite bundle and Tauri executable
-pnpm --filter @opendam/desktop build
+pnpm --filter @polystash/desktop build
 ```
 The compiled installer will be available at:
-`apps/desktop/src-tauri/target/release/bundle/nsis/OpenDAM_0.1.0_x64-setup.exe`
+`apps/desktop/src-tauri/target/release/bundle/nsis/PolyStash_0.1.0_x64-setup.exe`
 
 ---
 
 ## 🗺️ Project Roadmap
 
-- [x] Per-Library Portable SQLite Architecture (`.opendam/library.sqlite`)
+- [x] Per-Library Portable SQLite Architecture (`.polystash/library.sqlite`)
 - [x] Extreme NAS Efficiency (in-memory caching, 200-item batch transactions)
 - [x] Multi-format 3D & CAD Support (DWG, RVT, RFA, MAX, SKP, OBJ, FBX, BLEND)
 - [x] Spacebar High-Definition Quick Look Overlay
@@ -137,7 +137,7 @@ The compiled installer will be available at:
 
 ## 🤝 Contributing
 
-Contributions are welcome! OpenDAM is an open, community-driven project. If you'd like to report a bug, request a format, or contribute a feature:
+Contributions are welcome! PolyStash is an open, community-driven project. If you'd like to report a bug, request a format, or contribute a feature:
 1. Fork the repo.
 2. Create a feature branch (`git checkout -b feature/amazing-feature`).
 3. Commit your changes (`git commit -m 'Add amazing feature'`).

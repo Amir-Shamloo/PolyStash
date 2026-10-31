@@ -11,7 +11,7 @@ use crate::models::AssetKind;
 
 // ── Advisory lock guard ─────────────────────────────────────────────────────
 
-/// RAII guard: writes `.opendam/index.lock` on creation, removes it on drop.
+/// RAII guard: writes `.polystash/index.lock` on creation, removes it on drop.
 /// On NAS, multiple machines may attempt to re-index simultaneously on startup.
 /// The second machine detects the lock and skips indexing, preventing interleaved
 /// batch writes that would corrupt the asset catalogue.
@@ -22,8 +22,8 @@ impl IndexLock {
     ///
     /// Returns `None` if another instance acquired the lock within the last
     /// `stale_after` seconds (default: 120s). Returns `Some(guard)` on success.
-    fn try_acquire(opendam_dir: &Path, stale_after: u64) -> Option<Self> {
-        let lock_path = opendam_dir.join("index.lock");
+    fn try_acquire(polystash_dir: &Path, stale_after: u64) -> Option<Self> {
+        let lock_path = polystash_dir.join("index.lock");
 
         // If the lock file exists and is recent, another indexer is running.
         if let Ok(meta) = std::fs::metadata(&lock_path) {
@@ -129,8 +129,8 @@ struct PendingAsset {
 /// Walk `paths` and index all found files as Assets into the database.
 /// Highly optimized for NAS:
 /// 1. Single initial query loads existing assets into RAM (0 queries during walk).
-/// 2. Skips `.opendam` directory.
-/// 3. Pre-checks `.opendam/thumbs/` to never re-render existing previews across network.
+/// 2. Skips `.polystash` directory.
+/// 3. Pre-checks `.polystash/thumbs/` to never re-render existing previews across network.
 /// 4. Groups writes into chunks of 200 inside single transactions (cutting NAS I/O by 99%).
 /// 5. Advisory index.lock prevents two machines from indexing the same library simultaneously.
 pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> Result<()> {
@@ -144,14 +144,14 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
     };
 
     // ── Advisory lock: skip if another machine is already indexing ────────
-    let opendam_dir = root_path.join(".opendam");
-    let _lock = match IndexLock::try_acquire(&opendam_dir, 120) {
+    let polystash_dir = root_path.join(".polystash");
+    let _lock = match IndexLock::try_acquire(&polystash_dir, 120) {
         Some(guard) => guard,
         None => return Ok(()), // another instance is indexing — yield
     };
 
 
-    let thumbs_dir = root_path.join(".opendam").join("thumbs");
+    let thumbs_dir = root_path.join(".polystash").join("thumbs");
     let now = Utc::now().timestamp_millis();
 
     // ── 1. Load existing assets in ONE single query into memory ──────────
@@ -179,7 +179,7 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
             .follow_links(true)
             .into_iter()
             .filter_entry(|e| {
-                // Skip hidden folders and .opendam internal folder
+                // Skip hidden folders and .polystash internal folder
                 let file_name = e.file_name().to_string_lossy();
                 if e.file_type().is_dir() && file_name.starts_with('.') {
                     return false;
@@ -235,7 +235,7 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
             let kind = AssetKind::from_extension(&ext);
             let kind_str = kind.as_str();
 
-            // Pre-check if thumbnail already exists in .opendam/thumbs/
+            // Pre-check if thumbnail already exists in .polystash/thumbs/
             let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(&file_name);
             let thumb_png = thumbs_dir.join(format!("{}_thumb.png", stem));
             let thumb_jpg = thumbs_dir.join(format!("{}_thumb.jpg", stem));
@@ -246,10 +246,10 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
 
             if thumb_png.exists() {
                 preview_status = "done";
-                thumbnail_path = Some(format!(".opendam/thumbs/{}_thumb.png", stem));
+                thumbnail_path = Some(format!(".polystash/thumbs/{}_thumb.png", stem));
             } else if thumb_jpg.exists() {
                 preview_status = "done";
-                thumbnail_path = Some(format!(".opendam/thumbs/{}_thumb.jpg", stem));
+                thumbnail_path = Some(format!(".polystash/thumbs/{}_thumb.jpg", stem));
             } else {
                 let needs_preview = matches!(
                     ext.as_str(),

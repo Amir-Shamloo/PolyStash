@@ -39,8 +39,8 @@ packages/preview-engine/venv/
 *.sqlite-shm
 *.db
 *.bak
-opendam-data/
-.opendam/
+polystash-data/
+.polystash/
 thumbs/
 assets/
 New folder*/

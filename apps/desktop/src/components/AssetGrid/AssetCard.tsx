@@ -67,7 +67,7 @@ export const AssetCard = memo(function AssetCard({
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
-      e.dataTransfer.setData('application/opendam-asset-id', asset.id);
+      e.dataTransfer.setData('application/polystash-asset-id', asset.id);
       e.dataTransfer.setData('text/plain', asset.id);
       e.dataTransfer.effectAllowed = 'copy';
     },

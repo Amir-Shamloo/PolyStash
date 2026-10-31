@@ -1,13 +1,13 @@
 """
-OpenDAM Blender Plugin
+PolyStash Blender Plugin
 ======================
-Blender add-on that connects to the OpenDAM DCC bridge.
+Blender add-on that connects to the PolyStash DCC bridge.
 
 Installation:
   Edit → Preferences → Add-ons → Install → select this file
 
 Features (Phase 3):
-  - Drag-and-drop import from OpenDAM (append/link)
+  - Drag-and-drop import from PolyStash (append/link)
   - Material loading
   - Save asset to DAM with auto preview generation
   - Real-time bridge connection status
@@ -16,14 +16,14 @@ Requires: Blender 3.6+ (Python 3.10+)
 """
 
 bl_info = {
-    "name": "OpenDAM Bridge",
-    "author": "OpenDAM Contributors",
+    "name": "PolyStash Bridge",
+    "author": "PolyStash Contributors",
     "version": (0, 1, 0),
     "blender": (3, 6, 0),
-    "location": "View3D > Sidebar > OpenDAM",
-    "description": "Connect Blender to OpenDAM digital asset manager",
+    "location": "View3D > Sidebar > PolyStash",
+    "description": "Connect Blender to PolyStash digital asset manager",
     "category": "Import-Export",
-    "doc_url": "https://github.com/opendam/opendam",
+    "doc_url": "https://github.com/polystash/polystash",
 }
 
 import bpy
@@ -39,7 +39,7 @@ BRIDGE_URL = f"http://localhost:{BRIDGE_PORT}"
 
 
 # ── Preferences ────────────────────────────────────────────────────────────
-class OpenDAMPreferences(AddonPreferences):
+class PolyStashPreferences(AddonPreferences):
     bl_idname = __name__
 
     bridge_port: bpy.props.IntProperty(
@@ -55,9 +55,9 @@ class OpenDAMPreferences(AddonPreferences):
 
 
 # ── Operators ──────────────────────────────────────────────────────────────
-class OPENDAM_OT_ImportAsset(Operator):
-    """Import asset from OpenDAM into the current scene"""
-    bl_idname = "opendam.import_asset"
+class POLYSTASH_OT_ImportAsset(Operator):
+    """Import asset from PolyStash into the current scene"""
+    bl_idname = "polystash.import_asset"
     bl_label = "Import Asset"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -88,10 +88,10 @@ class OPENDAM_OT_ImportAsset(Operator):
         return {"FINISHED"}
 
 
-class OPENDAM_OT_SaveToDam(Operator):
-    """Export selected objects and save to OpenDAM"""
-    bl_idname = "opendam.save_to_dam"
-    bl_label = "Save to OpenDAM"
+class POLYSTASH_OT_SaveToDam(Operator):
+    """Export selected objects and save to PolyStash"""
+    bl_idname = "polystash.save_to_dam"
+    bl_label = "Save to PolyStash"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -114,7 +114,7 @@ class OPENDAM_OT_SaveToDam(Operator):
             )
             # Notify DAM bridge
             _notify_bridge("ASSET_SAVED", {"exportPath": tmp_path, "host": "blender"})
-            self.report({"INFO"}, "Asset sent to OpenDAM")
+            self.report({"INFO"}, "Asset sent to PolyStash")
         except Exception as e:
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
@@ -123,12 +123,12 @@ class OPENDAM_OT_SaveToDam(Operator):
 
 
 # ── Panel ──────────────────────────────────────────────────────────────────
-class OPENDAM_PT_Panel(Panel):
-    bl_label = "OpenDAM"
-    bl_idname = "OPENDAM_PT_panel"
+class POLYSTASH_PT_Panel(Panel):
+    bl_label = "PolyStash"
+    bl_idname = "POLYSTASH_PT_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "OpenDAM"
+    bl_category = "PolyStash"
 
     def draw(self, context):
         layout = self.layout
@@ -140,7 +140,7 @@ class OPENDAM_PT_Panel(Panel):
 
         col.separator()
         col.label(text="Asset Actions", icon="IMPORT")
-        col.operator("opendam.save_to_dam", icon="EXPORT")
+        col.operator("polystash.save_to_dam", icon="EXPORT")
 
 
 # ── Bridge helpers ─────────────────────────────────────────────────────────
@@ -171,10 +171,10 @@ def _notify_bridge(msg_type: str, payload: dict) -> None:
 
 # ── Registration ───────────────────────────────────────────────────────────
 CLASSES = [
-    OpenDAMPreferences,
-    OPENDAM_OT_ImportAsset,
-    OPENDAM_OT_SaveToDam,
-    OPENDAM_PT_Panel,
+    PolyStashPreferences,
+    POLYSTASH_OT_ImportAsset,
+    POLYSTASH_OT_SaveToDam,
+    POLYSTASH_PT_Panel,
 ]
 
 

@@ -23,7 +23,7 @@ pub async fn add_library(
     let first_path = payload.root_paths.first().ok_or("No root path provided")?;
     let root_path = PathBuf::from(first_path);
 
-    // Register library in memory & open its .opendam/library.sqlite with NAS pragmas
+    // Register library in memory & open its .polystash/library.sqlite with NAS pragmas
     let _handle = state.db.register_library(&id, &payload.name, &root_path)
         .await
         .map_err(|e| e.to_string())?;

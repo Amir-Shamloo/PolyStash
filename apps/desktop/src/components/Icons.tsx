@@ -1,4 +1,4 @@
-// Minimal SVG icon set for OpenDAM
+// Minimal SVG icon set for PolyStash
 // Each icon is a functional component accepting className/size props
 
 interface IconProps {

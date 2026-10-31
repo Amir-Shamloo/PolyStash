@@ -1,5 +1,5 @@
 {
-  "name": "@opendam/dcc-bridge",
+  "name": "@polystash/dcc-bridge",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

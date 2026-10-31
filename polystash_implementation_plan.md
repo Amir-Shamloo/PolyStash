@@ -1,4 +1,4 @@
-# OpenDAM — Open-Source Connecter-Style Asset Manager
+# PolyStash — Open-Source Connecter-Style Asset Manager
 
 ## Implementation Plan (built by agentic AI coding agents)
 
@@ -164,7 +164,7 @@ Rule: **no code until the spec compiles against existing interfaces.** This is w
 ### 4.3 Repo layout
 
 ```javascript
-opendam/
+polystash/
   docs/
     specs/            # one file per task — the agent's source of truth
     architecture/     # RFCs (human-written, versioned)

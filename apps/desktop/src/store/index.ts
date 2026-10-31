@@ -105,7 +105,7 @@ export const useUIStore = create<UIState>()(
         set({ activeCollectionId: id, activeLibraryId: null, selectedLibraryIds: [] }),
     }),
     {
-      name: 'opendam-ui',
+      name: 'polystash-ui',
       partialize: (s) => ({
         viewMode: s.viewMode,
         gridSize: s.gridSize,

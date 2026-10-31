@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenDAM",
+  "productName": "PolyStash",
   "version": "0.1.0",
-  "identifier": "com.opendam.desktop",
+  "identifier": "com.polystash.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "OpenDAM",
+        "title": "PolyStash",
         "width": 1400,
         "height": 900,
         "minWidth": 900,

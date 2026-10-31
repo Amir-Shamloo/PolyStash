@@ -166,11 +166,11 @@ impl Database {
                 if let Some(first_path) = paths.first() {
                     let root_path = PathBuf::from(first_path);
                     if root_path.exists() {
-                        let opendam_dir = root_path.join(".opendam");
-                        let thumbs_dir = opendam_dir.join("thumbs");
+                        let polystash_dir = root_path.join(".polystash");
+                        let thumbs_dir = polystash_dir.join("thumbs");
                         let _ = tokio::fs::create_dir_all(&thumbs_dir).await;
 
-                        let lib_db_file = opendam_dir.join("library.sqlite");
+                        let lib_db_file = polystash_dir.join("library.sqlite");
                         match connect_library_sqlite(&lib_db_file).await {
                             Ok(lib_pool) => {
                                 if first_pool.is_none() {
@@ -259,11 +259,11 @@ impl Database {
     }
 
     pub async fn register_library(&self, id: &str, name: &str, root_path: &Path) -> Result<LibraryHandle> {
-        let opendam_dir = root_path.join(".opendam");
-        let thumbs_dir = opendam_dir.join("thumbs");
+        let polystash_dir = root_path.join(".polystash");
+        let thumbs_dir = polystash_dir.join("thumbs");
         tokio::fs::create_dir_all(&thumbs_dir).await?;
 
-        let lib_db_file = opendam_dir.join("library.sqlite");
+        let lib_db_file = polystash_dir.join("library.sqlite");
         let lib_pool = connect_library_sqlite(&lib_db_file).await?;
 
         // Sync metadata immediately

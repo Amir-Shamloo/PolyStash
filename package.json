@@ -1,11 +1,11 @@
 {
-  "name": "opendam",
+  "name": "polystash",
   "private": true,
   "version": "0.1.0",
   "description": "Open-source digital asset manager for 3D/AEC/design files",
   "scripts": {
-    "dev": "pnpm --filter @opendam/desktop dev",
-    "build": "pnpm --filter @opendam/desktop build",
+    "dev": "pnpm --filter @polystash/desktop dev",
+    "build": "pnpm --filter @polystash/desktop build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"

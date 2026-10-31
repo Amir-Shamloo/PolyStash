@@ -62,7 +62,7 @@ export function Toolbar() {
             <path d="M12 2v18M4 6l8 4 8-4" stroke="hsl(220 85% 70%)" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
         </div>
-        <span className={styles.appName}>OpenDAM</span>
+        <span className={styles.appName}>PolyStash</span>
       </div>
 
       {/* Search area with recursive subcollection filter toggle */}

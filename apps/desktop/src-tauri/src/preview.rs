@@ -131,7 +131,7 @@ pub fn start_preview_worker(state: Arc<AppState>) {
             }
         }
 
-        let py_exec = if let Ok(custom) = std::env::var("OPENDAM_PYTHON") {
+        let py_exec = if let Ok(custom) = std::env::var("POLYSTASH_PYTHON") {
             PathBuf::from(custom)
         } else {
             let mut found_py = None;
@@ -155,7 +155,7 @@ pub fn start_preview_worker(state: Arc<AppState>) {
             })
         };
 
-        let worker_py = if let Ok(custom) = std::env::var("OPENDAM_WORKER") {
+        let worker_py = if let Ok(custom) = std::env::var("POLYSTASH_WORKER") {
             PathBuf::from(custom)
         } else {
             let mut found_worker = None;
@@ -195,7 +195,7 @@ pub fn start_preview_worker(state: Arc<AppState>) {
             for lib in libs {
                 let pool = &lib.pool;
                 let root_path = &lib.root_path;
-                let thumb_dir = root_path.join(".opendam").join("thumbs");
+                let thumb_dir = root_path.join(".polystash").join("thumbs");
                 let _ = tokio::fs::create_dir_all(&thumb_dir).await;
 
                 // Poll batch of up to 10 jobs to minimize SQLite round-trip overhead
@@ -237,9 +237,9 @@ pub fn start_preview_worker(state: Arc<AppState>) {
                     let thumb_jpg = thumb_dir.join(format!("{}_thumb.jpg", file_stem));
 
                     let existing_thumb = if thumb_png.exists() {
-                        Some(format!(".opendam/thumbs/{}_thumb.png", file_stem))
+                        Some(format!(".polystash/thumbs/{}_thumb.png", file_stem))
                     } else if thumb_jpg.exists() {
-                        Some(format!(".opendam/thumbs/{}_thumb.jpg", file_stem))
+                        Some(format!(".polystash/thumbs/{}_thumb.jpg", file_stem))
                     } else {
                         None
                     };
@@ -272,7 +272,7 @@ pub fn start_preview_worker(state: Arc<AppState>) {
                             format!("{}_thumb.jpg", file_stem)
                         };
                         let thumb_dest = thumb_dir.join(&thumb_file_name);
-                        let rel_thumb = format!(".opendam/thumbs/{}", thumb_file_name);
+                        let rel_thumb = format!(".polystash/thumbs/{}", thumb_file_name);
 
                         match generate_image_thumb(&full_source, &thumb_dest) {
                             Ok(()) => {

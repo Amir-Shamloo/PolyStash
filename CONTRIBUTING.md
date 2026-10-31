@@ -1,6 +1,6 @@
-# Contributing to OpenDAM 🤝
+# Contributing to PolyStash 🤝
 
-Thank you for your interest in contributing to **OpenDAM**! OpenDAM is the first free and open-source Digital Asset Management (DAM) system engineered specifically for 3D artists, architects, visualizers, and creative studios.
+Thank you for your interest in contributing to **PolyStash**! PolyStash is the first free and open-source Digital Asset Management (DAM) system engineered specifically for 3D artists, architects, visualizers, and creative studios.
 
 We welcome all contributions: bug fixes, new 3D/CAD format parsers, performance optimizations, UI improvements, DCC plugins, and documentation.
 
@@ -8,10 +8,10 @@ We welcome all contributions: bug fixes, new 3D/CAD format parsers, performance 
 
 ## 🏗️ Repository Architecture
 
-OpenDAM is structured as a high-performance monorepo using **pnpm workspaces**:
+PolyStash is structured as a high-performance monorepo using **pnpm workspaces**:
 
 ```
-opendam/
+polystash/
 ├── apps/
 │   └── desktop/
 │       ├── src/               # React 18 + TypeScript + Vite + Zustand frontend
@@ -53,8 +53,8 @@ Before developing locally, ensure you have the following installed:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/LawLaw09/OpenDAM.git
-   cd opendam
+   git clone https://github.com/Amir-Shamloo/PolyStash.git
+   cd polystash
    ```
 
 2. **Install frontend dependencies**:
@@ -73,7 +73,7 @@ Before developing locally, ensure you have the following installed:
    cd ../..
    ```
 
-4. **Run OpenDAM in development mode**:
+4. **Run PolyStash in development mode**:
    ```bash
    # Starts the Vite dev server with hot reload and launches the Tauri window
    pnpm dev
@@ -87,7 +87,7 @@ Before submitting a Pull Request, ensure that all automated checks pass locally.
 
 ### 1. Frontend Typecheck & Build
 ```bash
-pnpm --filter @opendam/desktop vite:build
+pnpm --filter @polystash/desktop vite:build
 ```
 
 ### 2. Rust Clippy & Compilation
@@ -110,12 +110,12 @@ ruff check packages/preview-engine/
 When contributing code, please adhere to our core design principles:
 
 ### 1. NAS & Local-First Safety
-- **Rollback Journaling**: OpenDAM explicitly uses SQLite `DELETE` (rollback) journaling for `.opendam/library.sqlite` databases. **Never change this to WAL mode for library databases**, as SQLite WAL shared-memory (`-shm`) locking is unreliable on network file shares (SMB/NFS) and can cause silent corruption across multi-user environments.
+- **Rollback Journaling**: PolyStash explicitly uses SQLite `DELETE` (rollback) journaling for `.polystash/library.sqlite` databases. **Never change this to WAL mode for library databases**, as SQLite WAL shared-memory (`-shm`) locking is unreliable on network file shares (SMB/NFS) and can cause silent corruption across multi-user environments.
 - **Batch Commits**: Always batch database writes (200+ items per transaction) to protect NAS spinning disks and network file shares from I/O exhaustion.
-- **Relative File Paths**: All paths stored in library SQLite databases must be relative to the library root (`.opendam/thumbs/...` or `textures/...`). Never store machine-specific absolute drive letters (`C:\`, `D:\`) in `.opendam/library.sqlite`.
+- **Relative File Paths**: All paths stored in library SQLite databases must be relative to the library root (`.polystash/thumbs/...` or `textures/...`). Never store machine-specific absolute drive letters (`C:\`, `D:\`) in `.polystash/library.sqlite`.
 
 ### 2. Zero Telemetry & Privacy
-- OpenDAM has **zero analytics, zero telemetry, and zero cloud tracking**. No external API calls may be added to third-party tracking services.
+- PolyStash has **zero analytics, zero telemetry, and zero cloud tracking**. No external API calls may be added to third-party tracking services.
 
 ### 3. High Performance First
 - **Native Rust Resizing**: Standard raster images (`.jpg`, `.png`, `.tga`, `.tif`, `.bmp`, `.webp`) must be handled directly in Rust via the `image` crate. Do not dispatch standard raster images to Python.
@@ -148,7 +148,7 @@ When contributing code, please adhere to our core design principles:
 ## 💬 Community & Questions
 
 Have questions, ideas, or feedback?
-- Open an [Issue](https://github.com/LawLaw09/OpenDAM/issues) for bug reports and feature proposals.
-- Join the discussion in [GitHub Discussions](https://github.com/LawLaw09/OpenDAM/discussions).
+- Open an [Issue](https://github.com/Amir-Shamloo/PolyStash/issues) for bug reports and feature proposals.
+- Join the discussion in [GitHub Discussions](https://github.com/Amir-Shamloo/PolyStash/discussions).
 
-Thank you for helping make OpenDAM the best open-source asset manager for creators worldwide!
+Thank you for helping make PolyStash the best open-source asset manager for creators worldwide!

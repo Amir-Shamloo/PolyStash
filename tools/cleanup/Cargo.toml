@@ -1,8 +1,8 @@
 [package]
-name = "opendam-cleanup"
+name = "polystash-cleanup"
 version = "0.1.0"
 edition = "2021"
-description = "OpenDAM Post-Uninstall Residual Cleanup Utility"
+description = "PolyStash Post-Uninstall Residual Cleanup Utility"
 
 [profile.release]
 panic = "abort"

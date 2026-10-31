@@ -1,4 +1,4 @@
--- OpenDAM Per-Library SQLite Schema (stored in <library_root>/.opendam/library.sqlite)
+-- PolyStash Per-Library SQLite Schema (stored in <library_root>/.polystash/library.sqlite)
 
 PRAGMA journal_mode=DELETE;
 PRAGMA synchronous=NORMAL;
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS assets (
     color_label      TEXT NOT NULL DEFAULT 'none',
     is_favorite      INTEGER NOT NULL DEFAULT 0,
     description      TEXT NOT NULL DEFAULT '',
-    thumbnail_path   TEXT,                -- relative to library root (.opendam/thumbs/...)
+    thumbnail_path   TEXT,                -- relative to library root (.polystash/thumbs/...)
     preview_status   TEXT NOT NULL DEFAULT 'none',
     metadata         TEXT NOT NULL DEFAULT '{}'  -- JSON object
 );
