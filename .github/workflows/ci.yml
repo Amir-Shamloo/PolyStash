@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+
+# Cancel superseded workflow runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── Frontend ──────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (TypeScript + Vite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      # Note: vite:build in apps/desktop already executes "tsc -b && vite build",
+      # validating all TypeScript types before generating the Vite build.
+      - name: Build frontend bundle
+        run: pnpm --filter @opendam/desktop vite:build
+
+  # ── Rust backend ──────────────────────────────────────────────────────────
+  rust:
+    name: Rust (Clippy + Checks)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'apps/desktop/src-tauri -> target'
+      # cargo clippy already performs full typechecking + borrow checking;
+      # running cargo check right before it is redundant compilation work.
+      - name: Cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: apps/desktop/src-tauri
+
+  # ── Python preview engine ────────────────────────────────────────────────
+  python:
+    name: Python (Ruff Lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # astral-sh/ruff-action downloads a precompiled standalone binary in ~1s
+      # without needing python setup or pip install
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: "check packages/preview-engine/"
