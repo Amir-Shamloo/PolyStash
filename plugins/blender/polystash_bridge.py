@@ -23,16 +23,18 @@ bl_info = {
     "location": "View3D > Sidebar > PolyStash",
     "description": "Connect Blender to PolyStash digital asset manager",
     "category": "Import-Export",
-    "doc_url": "https://github.com/polystash/polystash",
+    "doc_url": "https://github.com/Amir-Shamloo/PolyStash",
 }
 
-import bpy
 import json
 import threading
-import urllib.request
 import urllib.error
-from bpy.props import StringProperty, BoolProperty
-from bpy.types import Operator, Panel, AddonPreferences
+import urllib.request
+from typing import ClassVar
+
+import bpy
+from bpy.props import BoolProperty, StringProperty
+from bpy.types import AddonPreferences, Operator, Panel
 
 BRIDGE_PORT = 37520
 BRIDGE_URL = f"http://localhost:{BRIDGE_PORT}"
@@ -59,7 +61,7 @@ class POLYSTASH_OT_ImportAsset(Operator):
     """Import asset from PolyStash into the current scene"""
     bl_idname = "polystash.import_asset"
     bl_label = "Import Asset"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options: ClassVar[set[str]] = {"REGISTER", "UNDO"}
 
     file_path: StringProperty(name="File Path")
     link: BoolProperty(name="Link (instead of Append)", default=False)
@@ -81,7 +83,7 @@ class POLYSTASH_OT_ImportAsset(Operator):
                 bpy.ops.import_scene.fbx(filepath=path) if path.lower().endswith(".fbx") \
                     else bpy.ops.import_scene.gltf(filepath=path)
             self.report({"INFO"}, f"Imported: {path}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Blender operators raise arbitrary errors
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
 
@@ -92,20 +94,18 @@ class POLYSTASH_OT_SaveToDam(Operator):
     """Export selected objects and save to PolyStash"""
     bl_idname = "polystash.save_to_dam"
     bl_label = "Save to PolyStash"
-    bl_options = {"REGISTER"}
+    bl_options: ClassVar[set[str]] = {"REGISTER"}
 
     def execute(self, context):
         import tempfile
-        import os
 
         if not context.selected_objects:
             self.report({"WARNING"}, "No objects selected")
             return {"CANCELLED"}
 
-        # Export to temp FBX
-        tmp = tempfile.NamedTemporaryFile(suffix=".fbx", delete=False)
-        tmp_path = tmp.name
-        tmp.close()
+        # Export to temp FBX; NamedTemporaryFile must be closed before Blender writes to it.
+        with tempfile.NamedTemporaryFile(suffix=".fbx", delete=False) as tmp:
+            tmp_path = tmp.name
 
         try:
             bpy.ops.export_scene.fbx(
@@ -115,7 +115,7 @@ class POLYSTASH_OT_SaveToDam(Operator):
             # Notify DAM bridge
             _notify_bridge("ASSET_SAVED", {"exportPath": tmp_path, "host": "blender"})
             self.report({"INFO"}, "Asset sent to PolyStash")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Blender operators raise arbitrary errors
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
 
@@ -163,7 +163,7 @@ def _notify_bridge(msg_type: str, payload: dict) -> None:
                 method="POST",
             )
             urllib.request.urlopen(req, timeout=2)
-        except Exception:
+        except (urllib.error.URLError, OSError):
             pass  # DAM not running — silently ignore
 
     threading.Thread(target=_post, daemon=True).start()
