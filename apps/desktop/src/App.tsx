@@ -188,7 +188,7 @@ export default function App() {
       window.removeEventListener('blur', handleBlur);
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleConfirmAppDelete = async () => {
     if (assetsToDelete.length === 0) return;
