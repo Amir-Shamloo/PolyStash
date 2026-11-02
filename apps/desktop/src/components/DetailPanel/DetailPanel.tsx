@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { useUIStore, useAssetStore, useTagStore, useCollectionStore } from '../../store';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -576,10 +576,7 @@ function CollectionsTab({
   onAdd: (collectionId: string) => void;
   onRemove: (collectionId: string) => void;
 }) {
-  const regularCollections = useMemo(
-    () => collections.filter((c: Collection) => !c.isSmart),
-    [collections]
-  );
+  const regularCollections = collections;
 
   const getCollectionPath = (col: Collection): string => {
     const parts = [col.name];

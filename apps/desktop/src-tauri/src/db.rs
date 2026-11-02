@@ -20,6 +20,16 @@ pub struct Database {
     pub pool: Pool<Sqlite>,
 }
 
+/// Applies migration 003, which drops the removed smart-collection columns.
+/// It is applied here (not via a sqlx migrator) because this crate runs its
+/// schema files with include_str!. Dropping an already-dropped column errors,
+/// so the result is deliberately ignored to keep startup idempotent.
+async fn apply_smart_column_drop(pool: &Pool<Sqlite>) {
+    let _ = sqlx::query(include_str!("../migrations/003_drop_smart_collection_columns.sql"))
+        .execute(pool)
+        .await;
+}
+
 /// Connect to a per-library SQLite database with NAS-safe settings.
 /// WAL mode is intentionally avoided: on SMB/NFS shares the -shm shared-memory
 /// locking that WAL requires is unreliable and can silently corrupt the database
@@ -54,6 +64,9 @@ pub async fn connect_library_sqlite(db_path: &Path) -> Result<Pool<Sqlite>> {
     sqlx::query(include_str!("../migrations/002_library_schema.sql"))
         .execute(&pool)
         .await?;
+
+    // Migration 003 drops the removed smart-collection columns.
+    apply_smart_column_drop(&pool).await;
 
     // Backward compatibility: ensure dir_mtimes table exists
     let _ = sqlx::query(
@@ -140,9 +153,11 @@ impl Database {
         .await?;
 
         // Also ensure library schema tables exist on master_pool as fallback
-        let _ = sqlx::query(include_str!("../migrations/002_library_schema.sql"))
-            .execute(&master_pool)
-            .await;
+        let _ = sqlx::query(include_str!("../migrations/002_library_schema.sql")).execute(&master_pool).await;
+
+        // Migration 003: drop the removed smart-collection columns from the
+        // master DB as well (see connect_library_sqlite).
+        apply_smart_column_drop(&master_pool).await;
 
         let _ = sqlx::query("ALTER TABLE assets ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
             .execute(&master_pool)
@@ -236,23 +251,23 @@ impl Database {
         }
 
         // 3. Sync collections from master_pool to lib_pool
-        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-            "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections"
+        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+            "SELECT id, name, description, parent_id, created_at FROM collections"
         ).fetch_all(&self.master_pool).await {
-            for (id, name, desc, parent_id, is_smart, filter_spec, created_at) in cols {
-                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(is_smart).bind(&filter_spec).bind(created_at)
+            for (id, name, desc, parent_id, created_at) in cols {
+                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)")
+                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(created_at)
                     .execute(lib_pool).await;
             }
         }
 
         // 4. Sync collections from lib_pool to master_pool
-        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-            "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections"
+        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+            "SELECT id, name, description, parent_id, created_at FROM collections"
         ).fetch_all(lib_pool).await {
-            for (id, name, desc, parent_id, is_smart, filter_spec, created_at) in cols {
-                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(is_smart).bind(&filter_spec).bind(created_at)
+            for (id, name, desc, parent_id, created_at) in cols {
+                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)")
+                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(created_at)
                     .execute(&self.master_pool).await;
             }
         }

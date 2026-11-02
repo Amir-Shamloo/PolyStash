@@ -378,8 +378,6 @@ interface CollectionStore {
     name: string,
     description?: string,
     parentId?: string,
-    isSmart?: boolean,
-    filterSpec?: string,
   ) => Promise<void>;
   addToCollection: (collectionId: string, assetIds: string[]) => Promise<void>;
   removeFromCollection: (collectionId: string, assetIds: string[]) => Promise<void>;
@@ -394,8 +392,8 @@ export const useCollectionStore = create<CollectionStore>()((set) => ({
     set({ collections });
   },
 
-  createCollection: async (name, description, parentId, isSmart, filterSpec) => {
-    const col = await api.createCollection(name, description, parentId, isSmart, filterSpec);
+  createCollection: async (name, description, parentId) => {
+    const col = await api.createCollection(name, description, parentId);
     set((s) => ({ collections: [...s.collections, col] }));
   },
 
