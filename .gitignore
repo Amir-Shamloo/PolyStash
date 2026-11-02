@@ -18,15 +18,6 @@ gen/
 *.rs.bk
 Cargo.lock
 
-# ── Python & Preview Worker ────────────────────────────────────────────────
-__pycache__/
-*.py[cod]
-*$py.class
-.venv/
-venv/
-*.egg-info/
-packages/preview-engine/venv/
-
 # ── Environment & Local Config ─────────────────────────────────────────────
 .env
 .env.local

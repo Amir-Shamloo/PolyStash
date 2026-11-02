@@ -1,13 +1,13 @@
 use anyhow::{anyhow, Result};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use image::imageops::FilterType;
 use std::sync::Arc;
-use tokio::process::{Child, ChildStdin, ChildStdout, Command};
-use tokio::io::{AsyncWriteExt, AsyncBufReadExt, BufReader};
+use tokio::process::Command;
 use serde_json::json;
 use tauri::Emitter;
 use crate::AppState;
-use crate::db::{make_relative_path, resolve_path};
+use crate::db::resolve_path;
 
 pub const THUMB_SIZE: u32 = 512;
 
@@ -19,10 +19,9 @@ pub fn is_native_image(ext: &str) -> bool {
     )
 }
 
-/// Blazingly fast in-process image downsampling using the native Rust `image` crate.
-/// Uses Triangle (bilinear) filtering for 4x–8x faster performance than Lanczos3.
-pub fn generate_image_thumb(source: &Path, output: &Path) -> Result<()> {
-    let img = image::open(source)?;
+/// Resize and write a decoded image to `output` as JPEG (when the output path
+/// ends in .jpg/.jpeg) or PNG otherwise.
+fn save_thumb(img: &image::DynamicImage, output: &Path) -> Result<()> {
     let thumb = img.resize(THUMB_SIZE, THUMB_SIZE, FilterType::Triangle);
 
     if let Some(parent) = output.parent() {
@@ -36,152 +35,140 @@ pub fn generate_image_thumb(source: &Path, output: &Path) -> Result<()> {
         .unwrap_or(false);
 
     if is_jpg {
-        let rgb = thumb.to_rgb8();
-        rgb.save_with_format(output, image::ImageFormat::Jpeg)?;
+        thumb.to_rgb8().save_with_format(output, image::ImageFormat::Jpeg)?;
     } else {
         thumb.save(output)?;
     }
     Ok(())
 }
 
-/// Persistent Python worker process communicating over JSON-RPC on stdin/stdout.
-/// Stays alive across requests to eliminate Python cold-start overhead (200-500ms per file).
-struct PythonWorker {
-    child: Child,
-    stdin: ChildStdin,
-    reader: BufReader<ChildStdout>,
+/// Blazingly fast in-process image downsampling using the native Rust `image` crate.
+/// Uses Triangle (bilinear) filtering for 4x–8x faster performance than Lanczos3.
+pub fn generate_image_thumb(source: &Path, output: &Path) -> Result<()> {
+    let img = image::open(source)?;
+    save_thumb(&img, output)
 }
 
-impl PythonWorker {
-    async fn spawn(py_exec: &Path, worker_py: &Path) -> Result<Self> {
-        let mut cmd = Command::new(py_exec);
-        cmd.arg(worker_py)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
-            .env("PYTHONUNBUFFERED", "1")
-            .env("PYTHONIOENCODING", "utf-8");
-
-        #[cfg(windows)]
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-        let mut child = cmd.spawn()?;
-        let stdin = child.stdin.take().ok_or_else(|| anyhow!("Failed to take python stdin"))?;
-        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to take python stdout"))?;
-        let reader = BufReader::new(stdout);
-
-        Ok(Self { child, stdin, reader })
+/// Wrap a raw BITMAPINFOHEADER DIB (no file header) into a full BMP so the
+/// `image` crate can decode it.
+fn dib_to_bmp(dib: &[u8]) -> Result<Vec<u8>> {
+    if dib.len() < 40 {
+        return Err(anyhow!("DIB too short"));
     }
+    let bi_size = u32::from_le_bytes(dib[0..4].try_into()?);
+    if bi_size != 40 {
+        return Err(anyhow!("Unsupported DIB header size {}", bi_size));
+    }
+    let bi_bit_count = u16::from_le_bytes(dib[14..16].try_into()?);
+    let colors = if bi_bit_count <= 8 { 1u32 << bi_bit_count } else { 0 };
+    let bf_off_bits = 14u32 + 40 + colors * 4;
+    let bf_size = 14u32 + dib.len() as u32;
 
-    async fn execute(&mut self, req: &serde_json::Value) -> Result<serde_json::Value> {
-        let req_str = req.to_string() + "\n";
-        self.stdin.write_all(req_str.as_bytes()).await?;
-        self.stdin.flush().await?;
+    let mut bmp = Vec::with_capacity(bf_size as usize);
+    bmp.extend_from_slice(b"BM");
+    bmp.extend_from_slice(&bf_size.to_le_bytes());
+    bmp.extend_from_slice(&[0u8; 4]); // reserved
+    bmp.extend_from_slice(&bf_off_bits.to_le_bytes());
+    bmp.extend_from_slice(dib);
+    Ok(bmp)
+}
 
-        let mut line = String::new();
-        loop {
-            line.clear();
-            let bytes_read = self.reader.read_line(&mut line).await?;
-            if bytes_read == 0 {
-                return Err(anyhow!("Python worker closed stdout unexpectedly"));
+/// Locate a BITMAPINFOHEADER (biSize == 40) with sane dimensions inside a byte
+/// buffer. Used to find embedded DIB thumbnails in OLE summary streams.
+fn find_dib(bytes: &[u8]) -> Option<usize> {
+    let mut i = 0;
+    while i + 44 <= bytes.len() {
+        if bytes[i..i + 4] == [0x28u8, 0, 0, 0] {
+            let w = u32::from_le_bytes(bytes[i + 4..i + 8].try_into().ok()?);
+            // biHeight may be negative (top-down DIB)
+            let h = i32::from_le_bytes(bytes[i + 8..i + 12].try_into().ok()?);
+            if (1..=20000).contains(&w) && h != 0 && h.unsigned_abs() <= 20000 {
+                return Some(i);
             }
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                continue;
+        }
+        i += 1;
+    }
+    None
+}
+
+fn find_png(bytes: &[u8]) -> Option<usize> {
+    const SIG: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    bytes.windows(8).position(|w| w == SIG)
+}
+
+/// Extract the embedded OLE thumbnail from a 3ds Max (.max) or Revit (.rvt/.rfa)
+/// compound file and write a resized thumbnail. Max stores a DIB in the
+/// SummaryInformation stream; Revit stores a PNG in the `RevitPreview4.0` stream.
+fn extract_ole_thumb(source: &Path, output: &Path) -> Result<()> {
+    // shortcut: OLE files are compound-binary; spurious files fail at open
+    let mut cf = cfb::CompoundFile::open(source)?;
+    let mut raw = Vec::new();
+
+    for name in ["RevitPreview4.0", "\x05SummaryInformation"] {
+        if cf.exists(name) && cf.is_stream(name) {
+            cf.open_stream(name)?.read_to_end(&mut raw)?;
+
+            if let Some(idx) = find_png(&raw) {
+                let img = image::load_from_memory(&raw[idx..])?;
+                return save_thumb(&img, output);
             }
-            if trimmed.starts_with('{') {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                    return Ok(val);
-                }
+            if let Some(idx) = find_dib(&raw) {
+                let bmp = dib_to_bmp(&raw[idx..])?;
+                let img = image::load_from_memory(&bmp)?;
+                return save_thumb(&img, output);
             }
+            raw.clear();
         }
     }
 
-    async fn kill(&mut self) {
-        let _ = self.child.kill().await;
+    Err(anyhow!("No embedded thumbnail found in OLE file"))
+}
+
+/// Extract a video frame with ffmpeg and write it to `output`.
+async fn extract_video_thumb(source: &Path, output: &Path) -> Result<()> {
+    if let Some(parent) = output.parent() {
+        let _ = tokio::fs::create_dir_all(parent).await;
     }
+
+    let out = Command::new("ffmpeg")
+        .args(["-ss", "00:00:01", "-i"])
+        .arg(source)
+        .args([
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=720:720:force_original_aspect_ratio=decrease",
+            "-y",
+        ])
+        .arg(output)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .await?;
+
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "ffmpeg failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        ))
+    }
+}
+
+fn is_video(ext: &str) -> bool {
+    mime_guess::from_ext(ext)
+        .first_raw()
+        .map_or(false, |m| m.starts_with("video/"))
 }
 
 pub fn start_preview_worker(state: Arc<AppState>) {
     tauri::async_runtime::spawn(async move {
-        // Dynamically resolve python worker and script paths
-        let current_dir = std::env::current_dir().unwrap_or_default();
-        let exe_dir = std::env::current_exe()
-            .ok()
-            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-            .unwrap_or_else(|| current_dir.clone());
-
-        let mut search_roots = vec![current_dir.clone(), exe_dir.clone()];
-        let mut curr = current_dir.clone();
-        for _ in 0..4 {
-            if let Some(parent) = curr.parent() {
-                search_roots.push(parent.to_path_buf());
-                curr = parent.to_path_buf();
-            } else {
-                break;
-            }
-        }
-        let mut curr_exe = exe_dir.clone();
-        for _ in 0..4 {
-            if let Some(parent) = curr_exe.parent() {
-                search_roots.push(parent.to_path_buf());
-                curr_exe = parent.to_path_buf();
-            } else {
-                break;
-            }
-        }
-
-        let py_exec = if let Ok(custom) = std::env::var("POLYSTASH_PYTHON") {
-            PathBuf::from(custom)
-        } else {
-            let mut found_py = None;
-            for root in &search_roots {
-                let candidates = [
-                    root.join("packages").join("preview-engine").join("venv").join("Scripts").join("pythonw.exe"),
-                    root.join("packages").join("preview-engine").join("venv").join("Scripts").join("python.exe"),
-                    root.join("packages").join("preview-engine").join("venv").join("bin").join("python"),
-                    root.join("venv").join("Scripts").join("pythonw.exe"),
-                    root.join("venv").join("Scripts").join("python.exe"),
-                    root.join("venv").join("bin").join("python"),
-                ];
-                if let Some(p) = candidates.into_iter().find(|p| p.exists()) {
-                    found_py = Some(p);
-                    break;
-                }
-            }
-            found_py.unwrap_or_else(|| {
-                let fallbacks = [PathBuf::from("pythonw"), PathBuf::from("python")];
-                fallbacks.into_iter().find(|p| p.exists()).unwrap_or_else(|| PathBuf::from("python"))
-            })
-        };
-
-        let worker_py = if let Ok(custom) = std::env::var("POLYSTASH_WORKER") {
-            PathBuf::from(custom)
-        } else {
-            let mut found_worker = None;
-            for root in &search_roots {
-                let candidates = [
-                    root.join("packages").join("preview-engine").join("worker.py"),
-                    root.join("worker.py"),
-                ];
-                if let Some(p) = candidates.into_iter().find(|p| p.exists()) {
-                    found_worker = Some(p);
-                    break;
-                }
-            }
-            found_worker.unwrap_or_else(|| PathBuf::from("worker.py"))
-        };
-
-        tracing::info!("Preview worker using Python: {:?}, Script: {:?}", py_exec, worker_py);
-
         // Crash-recovery: Reset any orphaned jobs left in 'processing' ONCE at startup
         for lib in state.db.get_all_libraries().await {
             let _ = sqlx::query("UPDATE preview_jobs SET status = 'queued' WHERE status = 'processing'")
                 .execute(&lib.pool)
                 .await;
         }
-
-        let mut py_worker: Option<PythonWorker> = None;
 
         loop {
             let libs = state.db.get_all_libraries().await;
@@ -294,127 +281,63 @@ pub fn start_preview_worker(state: Arc<AppState>) {
                                 continue;
                             }
                             Err(e) => {
-                                tracing::warn!("Native Rust image thumbnail failed for {}: {}. Falling back to Python.", full_source.display(), e);
+                                tracing::warn!("Native Rust image thumbnail failed for {}: {}", full_source.display(), e);
                             }
                         }
                     }
 
-                    // ── 2. Persistent Python Worker Path for 3D/CAD/DCC Formats ──
-                    if py_worker.is_none() {
-                        match PythonWorker::spawn(&py_exec, &worker_py).await {
-                            Ok(w) => py_worker = Some(w),
-                            Err(e) => {
-                                tracing::error!("Failed to spawn Python preview worker: {}", e);
-                            }
+                    // ── 2. Native Rust paths for video and OLE-embedded thumbnails ──
+                    let thumb_result: Result<String> = {
+                        if is_video(&ext) {
+                            let thumb_file_name = format!("{}_thumb.jpg", file_stem);
+                            let thumb_dest = thumb_dir.join(&thumb_file_name);
+                            let rel_thumb = format!(".polystash/thumbs/{}", thumb_file_name);
+                            extract_video_thumb(&full_source, &thumb_dest).await?;
+                            Ok(rel_thumb)
+                        } else if matches!(ext.as_str(), "max" | "rvt" | "rfa") {
+                            let thumb_file_name = format!("{}_thumb.png", file_stem);
+                            let thumb_dest = thumb_dir.join(&thumb_file_name);
+                            let rel_thumb = format!(".polystash/thumbs/{}", thumb_file_name);
+                            extract_ole_thumb(&full_source, &thumb_dest)?;
+                            Ok(rel_thumb)
+                        } else {
+                            Err(anyhow!("No preview generator for .{}", ext))
                         }
-                    }
-
-                    let req = json!({
-                        "id": &job_id,
-                        "method": "model_meta",
-                        "params": {
-                            "source": full_source.to_string_lossy().to_string(),
-                            "output_dir": thumb_dir.to_string_lossy().to_string()
-                        }
-                    });
-
-                    let py_resp = if let Some(ref mut worker) = py_worker {
-                        match tokio::time::timeout(std::time::Duration::from_secs(60), worker.execute(&req)).await {
-                            Ok(Ok(val)) => Ok(val),
-                            Ok(Err(e)) => {
-                                tracing::error!("Python worker execute error: {}. Restarting worker.", e);
-                                worker.kill().await;
-                                py_worker = None;
-                                Err(e)
-                            }
-                            Err(_) => {
-                                tracing::error!("Python worker timed out after 60s processing {}. Killing worker.", file_stem);
-                                worker.kill().await;
-                                py_worker = None;
-                                Err(anyhow!("Job timed out"))
-                            }
-                        }
-                    } else {
-                        Err(anyhow!("Python worker unavailable"))
                     };
 
-                    let mut success = false;
-                    let mut result_thumb = None;
-                    let mut result_model = None;
-
-                    if let Ok(resp) = py_resp {
-                        if let Some(res) = resp.get("result") {
-                            if res.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
-                                success = true;
-                                if let Some(thumb) = res.get("thumbnail").and_then(|v| v.as_str()) {
-                                    result_thumb = Some(thumb.to_string());
-                                }
-                                if let Some(model) = res.get("preview_model").and_then(|v| v.as_str()) {
-                                    result_model = Some(model.to_string());
-                                }
-                            } else {
-                                tracing::error!("Python returned ok=false: {:?}", res);
-                            }
-                        } else {
-                            tracing::error!("Python response missing result: {:?}", resp);
-                        }
-                    }
-
-                    if success {
-                        tracing::info!("Job {} succeeded, thumb: {:?}, model: {:?}", job_id, result_thumb, result_model);
-                        let _ = sqlx::query("UPDATE preview_jobs SET status = 'done' WHERE id = ?")
-                            .bind(&job_id)
-                            .execute(pool)
-                            .await;
-
-                        let thumb_to_save_abs = result_thumb.clone().or_else(|| result_model.clone());
-                        let rel_thumb = thumb_to_save_abs.as_ref().map(|abs| {
-                            make_relative_path(root_path, Path::new(abs))
-                        });
-
-                        if let Some(ref model_path) = result_model {
-                            let rel_model = make_relative_path(root_path, Path::new(model_path));
-                            let _ = sqlx::query(
-                                "UPDATE assets SET preview_status = 'done', thumbnail_path = ?, metadata = json_set(coalesce(nullif(metadata, ''), '{}'), '$.preview_model', ?) WHERE id = ?"
-                            )
-                            .bind(&rel_thumb)
-                            .bind(&rel_model)
-                            .bind(&asset_id)
-                            .execute(pool)
-                            .await;
-                        } else if let Some(ref thumb_rel_val) = rel_thumb {
+                    match thumb_result {
+                        Ok(rel_thumb) => {
+                            let _ = sqlx::query("UPDATE preview_jobs SET status = 'done' WHERE id = ?")
+                                .bind(&job_id)
+                                .execute(pool)
+                                .await;
                             let _ = sqlx::query("UPDATE assets SET preview_status = 'done', thumbnail_path = ? WHERE id = ?")
-                                .bind(thumb_rel_val)
+                                .bind(&rel_thumb)
                                 .bind(&asset_id)
                                 .execute(pool)
                                 .await;
-                        } else {
-                            let _ = sqlx::query("UPDATE assets SET preview_status = 'done' WHERE id = ?")
-                                .bind(&asset_id)
-                                .execute(pool)
-                                .await;
-                        }
 
-                        let resolved_display_thumb = rel_thumb.as_ref().map(|r| resolve_path(root_path, r));
-                        let _ = state.app_handle.emit("preview:done", json!({
-                            "assetId": &asset_id,
-                            "thumbnailPath": &resolved_display_thumb,
-                            "previewModel": &result_model,
-                        }));
-                    } else {
-                        tracing::error!("Job {} failed", job_id);
-                        let _ = sqlx::query("UPDATE preview_jobs SET status = 'error' WHERE id = ?")
-                            .bind(&job_id)
-                            .execute(pool)
-                            .await;
-                        let _ = sqlx::query("UPDATE assets SET preview_status = 'error' WHERE id = ?")
-                            .bind(&asset_id)
-                            .execute(pool)
-                            .await;
-                        let _ = state.app_handle.emit("preview:error", json!({
-                            "assetId": &asset_id,
-                            "jobId": &job_id,
-                        }));
+                            let resolved_abs = resolve_path(root_path, &rel_thumb);
+                            let _ = state.app_handle.emit("preview:done", json!({
+                                "assetId": &asset_id,
+                                "thumbnailPath": resolved_abs,
+                            }));
+                        }
+                        Err(e) => {
+                            tracing::error!("Job {} failed: {}", job_id, e);
+                            let _ = sqlx::query("UPDATE preview_jobs SET status = 'error' WHERE id = ?")
+                                .bind(&job_id)
+                                .execute(pool)
+                                .await;
+                            let _ = sqlx::query("UPDATE assets SET preview_status = 'error' WHERE id = ?")
+                                .bind(&asset_id)
+                                .execute(pool)
+                                .await;
+                            let _ = state.app_handle.emit("preview:error", json!({
+                                "assetId": &asset_id,
+                                "jobId": &job_id,
+                            }));
+                        }
                     }
 
                     // Yield execution between items to allow other async runtime tasks to progress
