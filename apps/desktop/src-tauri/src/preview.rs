@@ -161,6 +161,25 @@ fn is_video(ext: &str) -> bool {
         .map_or(false, |m| m.starts_with("video/"))
 }
 
+/// Produce a thumbnail for a non-raster asset, returning the relative thumb path.
+async fn generate_thumbnail(ext: &str, full_source: &Path, file_stem: &str, thumb_dir: &Path) -> Result<String> {
+    if is_video(ext) {
+        let thumb_file_name = format!("{}_thumb.jpg", file_stem);
+        let thumb_dest = thumb_dir.join(&thumb_file_name);
+        let rel_thumb = format!(".polystash/thumbs/{}", thumb_file_name);
+        extract_video_thumb(full_source, &thumb_dest).await?;
+        Ok(rel_thumb)
+    } else if matches!(ext, "max" | "rvt" | "rfa") {
+        let thumb_file_name = format!("{}_thumb.png", file_stem);
+        let thumb_dest = thumb_dir.join(&thumb_file_name);
+        let rel_thumb = format!(".polystash/thumbs/{}", thumb_file_name);
+        extract_ole_thumb(full_source, &thumb_dest)?;
+        Ok(rel_thumb)
+    } else {
+        Err(anyhow!("No preview generator for .{}", ext))
+    }
+}
+
 pub fn start_preview_worker(state: Arc<AppState>) {
     tauri::async_runtime::spawn(async move {
         // Crash-recovery: Reset any orphaned jobs left in 'processing' ONCE at startup
@@ -287,23 +306,7 @@ pub fn start_preview_worker(state: Arc<AppState>) {
                     }
 
                     // ── 2. Native Rust paths for video and OLE-embedded thumbnails ──
-                    let thumb_result: Result<String> = {
-                        if is_video(&ext) {
-                            let thumb_file_name = format!("{}_thumb.jpg", file_stem);
-                            let thumb_dest = thumb_dir.join(&thumb_file_name);
-                            let rel_thumb = format!(".polystash/thumbs/{}", thumb_file_name);
-                            extract_video_thumb(&full_source, &thumb_dest).await?;
-                            Ok(rel_thumb)
-                        } else if matches!(ext.as_str(), "max" | "rvt" | "rfa") {
-                            let thumb_file_name = format!("{}_thumb.png", file_stem);
-                            let thumb_dest = thumb_dir.join(&thumb_file_name);
-                            let rel_thumb = format!(".polystash/thumbs/{}", thumb_file_name);
-                            extract_ole_thumb(&full_source, &thumb_dest)?;
-                            Ok(rel_thumb)
-                        } else {
-                            Err(anyhow!("No preview generator for .{}", ext))
-                        }
-                    };
+                    let thumb_result = generate_thumbnail(&ext, &full_source, file_stem, &thumb_dir).await;
 
                     match thumb_result {
                         Ok(rel_thumb) => {
