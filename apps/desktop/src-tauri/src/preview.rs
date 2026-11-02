@@ -158,7 +158,7 @@ async fn extract_video_thumb(source: &Path, output: &Path) -> Result<()> {
 fn is_video(ext: &str) -> bool {
     mime_guess::from_ext(ext)
         .first_raw()
-        .map_or(false, |m| m.starts_with("video/"))
+        .is_some_and(|m| m.starts_with("video/"))
 }
 
 /// Produce a thumbnail for a non-raster asset, returning the relative thumb path.
