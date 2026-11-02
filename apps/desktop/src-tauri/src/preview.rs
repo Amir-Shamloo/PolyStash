@@ -101,7 +101,7 @@ fn find_png(bytes: &[u8]) -> Option<usize> {
 /// SummaryInformation stream; Revit stores a PNG in the `RevitPreview4.0` stream.
 fn extract_ole_thumb(source: &Path, output: &Path) -> Result<()> {
     // shortcut: OLE files are compound-binary; spurious files fail at open
-    let mut cf = cfb::CompoundFile::open(source)?;
+    let mut cf = cfb::open(source)?;
     let mut raw = Vec::new();
 
     for name in ["RevitPreview4.0", "\x05SummaryInformation"] {
