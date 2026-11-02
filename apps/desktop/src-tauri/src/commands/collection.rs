@@ -11,21 +11,21 @@ type Result<T> = std::result::Result<T, String>;
 #[tauri::command]
 pub async fn list_collections(state: State<'_, Arc<AppState>>) -> Result<Vec<Collection>> {
     let pool = state.db.get_active_pool().await;
-    let mut rows = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-        "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections ORDER BY created_at ASC"
+    let mut rows = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+        "SELECT id, name, description, parent_id, created_at FROM collections ORDER BY created_at ASC"
     )
     .fetch_all(&state.db.master_pool).await.unwrap_or_default();
 
     if rows.is_empty() {
-        rows = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-            "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections ORDER BY created_at ASC"
+        rows = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+            "SELECT id, name, description, parent_id, created_at FROM collections ORDER BY created_at ASC"
         )
         .fetch_all(&pool).await.unwrap_or_default();
     }
 
     let libs = state.db.get_all_libraries().await;
     let mut collections = Vec::new();
-    for (id, name, description, parent_id, is_smart, filter_spec, created_at) in rows {
+    for (id, name, description, parent_id, created_at) in rows {
         let mut asset_ids_set = std::collections::HashSet::new();
 
         // Gather asset_ids from all open libraries
@@ -49,7 +49,7 @@ pub async fn list_collections(state: State<'_, Arc<AppState>>) -> Result<Vec<Col
         }
 
         let asset_ids = asset_ids_set.into_iter().collect();
-        collections.push(Collection { id, name, description, parent_id, asset_ids, is_smart, filter_spec, created_at });
+        collections.push(Collection { id, name, description, parent_id, asset_ids, created_at });
     }
     Ok(collections)
 }
@@ -59,37 +59,34 @@ pub async fn create_collection(
     name: String,
     description: Option<String>,
     parent_id: Option<String>,
-    is_smart: Option<bool>,
-    filter_spec: Option<String>,
     state: State<'_, Arc<AppState>>,
 ) -> Result<Collection> {
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().timestamp_millis();
     let desc = description.unwrap_or_default();
-    let smart = is_smart.unwrap_or(false);
     let pool = state.db.get_active_pool().await;
     sqlx::query(
-        "INSERT INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)"
     )
-    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(smart).bind(&filter_spec).bind(now)
+    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(now)
     .execute(&pool).await.map_err(|e| e.to_string())?;
 
     // Also sync to all open library pools and master pool
     let libs = state.db.get_all_libraries().await;
     for lib in libs {
         let _ = sqlx::query(
-            "INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)"
         )
-        .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(smart).bind(&filter_spec).bind(now)
+        .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(now)
         .execute(&lib.pool).await;
     }
     let _ = sqlx::query(
-        "INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)"
     )
-    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(smart).bind(&filter_spec).bind(now)
+    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(now)
     .execute(&state.db.master_pool).await;
 
-    Ok(Collection { id, name, description: desc, parent_id, asset_ids: vec![], is_smart: smart, filter_spec, created_at: now })
+    Ok(Collection { id, name, description: desc, parent_id, asset_ids: vec![], created_at: now })
 }
 
 #[tauri::command]
@@ -101,8 +98,8 @@ pub async fn add_to_collection(
     let libs = state.db.get_all_libraries().await;
 
     // Fetch collection info from master_pool or any lib pool
-    let mut col_info = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-        "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections WHERE id = ?"
+    let mut col_info = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+        "SELECT id, name, description, parent_id, created_at FROM collections WHERE id = ?"
     )
     .bind(&collection_id)
     .fetch_optional(&state.db.master_pool)
@@ -111,8 +108,8 @@ pub async fn add_to_collection(
 
     if col_info.is_none() {
         for lib in &libs {
-            col_info = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-                "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections WHERE id = ?"
+            col_info = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+                "SELECT id, name, description, parent_id, created_at FROM collections WHERE id = ?"
             )
             .bind(&collection_id)
             .fetch_optional(&lib.pool)
@@ -125,18 +122,18 @@ pub async fn add_to_collection(
     }
 
     // Ensure collection exists in master_pool and all open library pools
-    if let Some((ref cid, ref cname, ref cdesc, ref cpid, csmart, ref cfspec, ctime)) = col_info {
+    if let Some((ref cid, ref cname, ref cdesc, ref cpid, ctime)) = col_info {
         let _ = sqlx::query(
-            "INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)"
         )
-        .bind(cid).bind(cname).bind(cdesc).bind(cpid).bind(csmart).bind(cfspec).bind(ctime)
+        .bind(cid).bind(cname).bind(cdesc).bind(cpid).bind(ctime)
         .execute(&state.db.master_pool).await;
 
         for lib in &libs {
             let _ = sqlx::query(
-                "INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                "INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)"
             )
-            .bind(cid).bind(cname).bind(cdesc).bind(cpid).bind(csmart).bind(cfspec).bind(ctime)
+            .bind(cid).bind(cname).bind(cdesc).bind(cpid).bind(ctime)
             .execute(&lib.pool).await;
         }
     }

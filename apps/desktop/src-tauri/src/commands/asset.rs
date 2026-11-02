@@ -372,7 +372,7 @@ pub async fn search_assets(
         }
     }
 
-    // Smart filter conditions
+    // Path and name pattern conditions
     if let Some(dir) = &f.directory {
         if !dir.trim().is_empty() {
             conditions.push("a.file_path LIKE ?".into());

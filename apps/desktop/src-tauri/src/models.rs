@@ -131,10 +131,6 @@ pub struct Collection {
     pub parent_id: Option<String>,
     #[serde(rename = "assetIds")]
     pub asset_ids: Vec<String>,
-    #[serde(rename = "isSmart")]
-    pub is_smart: bool,
-    #[serde(rename = "filterSpec")]
-    pub filter_spec: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: i64,
 }

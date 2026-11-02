@@ -76,9 +76,6 @@ export interface Collection {
   description: string;
   parentId?: string;
   assetIds: string[];
-  isSmart: boolean;
-  /** JSON-serialized filter spec for smart collections */
-  filterSpec?: string;
   createdAt: number;
 }
 
