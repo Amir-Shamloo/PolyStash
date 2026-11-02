@@ -60,8 +60,6 @@ CREATE TABLE IF NOT EXISTS collections (
     name         TEXT NOT NULL,
     description  TEXT NOT NULL DEFAULT '',
     parent_id    TEXT REFERENCES collections(id) ON DELETE CASCADE,
-    is_smart     INTEGER NOT NULL DEFAULT 0,
-    filter_spec  TEXT,
     created_at   INTEGER NOT NULL
 );
 

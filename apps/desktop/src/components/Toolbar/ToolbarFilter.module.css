@@ -1,0 +1,159 @@
+/* Filter Cluster */
+.filterCluster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 9px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.filterBtn:hover {
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.filterBtnActive {
+  background: hsl(220 85% 50% / 0.12);
+  color: var(--color-brand-300);
+  border-color: hsl(220 85% 50% / 0.4);
+}
+
+.filterBtnActive:hover {
+  background: hsl(220 85% 50% / 0.18);
+  border-color: hsl(220 85% 50% / 0.55);
+}
+
+.favActive {
+  background: hsl(350 89% 60% / 0.12);
+  color: hsl(350 89% 60%);
+  border-color: hsl(350 89% 60% / 0.4);
+}
+
+.favActive:hover {
+  background: hsl(350 89% 60% / 0.18);
+  border-color: hsl(350 89% 60% / 0.55);
+}
+
+.filterActiveDot {
+  font-size: 8px;
+  line-height: 1;
+  color: currentColor;
+}
+
+.clearIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 2px;
+  margin-right: -2px;
+  border-radius: 50%;
+  color: inherit;
+  opacity: 0.75;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.clearIconBtn:hover {
+  opacity: 1;
+  background: hsl(0 0% 100% / 0.15);
+}
+
+.filterDropdownWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.dropdownChevron {
+  opacity: 0.6;
+  margin-left: 1px;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 150px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: fadeIn 0.12s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.dropdownItem:hover {
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+}
+
+.dropdownItemActive {
+  background: hsl(220 85% 50% / 0.12);
+  color: var(--color-brand-300);
+  font-weight: 500;
+}
+
+.dropdownItemActive:hover {
+  background: hsl(220 85% 50% / 0.18);
+  color: var(--color-brand-200);
+}
+
+.dropdownDivider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 3px 0;
+}
+
+.dropdownClearItem {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.dropdownClearItem:hover {
+  color: var(--color-danger);
+}

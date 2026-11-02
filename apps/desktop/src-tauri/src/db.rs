@@ -236,23 +236,23 @@ impl Database {
         }
 
         // 3. Sync collections from master_pool to lib_pool
-        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-            "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections"
+        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+            "SELECT id, name, description, parent_id, created_at FROM collections"
         ).fetch_all(&self.master_pool).await {
-            for (id, name, desc, parent_id, is_smart, filter_spec, created_at) in cols {
-                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(is_smart).bind(&filter_spec).bind(created_at)
+            for (id, name, desc, parent_id, created_at) in cols {
+                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)")
+                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(created_at)
                     .execute(lib_pool).await;
             }
         }
 
         // 4. Sync collections from lib_pool to master_pool
-        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, bool, Option<String>, i64)>(
-            "SELECT id, name, description, parent_id, is_smart, filter_spec, created_at FROM collections"
+        if let Ok(cols) = sqlx::query_as::<_, (String, String, String, Option<String>, i64)>(
+            "SELECT id, name, description, parent_id, created_at FROM collections"
         ).fetch_all(lib_pool).await {
-            for (id, name, desc, parent_id, is_smart, filter_spec, created_at) in cols {
-                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, is_smart, filter_spec, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(is_smart).bind(&filter_spec).bind(created_at)
+            for (id, name, desc, parent_id, created_at) in cols {
+                let _ = sqlx::query("INSERT OR IGNORE INTO collections (id, name, description, parent_id, created_at) VALUES (?, ?, ?, ?, ?)")
+                    .bind(&id).bind(&name).bind(&desc).bind(&parent_id).bind(created_at)
                     .execute(&self.master_pool).await;
             }
         }

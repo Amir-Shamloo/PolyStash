@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { useUIStore, useAssetStore, useTagStore, useCollectionStore } from '../../store';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -576,16 +576,11 @@ function CollectionsTab({
   onAdd: (collectionId: string) => void;
   onRemove: (collectionId: string) => void;
 }) {
-  const regularCollections = useMemo(
-    () => collections.filter((c: Collection) => !c.isSmart),
-    [collections]
-  );
-
   const getCollectionPath = (col: Collection): string => {
     const parts = [col.name];
     let curr = col;
     while (curr.parentId) {
-      const parent = regularCollections.find((c: Collection) => c.id === curr.parentId);
+      const parent = collections.find((c: Collection) => c.id === curr.parentId);
       if (!parent) break;
       parts.unshift(parent.name);
       curr = parent;
@@ -595,10 +590,10 @@ function CollectionsTab({
 
   return (
     <div className={styles.tagsGrid}>
-      {regularCollections.length === 0 && (
+      {collections.length === 0 && (
         <p className={styles.noTags}>No collections yet. Create collections in the sidebar.</p>
       )}
-      {regularCollections.map((col: Collection) => {
+      {collections.map((col: Collection) => {
         const isMember = (col.assetIds && col.assetIds.includes(asset.id)) || (asset.collections?.includes(col.id) ?? false);
         const pathName = getCollectionPath(col);
         return (

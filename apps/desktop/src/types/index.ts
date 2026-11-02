@@ -76,9 +76,6 @@ export interface Collection {
   description: string;
   parentId?: string;
   assetIds: string[];
-  isSmart: boolean;
-  /** JSON-serialized filter spec for smart collections */
-  filterSpec?: string;
   createdAt: number;
 }
 
@@ -97,14 +94,7 @@ export interface FilterSpec {
   extensions?: string[];
   previewStatus?: Asset['previewStatus'];
   unorganized?: boolean;
-  directory?: string;
-  namePrefix?: string;
-  nameSuffix?: string;
-  tagLogic?: 'and' | 'or' | 'and_or' | 'none';
   collectionId?: string;
-  collectionIds?: string[];
-  collectionLogic?: 'and' | 'or' | 'and_or' | 'none';
-  includeSubcollections?: boolean;
 }
 
 export interface SearchQuery {

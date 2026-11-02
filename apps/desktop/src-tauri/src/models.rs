@@ -131,10 +131,6 @@ pub struct Collection {
     pub parent_id: Option<String>,
     #[serde(rename = "assetIds")]
     pub asset_ids: Vec<String>,
-    #[serde(rename = "isSmart")]
-    pub is_smart: bool,
-    #[serde(rename = "filterSpec")]
-    pub filter_spec: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: i64,
 }
@@ -200,21 +196,8 @@ pub struct FilterSpec {
     pub size_range: Option<SizeRange>,
     #[serde(rename = "previewStatus")]
     pub preview_status: Option<String>,
-    pub directory: Option<String>,
-    #[serde(rename = "namePrefix")]
-    pub name_prefix: Option<String>,
-    #[serde(rename = "nameSuffix")]
-    pub name_suffix: Option<String>,
-    #[serde(rename = "tagLogic")]
-    pub tag_logic: Option<String>,
     #[serde(rename = "collectionId")]
     pub collection_id: Option<String>,
-    #[serde(rename = "collectionIds")]
-    pub collection_ids: Option<Vec<String>>,
-    #[serde(rename = "collectionLogic")]
-    pub collection_logic: Option<String>,
-    #[serde(rename = "includeSubcollections")]
-    pub include_subcollections: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

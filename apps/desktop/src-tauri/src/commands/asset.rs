@@ -4,7 +4,7 @@ use tauri::{State, Emitter};
 use serde_json;
 
 use crate::AppState;
-use crate::models::{Asset, SearchPayload, SearchResult, AssetPatch};
+use crate::models::{Asset, SearchPayload, SearchResult, AssetPatch, FilterSpec, SearchQuery};
 use crate::db::{resolve_path, make_relative_path};
 
 type Result<T> = std::result::Result<T, String>;
@@ -75,6 +75,135 @@ fn row_to_asset(root: Option<&Path>, row: RawAssetRow) -> Asset {
     }
 }
 
+/// Translate the filter spec into SQL conditions and their bind values.
+fn build_filter_conditions(f: &FilterSpec, query: &SearchQuery) -> (Vec<String>, Vec<String>) {
+    let mut conditions: Vec<String> = Vec::new();
+    let mut binds: Vec<String> = Vec::new();
+
+    if let Some(kinds) = f.kinds.as_deref() {
+        push_in(&mut conditions, &mut binds, "a.kind", kinds);
+    }
+    if let Some(color_labels) = f.color_labels.as_deref() {
+        push_in(&mut conditions, &mut binds, "a.color_label", color_labels);
+    }
+    if let Some(rating) = &f.rating {
+        conditions.push("a.rating >= ? AND a.rating <= ?".into());
+        binds.push(rating.min.to_string());
+        binds.push(rating.max.to_string());
+    }
+    if let Some(is_fav) = f.is_favorite {
+        conditions.push(if is_fav { "a.is_favorite = 1" } else { "a.is_favorite = 0" }.into());
+    }
+    if let Some(dr) = &f.date_range {
+        push_range(&mut conditions, &mut binds, "a.modified_at", (dr.from, dr.to));
+    }
+    if let Some(sr) = &f.size_range {
+        push_range(&mut conditions, &mut binds, "a.size_bytes", (sr.min, sr.max));
+    }
+    if let Some(ps) = f.preview_status.as_deref() {
+        push_preview_status(&mut conditions, &mut binds, ps);
+    }
+    if let Some(exts) = f.extensions.as_deref() {
+        push_in(&mut conditions, &mut binds, "a.extension", exts);
+    }
+    if let Some(tags) = f.tags.as_deref() {
+        push_tag_condition(&mut conditions, &mut binds, tags);
+    }
+    push_collection_condition(&mut conditions, &mut binds, f, query);
+
+    (conditions, binds)
+}
+
+fn push_in(conditions: &mut Vec<String>, binds: &mut Vec<String>, column: &str, values: &[String]) {
+    if values.is_empty() {
+        return;
+    }
+    let placeholders = values.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    conditions.push(format!("{} IN ({})", column, placeholders));
+    binds.extend(values.iter().cloned());
+}
+
+fn push_range(
+    conditions: &mut Vec<String>,
+    binds: &mut Vec<String>,
+    column: &str,
+    range: (Option<i64>, Option<i64>),
+) {
+    let (from, to) = range;
+    if let Some(from) = from {
+        conditions.push(format!("{} >= ?", column));
+        binds.push(from.to_string());
+    }
+    if let Some(to) = to {
+        conditions.push(format!("{} <= ?", column));
+        binds.push(to.to_string());
+    }
+}
+
+fn push_preview_status(conditions: &mut Vec<String>, binds: &mut Vec<String>, status: &str) {
+    if status.is_empty() {
+        return;
+    }
+    match status {
+        "missing" | "needs_preview" => {
+            conditions.push("a.preview_status IN ('none', 'error')".into())
+        }
+        "has_preview" => conditions.push("a.preview_status = 'done'".into()),
+        other => {
+            conditions.push("a.preview_status = ?".into());
+            binds.push(other.to_string());
+        }
+    }
+}
+
+fn push_tag_condition(conditions: &mut Vec<String>, binds: &mut Vec<String>, tags: &[String]) {
+    if tags.is_empty() {
+        return;
+    }
+    let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    conditions.push(format!(
+        "a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id IN ({}))",
+        placeholders
+    ));
+    binds.extend(tags.iter().cloned());
+}
+
+/// Unorganized assets, or assets in the selected collection (subcollections included by default).
+fn push_collection_condition(
+    conditions: &mut Vec<String>,
+    binds: &mut Vec<String>,
+    f: &FilterSpec,
+    query: &SearchQuery,
+) {
+    if f.unorganized == Some(true) {
+        conditions.push("a.id NOT IN (SELECT asset_id FROM collection_assets)".into());
+        return;
+    }
+    let Some(col_id) = query.collection_id.as_ref().or(f.collection_id.as_ref()) else {
+        return;
+    };
+    if col_id.is_empty() {
+        return;
+    }
+    if query.include_subcollections.unwrap_or(true) {
+        conditions.push(
+            "a.id IN (
+                WITH RECURSIVE col_tree AS (
+                    SELECT id FROM collections WHERE id = ?
+                    UNION ALL
+                    SELECT c.id FROM collections c JOIN col_tree ct ON c.parent_id = ct.id
+                )
+                SELECT asset_id FROM collection_assets WHERE collection_id IN (SELECT id FROM col_tree)
+            )".into()
+        );
+    } else {
+        conditions.push(
+            "a.id IN (SELECT asset_id FROM collection_assets WHERE collection_id = ?)".into()
+        );
+    }
+    binds.push(col_id.clone());
+}
+
 #[tauri::command]
 pub async fn search_assets(
     payload: SearchPayload,
@@ -117,7 +246,6 @@ pub async fn search_assets(
     let limit = payload.page_size;
 
     let has_fts = !payload.query.text.trim().is_empty();
-    let f = &payload.query.filter;
 
     let mut conditions: Vec<String> = Vec::new();
     let mut binds: Vec<String> = Vec::new();
@@ -129,270 +257,10 @@ pub async fn search_assets(
         binds.push(format!("{}*", payload.query.text.trim()));
     }
 
-    if let Some(kinds) = &f.kinds {
-        if !kinds.is_empty() {
-            let placeholders = kinds.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            conditions.push(format!("a.kind IN ({})", placeholders));
-            binds.extend(kinds.clone());
-        }
-    }
-
-    if let Some(color_labels) = &f.color_labels {
-        if !color_labels.is_empty() {
-            let placeholders = color_labels.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            conditions.push(format!("a.color_label IN ({})", placeholders));
-            binds.extend(color_labels.clone());
-        }
-    }
-
-    if let Some(rating) = &f.rating {
-        conditions.push("a.rating >= ? AND a.rating <= ?".into());
-        binds.push(rating.min.to_string());
-        binds.push(rating.max.to_string());
-    }
-
-    if let Some(is_fav) = f.is_favorite {
-        if is_fav {
-            conditions.push("a.is_favorite = 1".into());
-        } else {
-            conditions.push("a.is_favorite = 0".into());
-        }
-    }
-
-    if let Some(dr) = &f.date_range {
-        if let Some(from) = dr.from {
-            conditions.push("a.modified_at >= ?".into());
-            binds.push(from.to_string());
-        }
-        if let Some(to) = dr.to {
-            conditions.push("a.modified_at <= ?".into());
-            binds.push(to.to_string());
-        }
-    }
-
-    if let Some(sr) = &f.size_range {
-        if let Some(min) = sr.min {
-            conditions.push("a.size_bytes >= ?".into());
-            binds.push(min.to_string());
-        }
-        if let Some(max) = sr.max {
-            conditions.push("a.size_bytes <= ?".into());
-            binds.push(max.to_string());
-        }
-    }
-
-    if let Some(ps) = &f.preview_status {
-        if !ps.is_empty() {
-            if ps == "missing" || ps == "needs_preview" {
-                conditions.push("a.preview_status IN ('none', 'error')".into());
-            } else if ps == "has_preview" {
-                conditions.push("a.preview_status = 'done'".into());
-            } else {
-                conditions.push("a.preview_status = ?".into());
-                binds.push(ps.clone());
-            }
-        }
-    }
-
-    if let Some(exts) = &f.extensions {
-        if !exts.is_empty() {
-            let placeholders = exts.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            conditions.push(format!("a.extension IN ({})", placeholders));
-            binds.extend(exts.clone());
-        }
-    }
-
-    // Tag filter: supports logic "and" (has all tags), "or" (has any tag), "and_or" (has primary tag AND any of remaining), "none" (untagged)
-    let tag_logic = f.tag_logic.as_deref().unwrap_or("or");
-    if tag_logic == "none" {
-        conditions.push("a.id NOT IN (SELECT asset_id FROM asset_tags)".into());
-    } else if let Some(tags) = &f.tags {
-        if !tags.is_empty() {
-            if tag_logic == "and" {
-                let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                conditions.push(format!(
-                    "a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id IN ({}) GROUP BY asset_id HAVING COUNT(DISTINCT tag_id) = ?)",
-                    placeholders
-                ));
-                binds.extend(tags.clone());
-                binds.push(tags.len().to_string());
-            } else if tag_logic == "and_or" {
-                if tags.len() <= 1 {
-                    conditions.push("a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id = ?)".into());
-                    binds.push(tags[0].clone());
-                } else {
-                    let primary_tag = &tags[0];
-                    let remaining_tags = &tags[1..];
-                    let placeholders = remaining_tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                    conditions.push(format!(
-                        "a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id = ?) AND a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id IN ({}))",
-                        placeholders
-                    ));
-                    binds.push(primary_tag.clone());
-                    binds.extend(remaining_tags.iter().cloned());
-                }
-            } else {
-                let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                conditions.push(format!(
-                    "a.id IN (SELECT asset_id FROM asset_tags WHERE tag_id IN ({}))",
-                    placeholders
-                ));
-                binds.extend(tags.clone());
-            }
-        }
-    }
-
-    // Collection filter: supports multi-collection, subcollections, logic "and" (in all), "or" (in any), "and_or" (primary AND any remaining), "none" (unorganized)
-    let mut target_collections: Vec<String> = Vec::new();
-    if let Some(col_id) = payload.query.collection_id.as_ref().or(f.collection_id.as_ref()) {
-        if !col_id.is_empty() && !target_collections.contains(col_id) {
-            target_collections.push(col_id.clone());
-        }
-    }
-    if let Some(cols) = &f.collection_ids {
-        for cid in cols {
-            if !cid.is_empty() && !target_collections.contains(cid) {
-                target_collections.push(cid.clone());
-            }
-        }
-    }
-
-    let col_logic = f.collection_logic.as_deref().unwrap_or("or");
-    let include_sub = f.include_subcollections.unwrap_or_else(|| payload.query.include_subcollections.unwrap_or(true));
-
-    if col_logic == "none" || f.unorganized == Some(true) {
-        conditions.push("a.id NOT IN (SELECT asset_id FROM collection_assets)".into());
-    } else if !target_collections.is_empty() {
-        if col_logic == "and" {
-            for cid in &target_collections {
-                if include_sub {
-                    conditions.push(
-                        "a.id IN (
-                            WITH RECURSIVE col_tree AS (
-                                SELECT id FROM collections WHERE id = ?
-                                UNION ALL
-                                SELECT c.id FROM collections c JOIN col_tree ct ON c.parent_id = ct.id
-                            )
-                            SELECT asset_id FROM collection_assets WHERE collection_id IN (SELECT id FROM col_tree)
-                        )".into()
-                    );
-                } else {
-                    conditions.push(
-                        "a.id IN (SELECT asset_id FROM collection_assets WHERE collection_id = ?)".into()
-                    );
-                }
-                binds.push(cid.clone());
-            }
-        } else if col_logic == "and_or" {
-            if target_collections.len() <= 1 {
-                let cid = &target_collections[0];
-                if include_sub {
-                    conditions.push(
-                        "a.id IN (
-                            WITH RECURSIVE col_tree AS (
-                                SELECT id FROM collections WHERE id = ?
-                                UNION ALL
-                                SELECT c.id FROM collections c JOIN col_tree ct ON c.parent_id = ct.id
-                            )
-                            SELECT asset_id FROM collection_assets WHERE collection_id IN (SELECT id FROM col_tree)
-                        )".into()
-                    );
-                } else {
-                    conditions.push(
-                        "a.id IN (SELECT asset_id FROM collection_assets WHERE collection_id = ?)".into()
-                    );
-                }
-                binds.push(cid.clone());
-            } else {
-                let primary_col = &target_collections[0];
-                let remaining_cols = &target_collections[1..];
-                if include_sub {
-                    conditions.push(
-                        "a.id IN (
-                            WITH RECURSIVE col_tree AS (
-                                SELECT id FROM collections WHERE id = ?
-                                UNION ALL
-                                SELECT c.id FROM collections c JOIN col_tree ct ON c.parent_id = ct.id
-                            )
-                            SELECT asset_id FROM collection_assets WHERE collection_id IN (SELECT id FROM col_tree)
-                        )".into()
-                    );
-                    binds.push(primary_col.clone());
-
-                    let rem_placeholders = remaining_cols.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                    conditions.push(format!(
-                        "a.id IN (
-                            WITH RECURSIVE col_tree AS (
-                                SELECT id FROM collections WHERE id IN ({})
-                                UNION ALL
-                                SELECT c.id FROM collections c JOIN col_tree ct ON c.parent_id = ct.id
-                            )
-                            SELECT asset_id FROM collection_assets WHERE collection_id IN (SELECT id FROM col_tree)
-                        )",
-                        rem_placeholders
-                    ));
-                    binds.extend(remaining_cols.iter().cloned());
-                } else {
-                    conditions.push(
-                        "a.id IN (SELECT asset_id FROM collection_assets WHERE collection_id = ?)".into()
-                    );
-                    binds.push(primary_col.clone());
-
-                    let rem_placeholders = remaining_cols.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                    conditions.push(format!(
-                        "a.id IN (SELECT asset_id FROM collection_assets WHERE collection_id IN ({}))",
-                        rem_placeholders
-                    ));
-                    binds.extend(remaining_cols.iter().cloned());
-                }
-            }
-        } else {
-            if include_sub {
-                let placeholders = target_collections.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                conditions.push(format!(
-                    "a.id IN (
-                        WITH RECURSIVE col_tree AS (
-                            SELECT id FROM collections WHERE id IN ({})
-                            UNION ALL
-                            SELECT c.id FROM collections c JOIN col_tree ct ON c.parent_id = ct.id
-                        )
-                        SELECT asset_id FROM collection_assets WHERE collection_id IN (SELECT id FROM col_tree)
-                    )",
-                    placeholders
-                ));
-                binds.extend(target_collections);
-            } else {
-                let placeholders = target_collections.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                conditions.push(format!(
-                    "a.id IN (SELECT asset_id FROM collection_assets WHERE collection_id IN ({}))",
-                    placeholders
-                ));
-                binds.extend(target_collections);
-            }
-        }
-    }
-
-    // Smart filter conditions
-    if let Some(dir) = &f.directory {
-        if !dir.trim().is_empty() {
-            conditions.push("a.file_path LIKE ?".into());
-            binds.push(format!("%{}%", dir.trim().replace('\\', "/")));
-        }
-    }
-
-    if let Some(prefix) = &f.name_prefix {
-        if !prefix.trim().is_empty() {
-            conditions.push("a.file_name LIKE ?".into());
-            binds.push(format!("{}%", prefix.trim()));
-        }
-    }
-
-    if let Some(suffix) = &f.name_suffix {
-        if !suffix.trim().is_empty() {
-            conditions.push("a.file_name LIKE ?".into());
-            binds.push(format!("%{}", suffix.trim()));
-        }
-    }
+    let (filter_conditions, filter_binds) =
+        build_filter_conditions(&payload.query.filter, &payload.query);
+    conditions.extend(filter_conditions);
+    binds.extend(filter_binds);
 
     let where_clause = if conditions.is_empty() {
         String::new()

@@ -5,34 +5,13 @@ import {
   useLibraryStore, useCollectionStore, useTagStore,
   useUIStore, useAssetStore,
 } from '../../store';
-import type { FilterSpec, ColorLabel } from '../../types';
 import {
   IconFolder, IconCollection, IconTag,
   IconChevronDown, IconChevronRight, IconPlus,
-  IconCheck, IconX, IconTrash, IconInbox, IconFilter,
-  IconHeartFilled, IconStar, IconLayers, IconModel3D,
-  IconImage, IconVideo, IconEye,
+  IconCheck, IconX, IconTrash,
 } from '../Icons';
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
-import { SmartFilterModal } from '../SmartFilterModal';
 import styles from './Sidebar.module.css';
-
-const SIDEBAR_COLOR_LABELS: { label: ColorLabel; name: string; hex: string }[] = [
-  { label: 'red', name: 'Red', hex: '#ef4444' },
-  { label: 'orange', name: 'Orange', hex: '#f97316' },
-  { label: 'yellow', name: 'Yellow', hex: '#eab308' },
-  { label: 'green', name: 'Green', hex: '#22c55e' },
-  { label: 'teal', name: 'Teal', hex: '#14b8a6' },
-  { label: 'blue', name: 'Blue', hex: '#3b82f6' },
-  { label: 'purple', name: 'Purple', hex: '#a855f7' },
-  { label: 'pink', name: 'Pink', hex: '#ec4899' },
-];
-
-const getStartOfDay = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-};
 
 export function Sidebar() {
   const libraries = useLibraryStore((s) => s.libraries);
@@ -58,36 +37,17 @@ export function Sidebar() {
     clearLibrarySelection,
   } = useUIStore();
   const replaceFilter = useAssetStore((s) => s.replaceFilter);
-  const setFilter = useAssetStore((s) => s.setFilter);
   const resetFilter = useAssetStore((s) => s.resetFilter);
   const clearFilter = useAssetStore((s) => s.clearFilter);
   const setQuery = useAssetStore((s) => s.setQuery);
-  const currentFilter = useAssetStore((s) => s.query.filter);
   const activeTagId = useAssetStore((s) => s.query.filter.tags?.[0] ?? null);
   const search = useAssetStore((s) => s.search);
-
-  const [filterSubExpanded, setFilterSubExpanded] = useState({
-    types: true,
-    ratings: true,
-    colors: true,
-    dateAdded: false,
-    fileSize: false,
-    previewStatus: false,
-  });
-
-  const toggleFilterSub = (key: keyof typeof filterSubExpanded) =>
-    setFilterSubExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const [expanded, setExpanded] = useState({
     libraries: true,
     collections: true,
     tags: true,
-    smartFilters: true,
-    filters: true,
   });
-
-  const [activeSmartFilterId, setActiveSmartFilterId] = useState<string | null>(null);
-  const [isCreatingSmartFilter, setIsCreatingSmartFilter] = useState(false);
 
   // Inline creation states
   const [isCreatingTag, setIsCreatingTag] = useState(false);
@@ -197,7 +157,6 @@ export function Sidebar() {
   };
 
   const handleAllLibrariesClick = () => {
-    setActiveSmartFilterId(null);
     setActiveCollection(null);
     clearLibrarySelection();
     setQuery({
@@ -209,7 +168,6 @@ export function Sidebar() {
   };
 
   const handleLibraryClick = (id: string, e?: React.MouseEvent) => {
-    setActiveSmartFilterId(null);
     setActiveCollection(null);
     const isCheckbox = (e?.target as HTMLElement)?.tagName?.toLowerCase() === 'input';
     const isMulti = e ? Boolean(e.metaKey || e.ctrlKey || e.shiftKey || isCheckbox) : false;
@@ -224,7 +182,6 @@ export function Sidebar() {
   };
 
   const handleCollectionClick = (id: string) => {
-    setActiveSmartFilterId(null);
     resetFilter();
     if (activeCollectionId === id) {
       setActiveCollection(null);
@@ -236,26 +193,7 @@ export function Sidebar() {
     search();
   };
 
-  const handleSmartFilterClick = (col: (typeof collections)[0]) => {
-    setActiveCollection(null);
-    if (activeSmartFilterId === col.id) {
-      setActiveSmartFilterId(null);
-      resetFilter();
-      search();
-    } else {
-      setActiveSmartFilterId(col.id);
-      try {
-        const spec: FilterSpec = col.filterSpec ? JSON.parse(col.filterSpec) : {};
-        replaceFilter(spec);
-        search();
-      } catch (err) {
-        console.error('Failed to parse smart filter spec:', err);
-      }
-    }
-  };
-
   const handleTagFilter = (tagId: string) => {
-    setActiveSmartFilterId(null);
     setActiveCollection(null);
     if (activeTagId === tagId) {
       resetFilter();
@@ -340,7 +278,7 @@ export function Sidebar() {
   };
 
   const renderCollectionTree = (parentId: string | null = null, depth: number = 0) => {
-    const items = collections.filter((c) => !c.isSmart && (c.parentId ?? null) === parentId);
+    const items = collections.filter((c) => (c.parentId ?? null) === parentId);
     if (items.length === 0 && (!isCreatingCollection || parentCollectionId !== parentId)) {
       return null;
     }
@@ -722,521 +660,12 @@ export function Sidebar() {
         })}
       </SidebarSection>
 
-      {/* ── Smart Filters ── */}
-      <SidebarSection
-        label="Smart Filters"
-        icon={<IconFilter size={14} />}
-        expanded={expanded.smartFilters}
-        onToggle={() => toggle('smartFilters')}
-        onAdd={() => setIsCreatingSmartFilter(true)}
-      >
-        {collections.filter((c) => c.isSmart).length === 0 && (
-          <p className={styles.empty}>No smart filters yet</p>
-        )}
-        {collections
-          .filter((c) => c.isSmart)
-          .map((col) => {
-            const isActive = activeSmartFilterId === col.id;
-            return (
-              <div
-                key={col.id}
-                id={`smart-filter-${col.id}`}
-                className={clsx(styles.item, isActive && styles.active)}
-                onClick={() => handleSmartFilterClick(col)}
-                role="button"
-                tabIndex={0}
-              >
-                <IconFilter size={13} />
-                <span className={clsx(styles.itemName, 'truncate')}>{col.name}</span>
-                {isActive && <span className={styles.filterActiveChip}>●</span>}
-                <span
-                  className={clsx(styles.itemActionBtn, styles.itemActionBtnDanger)}
-                  onClick={(e) => handleDeleteCollection(e, col.id, col.name)}
-                  title="Delete smart filter"
-                  role="button"
-                  tabIndex={0}
-                >
-                  <IconTrash size={11} />
-                </span>
-              </div>
-            );
-          })}
-      </SidebarSection>
-
-      {/* ── Quick & Advanced Filters ── */}
-      <SidebarSection
-        label="Filters"
-        icon={<IconFilter size={14} />}
-        expanded={expanded.filters}
-        onToggle={() => toggle('filters')}
-      >
-        {/* Core Status Filters */}
-        {(() => {
-          const isAllActive =
-            !currentFilter.isFavorite &&
-            !currentFilter.unorganized &&
-            (!currentFilter.kinds || currentFilter.kinds.length === 0) &&
-            !currentFilter.rating &&
-            (!currentFilter.colorLabels || currentFilter.colorLabels.length === 0) &&
-            !currentFilter.dateRange &&
-            !currentFilter.sizeRange &&
-            !currentFilter.previewStatus &&
-            (!currentFilter.tags || currentFilter.tags.length === 0);
-          const isFavActive = Boolean(currentFilter.isFavorite);
-          const isUnorgActive = Boolean(currentFilter.unorganized);
-
-          return (
-            <>
-              <button
-                type="button"
-                id="sidebar-filter-all"
-                className={clsx(styles.item, isAllActive && styles.active)}
-                onClick={() => {
-                  setActiveSmartFilterId(null);
-                  setActiveCollection(null);
-                  resetFilter();
-                  search();
-                }}
-              >
-                <span className={clsx(styles.itemName, 'truncate')}>All assets</span>
-              </button>
-
-              <button
-                type="button"
-                id="sidebar-filter-favorites"
-                className={clsx(styles.item, isFavActive && styles.favoriteActive)}
-                onClick={() => {
-                  setActiveSmartFilterId(null);
-                  setActiveCollection(null);
-                  if (isFavActive) {
-                    clearFilter('isFavorite');
-                  } else {
-                    setFilter({ isFavorite: true });
-                  }
-                  search();
-                }}
-              >
-                <span className={styles.favoriteIcon}>
-                  <IconHeartFilled size={13} />
-                </span>
-                <span className={clsx(styles.itemName, 'truncate')}>Favorites</span>
-                {isFavActive && <span className={styles.filterActiveChip}>●</span>}
-              </button>
-
-              <button
-                type="button"
-                id="sidebar-filter-unorganized"
-                className={clsx(styles.item, isUnorgActive && styles.active)}
-                onClick={() => {
-                  setActiveSmartFilterId(null);
-                  setActiveCollection(null);
-                  if (isUnorgActive) {
-                    clearFilter('unorganized');
-                  } else {
-                    setFilter({ unorganized: true });
-                  }
-                  search();
-                }}
-              >
-                <IconInbox size={13} />
-                <span className={clsx(styles.itemName, 'truncate')}>Unorganized</span>
-                {isUnorgActive && <span className={styles.filterActiveChip}>●</span>}
-              </button>
-            </>
-          );
-        })()}
-
-        {/* ── Subgroup: Types ── */}
-        <div className={styles.subGroup}>
-          <button
-            type="button"
-            className={styles.subGroupHeader}
-            onClick={() => toggleFilterSub('types')}
-          >
-            <span className={styles.subGroupTitle}>
-              {filterSubExpanded.types ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
-              <span>Types</span>
-              {currentFilter.kinds && currentFilter.kinds.length > 0 && (
-                <span className={styles.filterActiveChip}>●</span>
-              )}
-            </span>
-            {currentFilter.kinds && currentFilter.kinds.length > 0 && (
-              <span
-                role="button"
-                tabIndex={0}
-                className={styles.clearSubFilterBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearFilter('kinds');
-                  search();
-                }}
-              >
-                Clear
-              </span>
-            )}
-          </button>
-          {filterSubExpanded.types && (
-            <div className={styles.subGroupBody}>
-              {([
-                { kind: '3d_model' as const, label: '3D Models', icon: <IconModel3D size={13} /> },
-                { kind: 'material' as const, label: 'Materials', icon: <IconLayers size={13} /> },
-                { kind: 'texture' as const, label: 'Textures', icon: <IconImage size={13} /> },
-                { kind: 'hdri' as const, label: 'HDRI', icon: <IconImage size={13} /> },
-                { kind: 'image' as const, label: 'Images', icon: <IconImage size={13} /> },
-                { kind: 'video' as const, label: 'Video', icon: <IconVideo size={13} /> },
-              ]).map(({ kind, label, icon }) => {
-                const isActive = currentFilter.kinds?.includes(kind);
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    id={`sidebar-filter-type-${kind}`}
-                    className={clsx(styles.item, isActive && styles.active)}
-                    onClick={() => {
-                      setActiveSmartFilterId(null);
-                      setActiveCollection(null);
-                      if (isActive) {
-                        clearFilter('kinds');
-                      } else {
-                        setFilter({ kinds: [kind] });
-                      }
-                      search();
-                    }}
-                  >
-                    {icon}
-                    <span className={clsx(styles.itemName, 'truncate')}>{label}</span>
-                    {isActive && <span className={styles.filterActiveChip}>●</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Subgroup: Ratings ── */}
-        <div className={styles.subGroup}>
-          <button
-            type="button"
-            className={styles.subGroupHeader}
-            onClick={() => toggleFilterSub('ratings')}
-          >
-            <span className={styles.subGroupTitle}>
-              {filterSubExpanded.ratings ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
-              <span>Ratings</span>
-              {currentFilter.rating && <span className={styles.filterActiveChip}>●</span>}
-            </span>
-            {currentFilter.rating && (
-              <span
-                role="button"
-                tabIndex={0}
-                className={styles.clearSubFilterBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearFilter('rating');
-                  search();
-                }}
-              >
-                Clear
-              </span>
-            )}
-          </button>
-          {filterSubExpanded.ratings && (
-            <div className={styles.subGroupBody}>
-              {[
-                { label: '5 Stars', min: 5, max: 5 },
-                { label: '4+ Stars', min: 4, max: 5 },
-                { label: '3+ Stars', min: 3, max: 5 },
-                { label: '1+ Stars', min: 1, max: 5 },
-              ].map(({ label, min, max }) => {
-                const isActive = currentFilter.rating?.min === min && currentFilter.rating?.max === max;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    id={`sidebar-filter-rating-${min}`}
-                    className={clsx(styles.item, isActive && styles.active)}
-                    onClick={() => {
-                      setActiveSmartFilterId(null);
-                      setActiveCollection(null);
-                      if (isActive) {
-                        clearFilter('rating');
-                      } else {
-                        setFilter({ rating: { min, max } });
-                      }
-                      search();
-                    }}
-                  >
-                    <IconStar size={12} className={styles.starActive} />
-                    <span className={clsx(styles.itemName, 'truncate')}>{label}</span>
-                    {isActive && <span className={styles.filterActiveChip}>●</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Subgroup: Color Labels ── */}
-        <div className={styles.subGroup}>
-          <button
-            type="button"
-            className={styles.subGroupHeader}
-            onClick={() => toggleFilterSub('colors')}
-          >
-            <span className={styles.subGroupTitle}>
-              {filterSubExpanded.colors ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
-              <span>Color Labels</span>
-              {currentFilter.colorLabels && currentFilter.colorLabels.length > 0 && (
-                <span className={styles.filterActiveChip}>●</span>
-              )}
-            </span>
-            {currentFilter.colorLabels && currentFilter.colorLabels.length > 0 && (
-              <span
-                role="button"
-                tabIndex={0}
-                className={styles.clearSubFilterBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearFilter('colorLabels');
-                  search();
-                }}
-              >
-                Clear
-              </span>
-            )}
-          </button>
-          {filterSubExpanded.colors && (
-            <div className={styles.sidebarColorRow}>
-              {SIDEBAR_COLOR_LABELS.map(({ label, name, hex }) => {
-                const isActive = currentFilter.colorLabels?.includes(label);
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    id={`sidebar-filter-color-${label}`}
-                    className={clsx(styles.sidebarColorDot, isActive && styles.sidebarColorActive)}
-                    style={{ backgroundColor: hex }}
-                    onClick={() => {
-                      setActiveSmartFilterId(null);
-                      setActiveCollection(null);
-                      if (isActive) {
-                        clearFilter('colorLabels');
-                      } else {
-                        setFilter({ colorLabels: [label] });
-                      }
-                      search();
-                    }}
-                    title={name}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Subgroup: Date Added / Modified ── */}
-        <div className={styles.subGroup}>
-          <button
-            type="button"
-            className={styles.subGroupHeader}
-            onClick={() => toggleFilterSub('dateAdded')}
-          >
-            <span className={styles.subGroupTitle}>
-              {filterSubExpanded.dateAdded ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
-              <span>Date Added</span>
-              {currentFilter.dateRange && <span className={styles.filterActiveChip}>●</span>}
-            </span>
-            {currentFilter.dateRange && (
-              <span
-                role="button"
-                tabIndex={0}
-                className={styles.clearSubFilterBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearFilter('dateRange');
-                  search();
-                }}
-              >
-                Clear
-              </span>
-            )}
-          </button>
-          {filterSubExpanded.dateAdded && (
-            <div className={styles.subGroupBody}>
-              {(() => {
-                const todayStart = getStartOfDay();
-                const sevenDaysAgo = Date.now() - 7 * 86400000;
-                const thirtyDaysAgo = Date.now() - 30 * 86400000;
-
-                const curFrom = currentFilter.dateRange?.from;
-                const isTodayActive = curFrom !== undefined && curFrom >= todayStart;
-                const is7DaysActive = curFrom !== undefined && !isTodayActive && curFrom >= sevenDaysAgo - 10000;
-                const is30DaysActive = curFrom !== undefined && !isTodayActive && !is7DaysActive && curFrom >= thirtyDaysAgo - 10000;
-
-                return [
-                  { label: 'Today', from: todayStart, active: isTodayActive },
-                  { label: 'Last 7 Days', from: sevenDaysAgo, active: is7DaysActive },
-                  { label: 'Last 30 Days', from: thirtyDaysAgo, active: is30DaysActive },
-                ].map(({ label, from, active }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className={clsx(styles.item, active && styles.active)}
-                    onClick={() => {
-                      setActiveSmartFilterId(null);
-                      setActiveCollection(null);
-                      if (active) {
-                        clearFilter('dateRange');
-                      } else {
-                        setFilter({ dateRange: { from } });
-                      }
-                      search();
-                    }}
-                  >
-                    <span className={clsx(styles.itemName, 'truncate')}>{label}</span>
-                    {active && <span className={styles.filterActiveChip}>●</span>}
-                  </button>
-                ));
-              })()}
-            </div>
-          )}
-        </div>
-
-        {/* ── Subgroup: File Size ── */}
-        <div className={styles.subGroup}>
-          <button
-            type="button"
-            className={styles.subGroupHeader}
-            onClick={() => toggleFilterSub('fileSize')}
-          >
-            <span className={styles.subGroupTitle}>
-              {filterSubExpanded.fileSize ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
-              <span>File Size</span>
-              {currentFilter.sizeRange && <span className={styles.filterActiveChip}>●</span>}
-            </span>
-            {currentFilter.sizeRange && (
-              <span
-                role="button"
-                tabIndex={0}
-                className={styles.clearSubFilterBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearFilter('sizeRange');
-                  search();
-                }}
-              >
-                Clear
-              </span>
-            )}
-          </button>
-          {filterSubExpanded.fileSize && (
-            <div className={styles.subGroupBody}>
-              {[
-                { label: '< 5 MB', min: undefined, max: 5 * 1024 * 1024 },
-                { label: '5 MB – 50 MB', min: 5 * 1024 * 1024, max: 50 * 1024 * 1024 },
-                { label: '> 50 MB', min: 50 * 1024 * 1024, max: undefined },
-              ].map(({ label, min, max }) => {
-                const isActive =
-                  currentFilter.sizeRange?.min === min && currentFilter.sizeRange?.max === max;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    className={clsx(styles.item, isActive && styles.active)}
-                    onClick={() => {
-                      setActiveSmartFilterId(null);
-                      setActiveCollection(null);
-                      if (isActive) {
-                        clearFilter('sizeRange');
-                      } else {
-                        setFilter({ sizeRange: { min, max } });
-                      }
-                      search();
-                    }}
-                  >
-                    <span className={clsx(styles.itemName, 'truncate')}>{label}</span>
-                    {isActive && <span className={styles.filterActiveChip}>●</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Subgroup: Preview Status ── */}
-        <div className={styles.subGroup}>
-          <button
-            type="button"
-            className={styles.subGroupHeader}
-            onClick={() => toggleFilterSub('previewStatus')}
-          >
-            <span className={styles.subGroupTitle}>
-              {filterSubExpanded.previewStatus ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
-              <span>Preview Status</span>
-              {currentFilter.previewStatus && <span className={styles.filterActiveChip}>●</span>}
-            </span>
-            {currentFilter.previewStatus && (
-              <span
-                role="button"
-                tabIndex={0}
-                className={styles.clearSubFilterBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearFilter('previewStatus');
-                  search();
-                }}
-              >
-                Clear
-              </span>
-            )}
-          </button>
-          {filterSubExpanded.previewStatus && (
-            <div className={styles.subGroupBody}>
-              {[
-                { label: 'Has Preview', status: 'done' as const },
-                { label: 'Pending / Generating', status: 'pending' as const },
-                { label: 'Needs Preview', status: 'none' as const },
-              ].map(({ label, status }) => {
-                const isActive = currentFilter.previewStatus === status;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    className={clsx(styles.item, isActive && styles.active)}
-                    onClick={() => {
-                      setActiveSmartFilterId(null);
-                      setActiveCollection(null);
-                      if (isActive) {
-                        clearFilter('previewStatus');
-                      } else {
-                        setFilter({ previewStatus: status });
-                      }
-                      search();
-                    }}
-                  >
-                    <IconEye size={13} />
-                    <span className={clsx(styles.itemName, 'truncate')}>{label}</span>
-                    {isActive && <span className={styles.filterActiveChip}>●</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </SidebarSection>
-
-
       <ConfirmDeleteDialog
         isOpen={Boolean(deleteTarget)}
         itemType={deleteTarget?.type ?? 'tag'}
         itemName={deleteTarget?.name ?? ''}
         onConfirm={executeDeleteTarget}
         onCancel={() => setDeleteTarget(null)}
-      />
-
-      <SmartFilterModal
-        isOpen={isCreatingSmartFilter}
-        onClose={() => setIsCreatingSmartFilter(false)}
       />
     </aside>
   );
