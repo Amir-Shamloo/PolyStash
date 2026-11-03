@@ -86,7 +86,10 @@ pub(crate) fn extract_skp_thumb(source: &Path, output: &Path) -> Result<()> {
 fn skp_zip_thumb(source: &Path) -> Result<DynamicImage> {
     let file = File::open(source)?;
     let mut archive = zip::ZipArchive::new(file)?;
-    let names: Vec<String> = archive.file_names().map(str::to_owned).collect();
+    let mut names: Vec<String> = Vec::new();
+    for name in archive.file_names() {
+        names.push(name?.into_owned());
+    }
     let name = skp_thumbnail_entry(&names)
         .ok_or_else(|| anyhow!("No thumbnail entry in SketchUp archive"))?;
 
