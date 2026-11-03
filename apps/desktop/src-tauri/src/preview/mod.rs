@@ -1,9 +1,9 @@
 mod archive;
-mod image;
 mod material;
 mod ole;
 mod placeholder;
 mod psd;
+mod raster;
 mod video;
 
 use anyhow::Result;
@@ -22,7 +22,7 @@ pub const THUMB_SIZE: u32 = 512;
 /// no thumbnail for these and completes the job immediately.
 const MESH_EXTENSIONS: [&str; 6] = ["gltf", "glb", "fbx", "obj", "stl", "dae"];
 
-pub use image::{generate_image_thumb, is_native_image};
+pub use raster::{generate_image_thumb, is_native_image};
 
 /// Resize and write a decoded image to `output` as JPEG (when the output path
 /// ends in .jpg/.jpeg) or PNG otherwise.
@@ -133,7 +133,7 @@ fn generate_embedded_thumbnail(ext: &str, source: &Path, file_stem: &str, thumb_
         "skp" => archive::extract_skp_thumb(source, &thumb_dest)?,
         "dwg" => archive::extract_dwg_thumb(source, &thumb_dest)?,
         "psd" | "psb" => psd::extract_psd_thumb(source, &thumb_dest)?,
-        "exr" | "hdr" => image::extract_hdr_thumb(source, &thumb_dest)?,
+        "exr" | "hdr" => raster::extract_hdr_thumb(source, &thumb_dest)?,
         "vrmat" => material::extract_vrmat_thumb(source, &thumb_dest)?,
         // Deferred formats (ai, 3dm, 3ds, ply) and anything unknown: neutral tile.
         _ => placeholder::generate_placeholder(&thumb_dest)?,

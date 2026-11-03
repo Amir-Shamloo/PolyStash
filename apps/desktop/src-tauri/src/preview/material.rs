@@ -4,7 +4,7 @@ use image::{DynamicImage, Rgb, RgbImage};
 use roxmltree::Document;
 use std::path::{Path, PathBuf};
 
-use super::image::to_u8;
+use super::raster::to_u8;
 use super::save_thumb;
 
 /// V-Ray material thumbnails: companion image, embedded base64 preview,
