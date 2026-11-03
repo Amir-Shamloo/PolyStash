@@ -6,7 +6,7 @@ import type { Asset, ColorLabel, Collection } from '../../types';
 import { IconStar, IconX, IconExternal, IconEye, IconInfo, IconCopy, IconCheck, IconRefresh, IconEdit, IconTrash, IconHeart, IconHeartFilled } from '../Icons';
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
 import { api } from '../../api';
-import { ThreeViewer } from './ThreeViewer';
+import { ThreeViewer, getModelPath } from './ThreeViewer';
 import styles from './DetailPanel.module.css';
 
 const COLOR_LABELS: ColorLabel[] = [
@@ -124,7 +124,7 @@ export function DetailPanel() {
   }
 
   const isPending = asset.previewStatus === 'pending' || asset.previewStatus === 'generating';
-  const isError = asset.previewStatus === 'error';
+  const isError = asset.previewStatus === 'error', modelPath = getModelPath(asset);
 
   return (
     <aside className={styles.panel} id="detail-panel">
@@ -149,8 +149,8 @@ export function DetailPanel() {
               try { e.currentTarget.currentTime = 0.1; } catch {}
             }}
           />
-        ) : (asset.metadata?.preview_model || asset.thumbnailPath?.endsWith('.glb')) ? (
-          <ThreeViewer modelPath={(asset.metadata?.preview_model as string) || asset.thumbnailPath!} />
+        ) : modelPath ? (
+          <ThreeViewer modelPath={modelPath} />
         ) : (
           <div className={styles.thumbPlaceholder}>
             <span className={styles.thumbExt}>.{asset.extension}</span>
@@ -624,7 +624,7 @@ function PreviewTab({
   asset: Asset;
   onGeneratePreview: () => void;
 }) {
-  const modelPath = (asset.metadata?.preview_model as string) || (asset.thumbnailPath?.endsWith('.glb') ? asset.thumbnailPath : undefined);
+  const modelPath = getModelPath(asset);
   const imagePath = asset.thumbnailPath && !asset.thumbnailPath.endsWith('.glb') ? asset.thumbnailPath : (['image', 'texture'].includes(asset.kind) ? asset.filePath : undefined);
   const isPending = asset.previewStatus === 'pending' || asset.previewStatus === 'generating';
   const isError = asset.previewStatus === 'error';
@@ -689,8 +689,8 @@ function PreviewTab({
           </p>
           <p className={styles.emptyStatusSub}>
             {isPending
-              ? 'Please wait while the worker renders the model'
-              : 'Click below to run the preview engine worker for this file'}
+              ? 'Please wait while the preview is being generated'
+              : 'Click below to generate a preview for this file'}
           </p>
           <button
             id="detail-generate-preview"

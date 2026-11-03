@@ -67,14 +67,3 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
         working-directory: apps/desktop/src-tauri
 
-  # ── Python preview engine ────────────────────────────────────────────────
-  python:
-    name: Python (Ruff Lint)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      # astral-sh/ruff-action downloads a precompiled standalone binary in ~1s
-      # without needing python setup or pip install
-      - uses: astral-sh/ruff-action@v3
-        with:
-          args: "check packages/preview-engine/"

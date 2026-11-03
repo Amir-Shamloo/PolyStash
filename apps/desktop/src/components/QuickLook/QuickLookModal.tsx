@@ -2,7 +2,7 @@ import { memo, useRef, useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset } from '../../types';
-import { ThreeViewer } from '../DetailPanel/ThreeViewer';
+import { ThreeViewer, getModelPath } from '../DetailPanel/ThreeViewer';
 import { IconStar, IconModel3D, IconImage, IconVideo, IconFileText } from '../Icons';
 import styles from './QuickLookModal.module.css';
 
@@ -111,9 +111,7 @@ export const QuickLookModal = memo(function QuickLookModal({
 }: QuickLookModalProps) {
   if (!isOpen || !asset) return null;
 
-  const modelPath =
-    (asset.metadata?.preview_model as string) ||
-    (asset.thumbnailPath?.endsWith('.glb') ? asset.thumbnailPath : undefined);
+  const modelPath = getModelPath(asset);
 
   const isVideo =
     asset.kind === 'video' ||
