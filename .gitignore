@@ -25,7 +25,6 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-packages/preview-engine/venv/
 
 # ── Environment & Local Config ─────────────────────────────────────────────
 .env
