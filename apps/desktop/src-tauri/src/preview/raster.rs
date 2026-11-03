@@ -1,9 +1,8 @@
 use anyhow::Result;
-use image::imageops::FilterType;
 use image::{DynamicImage, Rgb, RgbImage};
 use std::path::Path;
 
-use super::{save_thumb, THUMB_SIZE};
+use super::save_thumb;
 
 /// Checks if an extension is a standard raster image that Rust can decode directly.
 pub fn is_native_image(ext: &str) -> bool {
