@@ -19,6 +19,10 @@ export const api = {
   removeLibrary: (id: string) => invoke<void>('remove_library', { id }),
   refreshLibrary: (id: string) => invoke<void>('refresh_library', { id }),
   refreshAllLibraries: () => invoke<void>('refresh_all_libraries'),
+  listLibraryDirectories: (libraryId: string) =>
+    invoke<string[]>('list_library_directories', { libraryId }),
+  listSubdirectories: (libraryId: string, parent: string) =>
+    invoke<string[]>('list_subdirectories', { libraryId, parent }),
 
   // Assets
   searchAssets: (payload: SearchPayload) =>
