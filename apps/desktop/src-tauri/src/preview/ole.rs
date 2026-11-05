@@ -50,7 +50,7 @@ pub(crate) fn find_dib(bytes: &[u8]) -> Option<usize> {
     None
 }
 
-/// Extract the embedded OLE thumbnail from a 3ds Max (.max) or Revit (.rvt/.rfa)
+/// Extract the embedded OLE thumbnail from a 3ds Max (.max) or Revit (.rvt/.rfa/.rte)
 /// compound file and write a resized thumbnail. Max stores a DIB in the
 /// SummaryInformation stream; Revit stores a PNG in the `RevitPreview4.0` stream.
 pub(crate) fn extract_ole_thumb(source: &Path, output: &Path) -> Result<()> {

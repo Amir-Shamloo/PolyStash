@@ -1,4 +1,7 @@
 mod archive;
+mod cad;
+mod cineware;
+mod document;
 mod material;
 mod ole;
 mod placeholder;
@@ -8,7 +11,7 @@ mod video;
 
 use anyhow::Result;
 use image::DynamicImage;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::Emitter;
@@ -20,7 +23,13 @@ pub const THUMB_SIZE: u32 = 512;
 
 /// Formats rendered live in the frontend with three.js; the backend emits
 /// no thumbnail for these and completes the job immediately.
-const MESH_EXTENSIONS: [&str; 6] = ["gltf", "glb", "fbx", "obj", "stl", "dae"];
+const MESH_EXTENSIONS: [&str; 10] = [
+    "gltf", "glb", "fbx", "obj", "stl", "dae", "ply", "usdz", "x3d", "wrl",
+];
+
+/// Containers that can genuinely hold several previews; a gallery is only
+/// harvested for these, so single-image formats never pay for the extra scan.
+const GALLERY_EXTENSIONS: [&str; 1] = ["skp"];
 
 pub use raster::{generate_image_thumb, is_native_image};
 
@@ -87,6 +96,21 @@ fn existing_thumb(thumb_dir: &Path, file_stem: &str) -> Option<String> {
     }
 }
 
+/// Gallery variant of [`existing_thumb`]: every `_thumb`/`_thumb_N` on disk,
+/// primary first, so a re-run does not re-extract what already exists.
+fn existing_thumb_set(thumb_dir: &Path, file_stem: &str) -> Vec<String> {
+    let primary = existing_thumb(thumb_dir, file_stem);
+    let mut paths: Vec<String> = primary.into_iter().collect();
+
+    for index in 1..64 {
+        let name = format!("{}_thumb_{}.png", file_stem, index);
+        if thumb_dir.join(&name).exists() {
+            paths.push(format!(".polystash/thumbs/{}", name));
+        }
+    }
+    paths
+}
+
 /// Thumbnail a standard raster image, returning the relative thumb path.
 fn native_image_thumb(source: &Path, ext: &str, file_stem: &str, thumb_dir: &Path) -> Option<String> {
     if !is_native_image(ext) {
@@ -114,9 +138,13 @@ async fn generate_thumbnail(ext: &str, full_source: &Path, file_stem: &str, thum
         let thumb_file_name = format!("{}_thumb.jpg", file_stem);
         video::extract_video_thumb(full_source, &thumb_dir.join(&thumb_file_name)).await?;
         Ok(format!(".polystash/thumbs/{}", thumb_file_name))
-    } else if matches!(ext, "max" | "rvt" | "rfa") {
+    } else if matches!(ext, "max" | "rvt" | "rfa" | "rte") {
         let thumb_file_name = format!("{}_thumb.png", file_stem);
         ole::extract_ole_thumb(full_source, &thumb_dir.join(&thumb_file_name))?;
+        Ok(format!(".polystash/thumbs/{}", thumb_file_name))
+    } else if ext == "pdf" {
+        let thumb_file_name = format!("{}_thumb.png", file_stem);
+        document::extract_pdf_thumb(full_source, &thumb_dir.join(&thumb_file_name)).await?;
         Ok(format!(".polystash/thumbs/{}", thumb_file_name))
     } else {
         generate_embedded_thumbnail(ext, full_source, file_stem, thumb_dir)
@@ -131,25 +159,50 @@ fn generate_embedded_thumbnail(ext: &str, source: &Path, file_stem: &str, thumb_
 
     match ext {
         "skp" => archive::extract_skp_thumb(source, &thumb_dest)?,
+        "sbsar" => archive::extract_sbsar_thumb(source, &thumb_dest)?,
         "dwg" => archive::extract_dwg_thumb(source, &thumb_dest)?,
+        "dxf" => cad::extract_dxf_thumb(source, &thumb_dest)?,
+        "c4d" | "blend" => cineware::extract_preview_png_thumb(source, &thumb_dest)?,
         "psd" | "psb" => psd::extract_psd_thumb(source, &thumb_dest)?,
-        "exr" | "hdr" => raster::extract_hdr_thumb(source, &thumb_dest)?,
+        "exr" | "hdr" | "hdri" => raster::extract_hdr_thumb(source, &thumb_dest)?,
         "vrmat" => material::extract_vrmat_thumb(source, &thumb_dest)?,
-        // Deferred formats (ai, 3dm, 3ds, ply) and anything unknown: neutral tile.
+        // Deferred formats (ai, 3dm, 3ds) and anything unknown: neutral tile.
         _ => placeholder::generate_placeholder(&thumb_dest)?,
     }
 
     Ok(rel_thumb)
 }
 
+/// Additional previews saved as `<stem>_thumb_<n>`, returned library-relative
+/// in order. Empty for every container that only ever holds one preview.
+fn generate_gallery(ext: &str, source: &Path, file_stem: &str, thumb_dir: &Path) -> Vec<String> {
+    if !GALLERY_EXTENSIONS.contains(&ext) {
+        return Vec::new();
+    }
+
+    let images = archive::extract_skp_thumbs(source).unwrap_or_default();
+    images
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter_map(|(index, img)| {
+            let name = format!("{}_thumb_{}.png", file_stem, index);
+            save_thumb(img, &thumb_dir.join(&name))
+                .ok()
+                .map(|()| format!(".polystash/thumbs/{}", name))
+        })
+        .collect()
+}
+
 impl LibraryJobs<'_> {
     /// Mark a job and its asset done and notify the frontend.
-    async fn complete(&self, job: &JobRef<'_>, rel_thumb: Option<&str>) {
+    async fn complete(&self, job: &JobRef<'_>, rel_thumbs: &[String]) {
         let _ = sqlx::query("UPDATE preview_jobs SET status = 'done' WHERE id = ?")
             .bind(job.id)
             .execute(self.pool)
             .await;
-        match rel_thumb {
+
+        match rel_thumbs.first() {
             Some(rel) => {
                 let _ = sqlx::query("UPDATE assets SET preview_status = 'done', thumbnail_path = ? WHERE id = ?")
                     .bind(rel)
@@ -165,11 +218,40 @@ impl LibraryJobs<'_> {
             }
         }
 
-        let resolved_abs = rel_thumb.map(|rel| resolve_path(self.root_path, rel));
+        if rel_thumbs.len() > 1 {
+            self.record_gallery(job, rel_thumbs).await;
+        }
+
+        let absolute: Vec<String> = rel_thumbs
+            .iter()
+            .map(|rel| resolve_path(self.root_path, rel))
+            .collect();
         let _ = self.state.app_handle.emit("preview:done", json!({
             "assetId": job.asset_id,
-            "thumbnailPath": resolved_abs,
+            "thumbnailPath": absolute.first(),
+            "thumbnailPaths": absolute,
         }));
+    }
+
+    /// Store the ordered gallery on the asset so the frontend can render it,
+    /// merging into the existing metadata rather than replacing it.
+    async fn record_gallery(&self, job: &JobRef<'_>, rel_thumbs: &[String]) {
+        let existing: Option<(String,)> = sqlx::query_as("SELECT metadata FROM assets WHERE id = ?")
+            .bind(job.asset_id)
+            .fetch_optional(self.pool)
+            .await
+            .unwrap_or(None);
+
+        let mut metadata: serde_json::Map<String, Value> = existing
+            .and_then(|(raw,)| serde_json::from_str(&raw).ok())
+            .unwrap_or_default();
+        metadata.insert("polystash.thumbs".to_string(), json!(rel_thumbs));
+
+        let _ = sqlx::query("UPDATE assets SET metadata = ? WHERE id = ?")
+            .bind(Value::Object(metadata).to_string())
+            .bind(job.asset_id)
+            .execute(self.pool)
+            .await;
     }
 
     /// Mark a job and its asset errored and notify the frontend.
@@ -208,6 +290,22 @@ async fn fetch_queued_jobs(pool: &sqlx::Pool<sqlx::Sqlite>) -> Vec<(String, Stri
     .unwrap_or_default()
 }
 
+/// Complete a job with a neutral placeholder when extraction is impossible, so
+/// an unsupported or corrupt file never leaves the asset stuck generating.
+async fn complete_with_placeholder(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, file_stem: &str) {
+    let thumb_file_name = format!("{}_thumb.png", file_stem);
+    match placeholder::generate_placeholder(&jobs.thumb_dir.join(&thumb_file_name)) {
+        Ok(()) => {
+            let rel = format!(".polystash/thumbs/{}", thumb_file_name);
+            jobs.complete(job, &[rel]).await;
+        }
+        Err(e) => {
+            tracing::error!("Job {} failed: {}", job.id, e);
+            jobs.fail(job).await;
+        }
+    }
+}
+
 /// Generate the thumbnail for one job and record the outcome.
 async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
     let full_source = resolve_source(jobs.root_path, job.file_path);
@@ -223,26 +321,38 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
 
     if let Some(rel_thumb) = existing_thumb(jobs.thumb_dir, file_stem) {
         tracing::info!("Thumbnail already exists for {}, skipping generation", file_stem);
-        jobs.complete(job, Some(&rel_thumb)).await;
+        let mut gallery = vec![rel_thumb];
+        gallery.extend(existing_thumb_set(jobs.thumb_dir, file_stem).into_iter().skip(1));
+        jobs.complete(job, &gallery).await;
         return;
     }
 
     // Mesh formats render live in the frontend; no backend thumbnail.
     if MESH_EXTENSIONS.contains(&ext.as_str()) {
-        jobs.complete(job, None).await;
+        jobs.complete(job, &[]).await;
         return;
     }
 
     if let Some(rel_thumb) = native_image_thumb(&full_source, &ext, file_stem, jobs.thumb_dir) {
-        jobs.complete(job, Some(&rel_thumb)).await;
+        jobs.complete(job, &[rel_thumb]).await;
         return;
     }
 
     match generate_thumbnail(&ext, &full_source, file_stem, jobs.thumb_dir).await {
-        Ok(rel_thumb) => jobs.complete(job, Some(&rel_thumb)).await,
+        Ok(primary) => {
+            let mut gallery = vec![primary];
+            gallery.extend(generate_gallery(&ext, &full_source, file_stem, jobs.thumb_dir));
+            jobs.complete(job, &gallery).await;
+        }
         Err(e) => {
-            tracing::error!("Job {} failed: {}", job.id, e);
-            jobs.fail(job).await;
+            // An extractor that cannot handle a file is a normal outcome, not a
+            // failure: complete with a neutral tile so the asset never stalls.
+            tracing::warn!(
+                "Extraction failed for {}: {}. Falling back to placeholder.",
+                full_source.display(),
+                e
+            );
+            complete_with_placeholder(jobs, job, file_stem).await;
         }
     }
 }

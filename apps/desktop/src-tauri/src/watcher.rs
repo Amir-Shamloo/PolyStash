@@ -126,6 +126,31 @@ struct PendingAsset {
     is_update: bool,
 }
 
+/// Every format with a backend or frontend preview path belongs here;
+/// formats absent from this list are never queued for preview generation.
+const PREVIEW_EXTENSIONS: &[&str] = &[
+    "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "skp", "rfa", "rvt", "rte",
+    "dwg", "dxf", "3dm", "vrmat", "sbsar", "psd", "psb", "ai", "exr", "hdr", "hdri",
+    "c4d", "blend", "pdf",
+    "jpg", "jpeg", "png", "tif", "tiff", "tga", "bmp", "webp",
+    "mp4", "mov", "avi", "mkv", "webm", "m4v",
+];
+
+/// Decide the preview status for a freshly scanned file: reuse an existing
+/// thumbnail when present, otherwise queue a job for any previewable format.
+fn preview_state_for(ext: &str, thumb_png: &Path, thumb_jpg: &Path, stem: &str) -> (&'static str, Option<String>, bool) {
+    if thumb_png.exists() {
+        return ("done", Some(format!(".polystash/thumbs/{stem}_thumb.png")), false);
+    }
+    if thumb_jpg.exists() {
+        return ("done", Some(format!(".polystash/thumbs/{stem}_thumb.jpg")), false);
+    }
+    if PREVIEW_EXTENSIONS.contains(&ext) {
+        return ("pending", None, true);
+    }
+    ("none", None, false)
+}
+
 /// Walk `paths` and index all found files as Assets into the database.
 /// Highly optimized for NAS:
 /// 1. Single initial query loads existing assets into RAM (0 queries during walk).
@@ -240,27 +265,8 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
             let thumb_png = thumbs_dir.join(format!("{}_thumb.png", stem));
             let thumb_jpg = thumbs_dir.join(format!("{}_thumb.jpg", stem));
 
-            let mut preview_status = "none";
-            let mut thumbnail_path = None;
-            let mut needs_job = false;
-
-            if thumb_png.exists() {
-                preview_status = "done";
-                thumbnail_path = Some(format!(".polystash/thumbs/{}_thumb.png", stem));
-            } else if thumb_jpg.exists() {
-                preview_status = "done";
-                thumbnail_path = Some(format!(".polystash/thumbs/{}_thumb.jpg", stem));
-            } else {
-                let needs_preview = matches!(
-                    ext.as_str(),
-                    "max" | "fbx" | "obj" | "gltf" | "glb" | "dae" | "stl" | "3ds" | "skp" | "rfa" | "rvt" | "dwg" | "3dm" | "vrmat" | "psd" | "psb" | "ai" | "exr" | "hdr"
-                    | "jpg" | "jpeg" | "png" | "tif" | "tiff" | "tga" | "bmp" | "webp"
-                );
-                if needs_preview {
-                    preview_status = "pending";
-                    needs_job = true;
-                }
-            }
+            let (preview_status, thumbnail_path, needs_job) =
+                preview_state_for(&ext, &thumb_png, &thumb_jpg, &stem);
 
             let (id, is_update) = if let Some((existing_id, _, _, existing_thumb)) = existing_map.get(&rel_path) {
                 if thumbnail_path.is_none() && existing_thumb.is_some() {

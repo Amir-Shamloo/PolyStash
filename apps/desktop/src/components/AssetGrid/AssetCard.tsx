@@ -1,9 +1,20 @@
-import { memo, useCallback, useState, useEffect, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset, AssetKind } from '../../types';
 import { useTagStore, useCollectionStore, useAssetStore } from '../../store';
-import { IconModel3D, IconImage, IconVideo, IconStar, IconCollection, IconHeart, IconHeartFilled } from '../Icons';
+import {
+  IconModel3D,
+  IconImage,
+  IconVideo,
+  IconStar,
+  IconCollection,
+  IconHeart,
+  IconHeartFilled,
+  IconFileText,
+} from '../Icons';
+import { ThumbnailCarousel, getAssetThumbnailUrls } from './ThumbnailCarousel';
+import { useModelSnapshot } from '../../lib/previewSnapshot';
 import styles from './AssetCard.module.css';
 
 export interface AssetCardProps {
@@ -20,34 +31,232 @@ const KIND_ICON: Record<AssetKind, React.FC<{ size?: number }>> = {
   ies: IconImage,
   video: IconVideo,
   image: IconImage,
-  document: IconImage,
+  document: IconFileText,
   other: IconImage,
 };
 
 const KIND_COLOR: Record<AssetKind, string> = {
-  '3d_model':  'hsl(220 85% 55%)',
-  material:    'hsl(268 72% 60%)',
-  texture:     'hsl(178 64% 46%)',
-  hdri:        'hsl( 38 92% 56%)',
-  ies:         'hsl( 45 95% 50%)',
-  video:       'hsl(  4 80% 55%)',
-  image:       'hsl(140 64% 46%)',
-  document:    'hsl(213 84% 55%)',
-  other:       'hsl(220  8% 50%)',
+  '3d_model': 'hsl(220 85% 55%)',
+  material: 'hsl(268 72% 60%)',
+  texture: 'hsl(178 64% 46%)',
+  hdri: 'hsl( 38 92% 56%)',
+  ies: 'hsl( 45 95% 50%)',
+  video: 'hsl(  4 80% 55%)',
+  image: 'hsl(140 64% 46%)',
+  document: 'hsl(213 84% 55%)',
+  other: 'hsl(220  8% 50%)',
 };
 
-export const AssetCard = memo(function AssetCard({
-  asset, selected, onClick,
-}: AssetCardProps) {
-  const [imgError, setImgError] = useState(false);
-  const patchAsset = useAssetStore((s) => s.patchAsset);
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)}GB`;
+}
 
-  useEffect(() => {
-    setImgError(false);
-  }, [asset.thumbnailPath, asset.filePath]);
+interface CardThumbMediaProps {
+  asset: Asset;
+  snapshotUrl: string | null;
+}
 
+function CardThumbMedia({ asset, snapshotUrl }: CardThumbMediaProps) {
+  const thumbs = getAssetThumbnailUrls(asset, snapshotUrl);
+  const KindIcon = KIND_ICON[asset.kind] ?? IconImage;
+  const kindColor = KIND_COLOR[asset.kind] ?? 'var(--color-text-disabled)';
+
+  if (thumbs.length > 0) {
+    return (
+      <ThumbnailCarousel
+        asset={asset}
+        snapshotUrl={snapshotUrl}
+        imgClassName={styles.thumbImg}
+        alt={asset.fileName}
+      />
+    );
+  }
+
+  if (asset.kind === 'video' && asset.filePath) {
+    return (
+      <div className={styles.videoThumbWrapper}>
+        <video
+          src={convertFileSrc(asset.filePath)}
+          preload="metadata"
+          muted
+          playsInline
+          className={styles.thumbVideo}
+          onLoadedMetadata={(e) => {
+            try {
+              e.currentTarget.currentTime = 0.1;
+            } catch {}
+          }}
+        />
+        <div className={styles.videoPlayOverlay}>
+          <IconVideo size={13} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.thumbPlaceholder}>
+      <KindIcon size={36} />
+      <span style={{ fontSize: '11px', fontWeight: 600, color: kindColor, marginTop: 4 }}>
+        .{asset.extension.toUpperCase()}
+      </span>
+    </div>
+  );
+}
+
+interface CardThumbAreaProps {
+  asset: Asset;
+  snapshotUrl: string | null;
+  onToggleFavorite: (e: React.MouseEvent) => void;
+}
+
+function CardThumbArea({ asset, snapshotUrl, onToggleFavorite }: CardThumbAreaProps) {
   const KindIcon = KIND_ICON[asset.kind] ?? IconImage;
   const kindColor = KIND_COLOR[asset.kind];
+
+  return (
+    <div className={styles.thumb}>
+      <CardThumbMedia asset={asset} snapshotUrl={snapshotUrl} />
+
+      <button
+        id={`card-fav-${asset.id}`}
+        type="button"
+        className={clsx(styles.favoriteBtn, asset.isFavorite && styles.favoriteActive)}
+        onClick={onToggleFavorite}
+        title={asset.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        aria-label={asset.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      >
+        {asset.isFavorite ? (
+          <IconHeartFilled size={13} className={styles.favoriteHeartFilled} />
+        ) : (
+          <IconHeart size={13} />
+        )}
+      </button>
+
+      {asset.colorLabel !== 'none' && (
+        <div
+          className={styles.colorStripe}
+          style={{ background: `var(--swatch-${asset.colorLabel})` }}
+        />
+      )}
+
+      <div className={styles.kindChip} style={{ color: kindColor }}>
+        <KindIcon size={10} />
+        <span>{asset.extension.toUpperCase()}</span>
+      </div>
+    </div>
+  );
+}
+
+interface ChipItem {
+  id: string;
+  name: string;
+  type: 'collection' | 'tag';
+  color?: string;
+}
+
+function buildCollectionChips(colIds: string[] | undefined, collections: { id: string; name: string }[]): ChipItem[] {
+  if (!colIds || colIds.length === 0) return [];
+  const map = new Map(collections.map((c) => [c.id, c.name]));
+  return colIds
+    .map((id) => ({ id: `col-${id}`, name: map.get(id) ?? '', type: 'collection' as const }))
+    .filter((item) => item.name.length > 0);
+}
+
+function buildTagChips(tagIds: string[] | undefined, tagMap: Map<string, { name: string; color?: string }>): ChipItem[] {
+  if (!tagIds || tagIds.length === 0) return [];
+  return tagIds.map((id) => {
+    const tag = tagMap.get(id);
+    return {
+      id: `tag-${id}`,
+      name: tag?.name ?? id,
+      type: 'tag' as const,
+      color: tag?.color,
+    };
+  });
+}
+
+function useAssetChips(asset: Asset): ChipItem[] {
+  const tagMap = useTagStore((s) => s.tagMap);
+  const collections = useCollectionStore((s) => s.collections);
+
+  return useMemo(() => [
+    ...buildCollectionChips(asset.collections, collections),
+    ...buildTagChips(asset.tags, tagMap),
+  ], [asset.collections, asset.tags, collections, tagMap]);
+}
+
+interface CardBodyProps {
+  asset: Asset;
+  chips: ChipItem[];
+}
+
+function CardBody({ asset, chips }: CardBodyProps) {
+  return (
+    <div className={styles.body}>
+      <p className={clsx(styles.name, 'truncate')} title={asset.fileName}>
+        {asset.fileName}
+      </p>
+
+      <div className={styles.meta}>
+        {asset.rating > 0 && (
+          <div className={styles.stars}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <IconStar
+                key={i}
+                size={10}
+                className={clsx(styles.star, i < asset.rating && styles.starFilled)}
+              />
+            ))}
+          </div>
+        )}
+        <span className={styles.size}>{formatSize(asset.sizeBytes)}</span>
+      </div>
+
+      {chips.length > 0 && (
+        <div
+          className={styles.chipsScroll}
+          onWheel={(e) => {
+            if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
+          }}
+        >
+          {chips.map((chip) => (
+            <span
+              key={chip.id}
+              className={clsx(
+                styles.chip,
+                chip.type === 'collection' ? styles.collectionChip : styles.tagChip
+              )}
+              title={chip.type === 'collection' ? `Collection: ${chip.name}` : `Tag: ${chip.name}`}
+            >
+              {chip.type === 'collection' ? (
+                <IconCollection size={9} className={styles.chipIcon} />
+              ) : (
+                <span
+                  className={styles.chipDot}
+                  style={{ background: chip.color ? `var(--swatch-${chip.color})` : 'hsl(220 85% 60%)' }}
+                />
+              )}
+              <span className={styles.chipText}>{chip.name}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const AssetCard = memo(function AssetCard({
+  asset,
+  selected,
+  onClick,
+}: AssetCardProps) {
+  const patchAsset = useAssetStore((s) => s.patchAsset);
+  const snapshotUrl = useModelSnapshot(asset);
+  const chips = useAssetChips(asset);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -74,40 +283,6 @@ export const AssetCard = memo(function AssetCard({
     [asset.id]
   );
 
-  const tagMap = useTagStore((s) => s.tagMap);
-  const collections = useCollectionStore((s) => s.collections);
-
-  const collectionMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of collections) {
-      map.set(c.id, c.name);
-    }
-    return map;
-  }, [collections]);
-
-  const chips = useMemo(() => {
-    const list: { id: string; name: string; type: 'collection' | 'tag'; color?: string }[] = [];
-    if (asset.collections && asset.collections.length > 0) {
-      for (const colId of asset.collections) {
-        const name = collectionMap.get(colId);
-        if (name) {
-          list.push({ id: `col-${colId}`, name, type: 'collection' });
-        }
-      }
-    }
-    if (asset.tags && asset.tags.length > 0) {
-      for (const tagId of asset.tags) {
-        const tag = tagMap.get(tagId);
-        if (tag) {
-          list.push({ id: `tag-${tagId}`, name: tag.name, type: 'tag', color: tag.color });
-        } else {
-          list.push({ id: `tag-${tagId}`, name: tagId, type: 'tag' });
-        }
-      }
-    }
-    return list;
-  }, [asset.collections, asset.tags, collectionMap, tagMap]);
-
   return (
     <div
       id={`asset-${asset.id}`}
@@ -120,150 +295,12 @@ export const AssetCard = memo(function AssetCard({
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && handleClick(e as unknown as React.MouseEvent)}
     >
-      {/* Thumbnail / preview area */}
-      <div className={styles.thumb}>
-        {asset.thumbnailPath && !asset.thumbnailPath.endsWith('.glb') && !imgError ? (
-          <img
-            src={convertFileSrc(asset.thumbnailPath)}
-            alt={asset.fileName}
-            className={styles.thumbImg}
-            loading="lazy"
-            onError={() => setImgError(true)}
-          />
-        ) : (['image', 'texture'].includes(asset.kind) && asset.filePath && !imgError) ? (
-          <img
-            src={convertFileSrc(asset.filePath)}
-            alt={asset.fileName}
-            className={styles.thumbImg}
-            loading="lazy"
-            onError={() => setImgError(true)}
-          />
-        ) : (asset.kind === 'video' && asset.filePath && !imgError) ? (
-          <div className={styles.videoThumbWrapper}>
-            <video
-              src={convertFileSrc(asset.filePath)}
-              preload="metadata"
-              muted
-              playsInline
-              className={styles.thumbVideo}
-              onLoadedMetadata={(e) => {
-                try {
-                  e.currentTarget.currentTime = 0.1;
-                } catch {}
-              }}
-              onError={() => setImgError(true)}
-            />
-            <div className={styles.videoPlayOverlay}>
-              <IconVideo size={13} />
-            </div>
-          </div>
-        ) : (
-          <div className={styles.thumbPlaceholder}>
-            <KindIcon size={36} />
-          </div>
-        )}
-
-        {/* Preview status badge */}
-        {asset.previewStatus === 'generating' && (
-          <div className={clsx(styles.previewBadge, styles.generating)}>
-            <span className="animate-pulse">⟳</span>
-          </div>
-        )}
-        {asset.previewStatus === 'error' && (
-          <div className={clsx(styles.previewBadge, styles.error)}>!</div>
-        )}
-
-        {/* Favorite toggle button */}
-        <button
-          id={`card-fav-${asset.id}`}
-          type="button"
-          className={clsx(styles.favoriteBtn, asset.isFavorite && styles.favoriteActive)}
-          onClick={handleToggleFavorite}
-          title={asset.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          aria-label={asset.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          {asset.isFavorite ? (
-            <IconHeartFilled size={13} className={styles.favoriteHeartFilled} />
-          ) : (
-            <IconHeart size={13} />
-          )}
-        </button>
-
-        {/* Color label stripe */}
-        {asset.colorLabel !== 'none' && (
-          <div
-            className={styles.colorStripe}
-            style={{ background: `var(--swatch-${asset.colorLabel})` }}
-          />
-        )}
-
-        {/* Kind chip */}
-        <div className={styles.kindChip} style={{ color: kindColor }}>
-          <KindIcon size={10} />
-          <span>{asset.extension.toUpperCase()}</span>
-        </div>
-      </div>
-
-      {/* Card body */}
-      <div className={styles.body}>
-        <p className={clsx(styles.name, 'truncate')} title={asset.fileName}>
-          {asset.fileName}
-        </p>
-        <div className={styles.meta}>
-          {asset.rating > 0 && (
-            <div className={styles.stars}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <IconStar
-                  key={i}
-                  size={10}
-                  className={clsx(styles.star, i < asset.rating && styles.starFilled)}
-                />
-              ))}
-            </div>
-          )}
-          <span className={styles.size}>{formatSize(asset.sizeBytes)}</span>
-        </div>
-
-        {/* Scrollable tags and collections chips on bottom */}
-        {chips.length > 0 && (
-          <div
-            className={styles.chipsScroll}
-            onWheel={(e) => {
-              if (e.deltaY !== 0) {
-                e.currentTarget.scrollLeft += e.deltaY;
-              }
-            }}
-          >
-            {chips.map((chip) => (
-              <span
-                key={chip.id}
-                className={clsx(
-                  styles.chip,
-                  chip.type === 'collection' ? styles.collectionChip : styles.tagChip
-                )}
-                title={chip.type === 'collection' ? `Collection: ${chip.name}` : `Tag: ${chip.name}`}
-              >
-                {chip.type === 'collection' ? (
-                  <IconCollection size={9} className={styles.chipIcon} />
-                ) : (
-                  <span
-                    className={styles.chipDot}
-                    style={{ background: chip.color ? `var(--swatch-${chip.color})` : 'hsl(220 85% 60%)' }}
-                  />
-                )}
-                <span className={styles.chipText}>{chip.name}</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      <CardThumbArea
+        asset={asset}
+        snapshotUrl={snapshotUrl}
+        onToggleFavorite={handleToggleFavorite}
+      />
+      <CardBody asset={asset} chips={chips} />
     </div>
   );
 });
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)}GB`;
-}

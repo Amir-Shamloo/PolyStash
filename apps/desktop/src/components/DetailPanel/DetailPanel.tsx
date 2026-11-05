@@ -1,44 +1,308 @@
 import { useCallback, useState, useEffect } from 'react';
 import clsx from 'clsx';
-import { useUIStore, useAssetStore, useTagStore, useCollectionStore } from '../../store';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import type { Asset, ColorLabel, Collection } from '../../types';
-import { IconStar, IconX, IconExternal, IconEye, IconInfo, IconCopy, IconCheck, IconRefresh, IconEdit, IconTrash, IconHeart, IconHeartFilled } from '../Icons';
+import { useUIStore, useAssetStore, useTagStore, useCollectionStore } from '../../store';
+import type { Asset, ColorLabel, Collection, AssetKind } from '../../types';
+import {
+  IconStar,
+  IconX,
+  IconExternal,
+  IconEye,
+  IconInfo,
+  IconCopy,
+  IconCheck,
+  IconEdit,
+  IconTrash,
+  IconHeart,
+  IconHeartFilled,
+  IconModel3D,
+  IconImage,
+  IconVideo,
+  IconFileText,
+} from '../Icons';
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
 import { api } from '../../api';
 import { ThreeViewer, getModelPath } from './ThreeViewer';
+import { ThumbnailCarousel, getAssetThumbnailUrls } from '../AssetGrid/ThumbnailCarousel';
+import { useModelSnapshot } from '../../lib/previewSnapshot';
 import styles from './DetailPanel.module.css';
 
 const COLOR_LABELS: ColorLabel[] = [
   'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink',
 ];
 
-export function DetailPanel() {
-  const focusedAssetId = useUIStore((s) => s.focusedAssetId);
-  const asset = useAssetStore((s) =>
-    focusedAssetId ? s.assets.find((a) => a.id === focusedAssetId) ?? s.assetMap.get(focusedAssetId) ?? null : null
+const KIND_COLOR: Record<AssetKind, string> = {
+  '3d_model': 'hsl(220 85% 55%)',
+  material: 'hsl(268 72% 60%)',
+  texture: 'hsl(178 64% 46%)',
+  hdri: 'hsl( 38 92% 56%)',
+  ies: 'hsl( 45 95% 50%)',
+  video: 'hsl(  4 80% 55%)',
+  image: 'hsl(140 64% 46%)',
+  document: 'hsl(213 84% 55%)',
+  other: 'hsl(220  8% 50%)',
+};
+
+const KIND_ICON: Record<AssetKind, React.FC<{ size?: number; style?: React.CSSProperties }>> = {
+  '3d_model': IconModel3D,
+  material: IconImage,
+  texture: IconImage,
+  hdri: IconImage,
+  ies: IconImage,
+  video: IconVideo,
+  image: IconImage,
+  document: IconFileText,
+  other: IconImage,
+};
+
+interface NameEditorProps {
+  isEditing: boolean;
+  name: string;
+  onStart: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  onChange: (v: string) => void;
+}
+
+function NameEditor({ isEditing, name, onStart, onCancel, onSave, onChange }: NameEditorProps) {
+  if (!isEditing) {
+    return (
+      <p
+        className={clsx(styles.fileName, 'truncate')}
+        title="Double-click or click edit icon to rename"
+        onDoubleClick={onStart}
+        style={{ cursor: 'pointer' }}
+      >
+        {name}
+      </p>
+    );
+  }
+
+  return (
+    <form
+      className={styles.nameEditForm}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave();
+      }}
+    >
+      <input
+        type="text"
+        autoFocus
+        className={styles.nameInput}
+        value={name}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onCancel();
+        }}
+      />
+      <button
+        type="submit"
+        className={clsx(styles.nameActionBtn, styles.nameActionBtnConfirm)}
+        title="Save name"
+        aria-label="Save name"
+      >
+        <IconCheck size={13} />
+      </button>
+      <button
+        type="button"
+        className={clsx(styles.nameActionBtn, styles.nameActionBtnCancel)}
+        onClick={onCancel}
+        title="Cancel"
+        aria-label="Cancel rename"
+      >
+        <IconX size={13} />
+      </button>
+    </form>
   );
+}
+
+interface HeaderActionsProps {
+  asset: Asset;
+  onToggleFavorite: () => void;
+  onStartRename: () => void;
+  onOpenDelete: () => void;
+}
+
+function HeaderActionButtons({ asset, onToggleFavorite, onStartRename, onOpenDelete }: HeaderActionsProps) {
+  return (
+    <div className={styles.headerActions}>
+      <button
+        id="detail-favorite"
+        className={clsx(styles.actionBtn, asset.isFavorite && styles.actionBtnFavorite)}
+        title={asset.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        aria-label={asset.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        onClick={onToggleFavorite}
+      >
+        {asset.isFavorite ? (
+          <IconHeartFilled size={14} className={styles.favoriteHeartFilled} />
+        ) : (
+          <IconHeart size={14} />
+        )}
+      </button>
+      <button
+        id="detail-rename"
+        className={styles.actionBtn}
+        title="Rename file (F2)"
+        aria-label="Rename file"
+        onClick={onStartRename}
+      >
+        <IconEdit size={14} />
+      </button>
+      <button
+        id="detail-open-external"
+        className={styles.actionBtn}
+        title="Open with default app"
+        aria-label="Open with default app"
+        onClick={() => api.openWithDefault(asset.filePath).catch(console.error)}
+      >
+        <IconExternal size={14} />
+      </button>
+      <button
+        id="detail-reveal"
+        className={styles.actionBtn}
+        title="Reveal in Explorer"
+        aria-label="Reveal in Explorer"
+        onClick={() => api.revealInExplorer(asset.filePath).catch(console.error)}
+      >
+        <IconEye size={14} />
+      </button>
+      <button
+        id="detail-copy-path"
+        className={styles.actionBtn}
+        title="Copy path"
+        aria-label="Copy file path"
+        onClick={() => navigator.clipboard.writeText(asset.filePath)}
+      >
+        <IconCopy size={14} />
+      </button>
+      <button
+        id="detail-delete"
+        className={clsx(styles.actionBtn, styles.actionBtnDanger)}
+        title="Delete file (Move to Recycle Bin)"
+        aria-label="Delete file"
+        onClick={onOpenDelete}
+      >
+        <IconTrash size={14} />
+      </button>
+    </div>
+  );
+}
+
+interface DetailHeaderProps {
+  asset: Asset;
+  isEditingName: boolean;
+  editingName: string;
+  nameError: string | null;
+  onStartRename: () => void;
+  onCancelRename: () => void;
+  onSaveRename: () => void;
+  onEditingNameChange: (v: string) => void;
+  onToggleFavorite: () => void;
+  onOpenDelete: () => void;
+}
+
+function DetailPanelHeader({
+  asset,
+  isEditingName,
+  editingName,
+  nameError,
+  onStartRename,
+  onCancelRename,
+  onSaveRename,
+  onEditingNameChange,
+  onToggleFavorite,
+  onOpenDelete,
+}: DetailHeaderProps) {
+  return (
+    <>
+      <div className={styles.header}>
+        <NameEditor
+          isEditing={isEditingName}
+          name={editingName}
+          onStart={onStartRename}
+          onCancel={onCancelRename}
+          onSave={onSaveRename}
+          onChange={onEditingNameChange}
+        />
+        <HeaderActionButtons
+          asset={asset}
+          onToggleFavorite={onToggleFavorite}
+          onStartRename={onStartRename}
+          onOpenDelete={onOpenDelete}
+        />
+      </div>
+
+      {nameError && (
+        <div style={{ color: '#ef4444', fontSize: '11px', padding: '2px 16px', background: 'rgba(239, 68, 68, 0.1)' }}>
+          {nameError}
+        </div>
+      )}
+    </>
+  );
+}
+
+interface DetailPreviewProps {
+  asset: Asset;
+  modelPath?: string;
+  snapshotUrl?: string | null;
+}
+
+function renderPreviewBody(asset: Asset, modelPath?: string, snapshotUrl?: string | null) {
+  const thumbs = getAssetThumbnailUrls(asset, snapshotUrl);
+  if (thumbs.length > 0) {
+    return (
+      <ThumbnailCarousel
+        asset={asset}
+        snapshotUrl={snapshotUrl}
+        imgClassName={styles.thumbImg}
+        alt={asset.fileName}
+      />
+    );
+  }
+
+  if (asset.kind === 'video' && asset.filePath) {
+    return (
+      <video
+        src={convertFileSrc(asset.filePath)}
+        preload="metadata"
+        muted
+        playsInline
+        controls
+        className={styles.thumbImg}
+        style={{ objectFit: 'contain' }}
+      />
+    );
+  }
+
+  if (modelPath) {
+    return <ThreeViewer modelPath={modelPath} />;
+  }
+
+  const KindIcon = KIND_ICON[asset.kind] ?? IconImage;
+  const kindColor = KIND_COLOR[asset.kind] ?? 'var(--color-text-disabled)';
+  return (
+    <div className={styles.thumbPlaceholder}>
+      <KindIcon size={36} style={{ color: kindColor }} />
+      <span className={styles.thumbExt} style={{ color: kindColor }}>
+        .{asset.extension.toUpperCase()}
+      </span>
+    </div>
+  );
+}
+
+function DetailPanelPreviewArea({ asset, modelPath, snapshotUrl }: DetailPreviewProps) {
+  return (
+    <div className={styles.thumbArea}>
+      {renderPreviewBody(asset, modelPath, snapshotUrl)}
+    </div>
+  );
+}
+
+function useAssetMutations(asset: Asset | null) {
   const patchAsset = useAssetStore((s) => s.patchAsset);
   const deleteAsset = useAssetStore((s) => s.deleteAsset);
   const renameAsset = useAssetStore((s) => s.renameAsset);
-  const tags = useTagStore((s) => s.tags);
-  const collections = useCollectionStore((s) => s.collections);
-  const addToCollection = useCollectionStore((s) => s.addToCollection);
-  const removeFromCollection = useCollectionStore((s) => s.removeFromCollection);
-  const [tab, setTab] = useState<'info' | 'tags' | 'collections' | 'preview'>('info');
-
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editingName, setEditingName] = useState('');
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  useEffect(() => {
-    setIsEditingName(false);
-    setNameError(null);
-    if (asset) {
-      setEditingName(asset.fileName);
-    }
-  }, [asset?.id]);
 
   const setRating = useCallback(
     (rating: number) => asset && patchAsset(asset.id, { rating }),
@@ -66,17 +330,88 @@ export function DetailPanel() {
     [asset, patchAsset]
   );
 
-  const setPreviewStatus = useAssetStore((s) => s.setPreviewStatus);
-  const handleGeneratePreview = useCallback(async () => {
-    if (!asset) return;
-    setPreviewStatus(asset.id, 'pending');
-    try {
-      await api.requestPreview([asset.id]);
-    } catch (err) {
-      console.error('Failed to request preview:', err);
-      setPreviewStatus(asset.id, 'error');
-    }
-  }, [asset, setPreviewStatus]);
+  return { setRating, setColorLabel, toggleFavorite, toggleTag, deleteAsset, renameAsset };
+}
+
+type TabKey = 'info' | 'tags' | 'collections' | 'preview';
+
+interface TabContentProps {
+  tab: TabKey;
+  asset: Asset;
+  modelPath?: string;
+  snapshotUrl?: string | null;
+  onRatingChange: (r: number) => void;
+  onColorLabelChange: (l: ColorLabel) => void;
+  onFavoriteChange: () => void;
+  onToggleTag: (id: string) => void;
+}
+
+function DetailTabContent({
+  tab,
+  asset,
+  modelPath,
+  snapshotUrl,
+  onRatingChange,
+  onColorLabelChange,
+  onFavoriteChange,
+  onToggleTag,
+}: TabContentProps) {
+  const tags = useTagStore((s) => s.tags);
+  const collections = useCollectionStore((s) => s.collections);
+  const addToCollection = useCollectionStore((s) => s.addToCollection);
+  const removeFromCollection = useCollectionStore((s) => s.removeFromCollection);
+
+  if (tab === 'tags') {
+    return <TagsTab asset={asset} tags={tags} onToggle={onToggleTag} />;
+  }
+  if (tab === 'collections') {
+    return (
+      <CollectionsTab
+        asset={asset}
+        collections={collections}
+        onAdd={async (colId) => {
+          await addToCollection(colId, [asset.id]);
+          useCollectionStore.getState().fetchCollections();
+        }}
+        onRemove={async (colId) => {
+          await removeFromCollection(colId, [asset.id]);
+          useCollectionStore.getState().fetchCollections();
+        }}
+      />
+    );
+  }
+  if (tab === 'preview') {
+    return <PreviewTab asset={asset} modelPath={modelPath} snapshotUrl={snapshotUrl} />;
+  }
+  return (
+    <InfoTab
+      asset={asset}
+      onRatingChange={onRatingChange}
+      onColorLabelChange={onColorLabelChange}
+      onFavoriteChange={onFavoriteChange}
+    />
+  );
+}
+
+export function DetailPanel() {
+  const focusedAssetId = useUIStore((s) => s.focusedAssetId);
+  const asset = useAssetStore((s) =>
+    focusedAssetId ? s.assets.find((a) => a.id === focusedAssetId) ?? s.assetMap.get(focusedAssetId) ?? null : null
+  );
+  const [tab, setTab] = useState<TabKey>('info');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const snapshotUrl = useModelSnapshot(asset);
+  const mutations = useAssetMutations(asset);
+
+  useEffect(() => {
+    setIsEditingName(false);
+    setNameError(null);
+    if (asset) setEditingName(asset.fileName);
+  }, [asset?.id]);
 
   const handleStartRename = () => {
     if (!asset) return;
@@ -94,11 +429,12 @@ export function DetailPanel() {
       return;
     }
     try {
-      await renameAsset(asset.id, trimmed);
+      await mutations.renameAsset(asset.id, trimmed);
       setIsEditingName(false);
       setNameError(null);
-    } catch (err: any) {
-      setNameError(err?.message || String(err));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setNameError(msg);
     }
   };
 
@@ -106,7 +442,7 @@ export function DetailPanel() {
     if (!asset) return;
     setIsDeleteDialogOpen(false);
     try {
-      await deleteAsset(asset.id, true);
+      await mutations.deleteAsset(asset.id, true);
     } catch (err) {
       console.error('Failed to delete asset:', err);
     }
@@ -123,190 +459,31 @@ export function DetailPanel() {
     );
   }
 
-  const isPending = asset.previewStatus === 'pending' || asset.previewStatus === 'generating';
-  const isError = asset.previewStatus === 'error', modelPath = getModelPath(asset);
+  const modelPath = getModelPath(asset);
 
   return (
     <aside className={styles.panel} id="detail-panel">
-      {/* Preview thumbnail */}
-      <div className={styles.thumbArea}>
-        {['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'svg'].includes(asset.extension.toLowerCase()) ? (
-          <img src={convertFileSrc(asset.filePath)} alt={asset.fileName} className={styles.thumbImg} />
-        ) : asset.thumbnailPath && !asset.thumbnailPath.endsWith('.glb') ? (
-          <img src={convertFileSrc(asset.thumbnailPath)} alt={asset.fileName} className={styles.thumbImg} />
-        ) : (['image', 'texture'].includes(asset.kind) && asset.filePath) ? (
-          <img src={convertFileSrc(asset.filePath)} alt={asset.fileName} className={styles.thumbImg} />
-        ) : (asset.kind === 'video' && asset.filePath) ? (
-          <video
-            src={convertFileSrc(asset.filePath)}
-            preload="metadata"
-            muted
-            playsInline
-            controls
-            className={styles.thumbImg}
-            style={{ objectFit: 'contain' }}
-            onLoadedMetadata={(e) => {
-              try { e.currentTarget.currentTime = 0.1; } catch {}
-            }}
-          />
-        ) : modelPath ? (
-          <ThreeViewer modelPath={modelPath} />
-        ) : (
-          <div className={styles.thumbPlaceholder}>
-            <span className={styles.thumbExt}>.{asset.extension}</span>
-            <button
-              className={styles.thumbGenerateBtn}
-              onClick={handleGeneratePreview}
-              disabled={isPending}
-              title={isError ? "Preview failed. Click to retry" : "Generate preview"}
-            >
-              <IconRefresh size={12} className={clsx(isPending && 'animate-spin')} />
-              <span>{isPending ? 'Generating…' : isError ? 'Retry' : 'Generate'}</span>
-            </button>
-          </div>
-        )}
-      </div>
+      <DetailPanelPreviewArea asset={asset} modelPath={modelPath} snapshotUrl={snapshotUrl} />
 
-      {/* File name + actions */}
-      <div className={styles.header}>
-        {isEditingName ? (
-          <form
-            className={styles.nameEditForm}
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSaveRename();
-            }}
-          >
-            <input
-              type="text"
-              autoFocus
-              className={styles.nameInput}
-              value={editingName}
-              onChange={(e) => {
-                setEditingName(e.target.value);
-                if (nameError) setNameError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setIsEditingName(false);
-                  setNameError(null);
-                }
-              }}
-            />
-            <button
-              type="submit"
-              className={clsx(styles.nameActionBtn, styles.nameActionBtnConfirm)}
-              title="Save name"
-            >
-              <IconCheck size={13} />
-            </button>
-            <button
-              type="button"
-              className={clsx(styles.nameActionBtn, styles.nameActionBtnCancel)}
-              onClick={() => {
-                setIsEditingName(false);
-                setNameError(null);
-              }}
-              title="Cancel"
-            >
-              <IconX size={13} />
-            </button>
-          </form>
-        ) : (
-          <p
-            className={clsx(styles.fileName, 'truncate')}
-            title="Double-click or click edit icon to rename"
-            onDoubleClick={handleStartRename}
-            style={{ cursor: 'pointer' }}
-          >
-            {asset.fileName}
-          </p>
-        )}
+      <DetailPanelHeader
+        asset={asset}
+        isEditingName={isEditingName}
+        editingName={editingName}
+        nameError={nameError}
+        onStartRename={handleStartRename}
+        onCancelRename={() => {
+          setIsEditingName(false);
+          setNameError(null);
+        }}
+        onSaveRename={handleSaveRename}
+        onEditingNameChange={(v) => {
+          setEditingName(v);
+          if (nameError) setNameError(null);
+        }}
+        onToggleFavorite={mutations.toggleFavorite}
+        onOpenDelete={() => setIsDeleteDialogOpen(true)}
+      />
 
-        <div className={styles.headerActions}>
-          <button
-            id="detail-favorite"
-            className={clsx(styles.actionBtn, asset.isFavorite && styles.actionBtnFavorite)}
-            title={asset.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            onClick={toggleFavorite}
-          >
-            {asset.isFavorite ? (
-              <IconHeartFilled size={14} className={styles.favoriteHeartFilled} />
-            ) : (
-              <IconHeart size={14} />
-            )}
-          </button>
-          <button
-            id="detail-rename"
-            className={styles.actionBtn}
-            title="Rename file (F2)"
-            onClick={handleStartRename}
-          >
-            <IconEdit size={14} />
-          </button>
-          <button
-            id="detail-gen-preview-header"
-            className={clsx(styles.actionBtn, isPending && styles.actionBtnLoading)}
-            title={isPending ? "Generating preview…" : "Generate/Regenerate preview"}
-            onClick={handleGeneratePreview}
-            disabled={isPending}
-          >
-            <IconRefresh size={14} className={clsx(isPending && 'animate-spin')} />
-          </button>
-          <button
-            id="detail-open-external"
-            className={styles.actionBtn}
-            title="Open with default app"
-            onClick={async () => {
-              try {
-                await api.openWithDefault(asset.filePath);
-              } catch (err) {
-                console.error('Failed to open with default app:', err);
-              }
-            }}
-          >
-            <IconExternal size={14} />
-          </button>
-          <button
-            id="detail-reveal"
-            className={styles.actionBtn}
-            title="Reveal in Explorer"
-            onClick={async () => {
-              try {
-                await api.revealInExplorer(asset.filePath);
-              } catch (err) {
-                console.error('Failed to reveal in explorer:', err);
-              }
-            }}
-          >
-            <IconEye size={14} />
-          </button>
-          <button
-            id="detail-copy-path"
-            className={styles.actionBtn}
-            title="Copy path"
-            onClick={() => navigator.clipboard.writeText(asset.filePath)}
-          >
-            <IconCopy size={14} />
-          </button>
-          <button
-            id="detail-delete"
-            className={clsx(styles.actionBtn, styles.actionBtnDanger)}
-            title="Delete file (Move to Recycle Bin)"
-            onClick={() => setIsDeleteDialogOpen(true)}
-          >
-            <IconTrash size={14} />
-          </button>
-        </div>
-      </div>
-
-      {nameError && (
-        <div style={{ color: '#ef4444', fontSize: '11px', padding: '2px 16px', background: 'rgba(239, 68, 68, 0.1)' }}>
-          {nameError}
-        </div>
-      )}
-
-      {/* Tabs */}
       <div className={styles.tabs}>
         {(['info', 'tags', 'collections', 'preview'] as const).map((t) => (
           <button
@@ -321,34 +498,16 @@ export function DetailPanel() {
       </div>
 
       <div className={styles.tabContent}>
-        {tab === 'info' && (
-          <InfoTab
-            asset={asset}
-            onRatingChange={setRating}
-            onColorLabelChange={setColorLabel}
-            onFavoriteChange={toggleFavorite}
-          />
-        )}
-        {tab === 'tags' && (
-          <TagsTab asset={asset} tags={tags} onToggle={toggleTag} />
-        )}
-        {tab === 'collections' && (
-          <CollectionsTab
-            asset={asset}
-            collections={collections}
-            onAdd={async (colId) => {
-              await addToCollection(colId, [asset.id]);
-              useCollectionStore.getState().fetchCollections();
-            }}
-            onRemove={async (colId) => {
-              await removeFromCollection(colId, [asset.id]);
-              useCollectionStore.getState().fetchCollections();
-            }}
-          />
-        )}
-        {tab === 'preview' && (
-          <PreviewTab asset={asset} onGeneratePreview={handleGeneratePreview} />
-        )}
+        <DetailTabContent
+          tab={tab}
+          asset={asset}
+          modelPath={modelPath}
+          snapshotUrl={snapshotUrl}
+          onRatingChange={mutations.setRating}
+          onColorLabelChange={mutations.setColorLabel}
+          onFavoriteChange={mutations.toggleFavorite}
+          onToggleTag={mutations.toggleTag}
+        />
       </div>
 
       <ConfirmDeleteDialog
@@ -362,6 +521,81 @@ export function DetailPanel() {
   );
 }
 
+function StarRatingRow({ rating, onChange }: { rating: number; onChange: (r: number) => void }) {
+  const [hoverRating, setHoverRating] = useState(0);
+
+  return (
+    <div className={styles.starRow}>
+      {Array.from({ length: 5 }).map((_, i) => {
+        const n = i + 1;
+        return (
+          <button
+            key={n}
+            id={`detail-star-${n}`}
+            className={clsx(
+              styles.starBtn,
+              (hoverRating || rating) >= n && styles.starOn
+            )}
+            onMouseEnter={() => setHoverRating(n)}
+            onMouseLeave={() => setHoverRating(0)}
+            onClick={() => onChange(rating === n ? 0 : n)}
+            aria-label={`Rate ${n} star${n > 1 ? 's' : ''}`}
+          >
+            <IconStar size={16} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ColorLabelRow({ active, onChange }: { active: ColorLabel; onChange: (l: ColorLabel) => void }) {
+  return (
+    <div className={styles.colorRow}>
+      <button
+        className={clsx(styles.colorNoneBtn, active === 'none' && styles.colorNoneActive)}
+        onClick={() => onChange('none')}
+        title="No label"
+        aria-label="Clear color label"
+      >
+        <IconX size={10} />
+      </button>
+      {COLOR_LABELS.map((label) => (
+        <button
+          key={label}
+          id={`detail-color-${label}`}
+          className={clsx(styles.colorDot, active === label && styles.colorDotActive)}
+          style={{ background: `var(--swatch-${label})` }}
+          title={label}
+          aria-label={`Color label ${label}`}
+          onClick={() => onChange(label)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MetadataEntries({ metadata }: { metadata: Record<string, unknown> }) {
+  const entries = Object.entries(metadata);
+  if (entries.length === 0) return null;
+
+  return (
+    <>
+      <div className={styles.metaDivider} />
+      <label className={clsx(styles.infoLabel, styles.metaHeader)}>Metadata</label>
+      <div />
+      {entries.map(([k, v]) => (
+        <div key={`meta-${k}`} style={{ display: 'contents' }}>
+          <label className={clsx(styles.infoLabel, styles.metaKey)}>{k}</label>
+          <span className={clsx(styles.infoValue, styles.mono)}>
+            {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+          </span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 // ── Info Tab ──────────────────────────────────────────────────────────────
 function InfoTab({
   asset, onRatingChange, onColorLabelChange, onFavoriteChange,
@@ -371,11 +605,8 @@ function InfoTab({
   onColorLabelChange: (l: ColorLabel) => void;
   onFavoriteChange: () => void;
 }) {
-  const [hoverRating, setHoverRating] = useState(0);
-
   return (
     <div className={styles.infoGrid}>
-      {/* Favorite */}
       <label className={styles.infoLabel}>Favorite</label>
       <div className={styles.favoriteRow}>
         <button
@@ -397,64 +628,19 @@ function InfoTab({
           )}
         </button>
       </div>
-      {/* Rating */}
+
       <label className={styles.infoLabel}>Rating</label>
-      <div className={styles.starRow}>
-        {Array.from({ length: 5 }).map((_, i) => {
-          const n = i + 1;
-          return (
-            <button
-              key={n}
-              id={`detail-star-${n}`}
-              className={clsx(
-                styles.starBtn,
-                (hoverRating || asset.rating) >= n && styles.starOn
-              )}
-              onMouseEnter={() => setHoverRating(n)}
-              onMouseLeave={() => setHoverRating(0)}
-              onClick={() => onRatingChange(asset.rating === n ? 0 : n)}
-            >
-              <IconStar size={16} />
-            </button>
-          );
-        })}
-      </div>
+      <StarRatingRow rating={asset.rating} onChange={onRatingChange} />
 
-      {/* Color label */}
       <label className={styles.infoLabel}>Label</label>
-      <div className={styles.colorRow}>
-        <button
-          className={clsx(styles.colorNoneBtn, asset.colorLabel === 'none' && styles.colorNoneActive)}
-          onClick={() => onColorLabelChange('none')}
-          title="No label"
-        >
-          <IconX size={10} />
-        </button>
-        {COLOR_LABELS.map((label) => (
-          <button
-            key={label}
-            id={`detail-color-${label}`}
-            className={clsx(styles.colorDot, asset.colorLabel === label && styles.colorDotActive)}
-            style={{ background: `var(--swatch-${label})` }}
-            title={label}
-            onClick={() => onColorLabelChange(label)}
-          />
-        ))}
-      </div>
+      <ColorLabelRow active={asset.colorLabel} onChange={onColorLabelChange} />
 
-      {/* File info */}
       <label className={styles.infoLabel}>Path</label>
       <span
         className={clsx(styles.infoValue, styles.mono, 'truncate')}
         title={`${asset.filePath} (Click to reveal in Explorer)`}
         style={{ cursor: 'pointer' }}
-        onClick={async () => {
-          try {
-            await api.revealInExplorer(asset.filePath);
-          } catch (err) {
-            console.error('Failed to reveal in explorer:', err);
-          }
-        }}
+        onClick={() => api.revealInExplorer(asset.filePath).catch(console.error)}
       >
         {asset.filePath}
       </span>
@@ -480,22 +666,7 @@ function InfoTab({
         {new Date(asset.indexedAt).toLocaleDateString()}
       </span>
 
-      {/* Extracted metadata */}
-      {Object.entries(asset.metadata).length > 0 && (
-        <>
-          <div className={styles.metaDivider} />
-          <label className={clsx(styles.infoLabel, styles.metaHeader)}>Metadata</label>
-          <div />
-          {Object.entries(asset.metadata).map(([k, v]) => (
-            <>
-              <label key={`k-${k}`} className={clsx(styles.infoLabel, styles.metaKey)}>{k}</label>
-              <span key={`v-${k}`} className={clsx(styles.infoValue, styles.mono)}>
-                {String(v)}
-              </span>
-            </>
-          ))}
-        </>
-      )}
+      <MetadataEntries metadata={asset.metadata} />
     </div>
   );
 }
@@ -576,13 +747,11 @@ function CollectionsTab({
   onAdd: (collectionId: string) => void;
   onRemove: (collectionId: string) => void;
 }) {
-  const regularCollections = collections;
-
   const getCollectionPath = (col: Collection): string => {
     const parts = [col.name];
     let curr = col;
     while (curr.parentId) {
-      const parent = regularCollections.find((c: Collection) => c.id === curr.parentId);
+      const parent = collections.find((c: Collection) => c.id === curr.parentId);
       if (!parent) break;
       parts.unshift(parent.name);
       curr = parent;
@@ -592,10 +761,10 @@ function CollectionsTab({
 
   return (
     <div className={styles.tagsGrid}>
-      {regularCollections.length === 0 && (
+      {collections.length === 0 && (
         <p className={styles.noTags}>No collections yet. Create collections in the sidebar.</p>
       )}
-      {regularCollections.map((col: Collection) => {
+      {collections.map((col: Collection) => {
         const isMember = (col.assetIds && col.assetIds.includes(asset.id)) || (asset.collections?.includes(col.id) ?? false);
         const pathName = getCollectionPath(col);
         return (
@@ -603,7 +772,7 @@ function CollectionsTab({
             key={col.id}
             id={`detail-col-${col.id}`}
             className={clsx(styles.tagPill, isMember && styles.tagActive)}
-            onClick={() => isMember ? onRemove(col.id) : onAdd(col.id)}
+            onClick={() => (isMember ? onRemove(col.id) : onAdd(col.id))}
             title={pathName}
           >
             <span className={styles.tagDot} style={{ background: 'var(--color-accent)' }} />
@@ -619,32 +788,30 @@ function CollectionsTab({
 // ── Preview Tab ───────────────────────────────────────────────────────────
 function PreviewTab({
   asset,
-  onGeneratePreview,
+  modelPath,
+  snapshotUrl,
 }: {
   asset: Asset;
-  onGeneratePreview: () => void;
+  modelPath?: string;
+  snapshotUrl?: string | null;
 }) {
-  const modelPath = getModelPath(asset);
-  const imagePath = asset.thumbnailPath && !asset.thumbnailPath.endsWith('.glb') ? asset.thumbnailPath : (['image', 'texture'].includes(asset.kind) ? asset.filePath : undefined);
-  const isPending = asset.previewStatus === 'pending' || asset.previewStatus === 'generating';
-  const isError = asset.previewStatus === 'error';
+  const thumbs = getAssetThumbnailUrls(asset, snapshotUrl);
+  const KindIcon = KIND_ICON[asset.kind] ?? IconImage;
+  const kindColor = KIND_COLOR[asset.kind] ?? 'var(--color-text-disabled)';
 
-  return (
-    <div className={styles.previewArea}>
-      {modelPath ? (
+  if (modelPath) {
+    return (
+      <div className={styles.previewArea}>
         <div className={styles.previewViewerWrapper}>
           <ThreeViewer modelPath={modelPath} />
-          <button
-            className={styles.reGenerateOverlayBtn}
-            onClick={onGeneratePreview}
-            disabled={isPending}
-            title="Re-generate preview"
-          >
-            <IconRefresh size={13} className={clsx(isPending && 'animate-spin')} />
-            <span>{isPending ? 'Generating…' : 'Regenerate Preview'}</span>
-          </button>
         </div>
-      ) : (asset.kind === 'video' && asset.filePath) ? (
+      </div>
+    );
+  }
+
+  if (asset.kind === 'video' && asset.filePath) {
+    return (
+      <div className={styles.previewArea}>
         <div className={styles.previewViewerWrapper}>
           <video
             src={convertFileSrc(asset.filePath)}
@@ -656,53 +823,38 @@ function PreviewTab({
             style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
           />
         </div>
-      ) : imagePath ? (
+      </div>
+    );
+  }
+
+  if (thumbs.length > 0) {
+    return (
+      <div className={styles.previewArea}>
         <div className={styles.previewViewerWrapper}>
-          <img src={convertFileSrc(imagePath)} alt={asset.fileName} className={styles.previewImg} />
-          <button
-            className={styles.reGenerateOverlayBtn}
-            onClick={onGeneratePreview}
-            disabled={isPending}
-            title="Re-generate preview"
-          >
-            <IconRefresh size={13} className={clsx(isPending && 'animate-spin')} />
-            <span>{isPending ? 'Generating…' : 'Regenerate Preview'}</span>
-          </button>
+          <ThumbnailCarousel
+            asset={asset}
+            snapshotUrl={snapshotUrl}
+            imgClassName={styles.previewImg}
+            alt={asset.fileName}
+          />
         </div>
-      ) : (
-        <div className={styles.previewEmpty}>
-          <div className={styles.emptyStatusIcon}>
-            {isPending ? (
-              <span className={clsx(styles.spinnerBig, 'animate-spin')}>⟳</span>
-            ) : isError ? (
-              <span className={styles.errorExclamation}>!</span>
-            ) : (
-              <IconEye size={36} />
-            )}
-          </div>
-          <p className={styles.emptyStatusTitle}>
-            {isPending
-              ? 'Generating preview…'
-              : isError
-              ? 'Preview generation failed previously'
-              : 'No preview available'}
-          </p>
-          <p className={styles.emptyStatusSub}>
-            {isPending
-              ? 'Please wait while the preview is being generated'
-              : 'Click below to generate a preview for this file'}
-          </p>
-          <button
-            id="detail-generate-preview"
-            className={clsx(styles.generateBtn, isPending && styles.generateBtnLoading)}
-            onClick={onGeneratePreview}
-            disabled={isPending}
-          >
-            <IconRefresh size={14} className={clsx(isPending && 'animate-spin')} />
-            <span>{isPending ? 'Generating…' : isError ? 'Retry Generate Preview' : 'Generate Preview'}</span>
-          </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.previewArea}>
+      <div className={styles.previewEmpty}>
+        <div className={styles.emptyStatusIcon}>
+          <KindIcon size={32} style={{ color: kindColor }} />
         </div>
-      )}
+        <p className={styles.emptyStatusTitle}>
+          .{asset.extension.toUpperCase()}
+        </p>
+        <p className={styles.emptyStatusSub}>
+          No preview available
+        </p>
+      </div>
     </div>
   );
 }
