@@ -6,10 +6,6 @@ use std::path::Path;
 
 use super::ole::{dib_to_bmp, find_dib};
 use super::{find_png, save_thumb};
-/// Marker that precedes the preview block in classic AutoCAD DWG files.
-const DWG_SENTINEL: [u8; 16] = [
-    0x1F, 0x25, 0x6D, 0x07, 0xD4, 0x36, 0x28, 0x28, 0x9D, 0x57, 0xCA, 0x3F, 0x9D, 0x44, 0x10, 0x2B,
-];
 
 /// Read at most `limit` bytes from the start of a file.
 pub(crate) fn read_prefix(path: &Path, limit: u64) -> Result<Vec<u8>> {
@@ -139,32 +135,6 @@ fn skp_thumbnail_entries(names: &[String]) -> Vec<String> {
 fn is_thumbnail_name(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     lower.contains("thumb") && (lower.ends_with(".png") || lower.ends_with(".jpg") || lower.ends_with(".jpeg"))
-}
-
-/// AutoCAD previews live behind a sentinel and may be PNG, BMP, or a raw DIB.
-pub(crate) fn extract_dwg_thumb(source: &Path, output: &Path) -> Result<()> {
-    let head = read_prefix(source, 8 * 1024 * 1024)?;
-
-    if let Some(position) = find_subslice(&head, &DWG_SENTINEL) {
-        let block = &head[position + DWG_SENTINEL.len()..];
-        if let Some(img) = decode_embedded_image(block) {
-            return save_thumb(&img, output);
-        }
-    }
-
-    let fallback = &head[..head.len().min(4 * 1024 * 1024)];
-    if let Some(index) = find_png(fallback) {
-        let img = image::load_from_memory(&fallback[index..])?;
-        return save_thumb(&img, output);
-    }
-    Err(anyhow!("No embedded thumbnail found in DWG file"))
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() || haystack.len() < needle.len() {
-        return None;
-    }
-    haystack.windows(needle.len()).position(|window| window == needle)
 }
 
 /// Substance archives are ZIP containers holding a rendered `preview.png`.

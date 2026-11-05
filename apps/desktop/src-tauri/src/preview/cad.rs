@@ -5,6 +5,33 @@ use super::archive::{decode_embedded_image, read_prefix};
 use super::material::decode_base64;
 use super::save_thumb;
 
+/// Marker that precedes the preview block in classic AutoCAD DWG files.
+const DWG_SENTINEL: [u8; 16] = [
+    0x1F, 0x25, 0x6D, 0x07, 0xD4, 0x36, 0x28, 0x28, 0x9D, 0x57, 0xCA, 0x3F, 0x9D, 0x44, 0x10, 0x2B,
+];
+
+/// AutoCAD previews live behind the sentinel and may be PNG, BMP, or a raw DIB.
+pub(crate) fn extract_dwg_thumb(source: &Path, output: &Path) -> Result<()> {
+    let head = read_prefix(source, 8 * 1024 * 1024)?;
+
+    let sentinel_block = find_subslice(&head, &DWG_SENTINEL)
+        .map(|position| &head[position + DWG_SENTINEL.len()..])
+        .and_then(decode_embedded_image);
+
+    if let Some(img) = sentinel_block.or_else(|| decode_embedded_image(&head)) {
+        return save_thumb(&img, output);
+    }
+
+    Err(anyhow!("No embedded thumbnail found in DWG file"))
+}
+
+fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).position(|window| window == needle)
+}
+
 /// `.dxf` is ASCII/UTF-8 in practice; AutoCAD writes either a bare image or a
 /// base64 `<thumbnail>` block into the header section. Scan the first 4 MB.
 pub(crate) fn extract_dxf_thumb(source: &Path, output: &Path) -> Result<()> {
