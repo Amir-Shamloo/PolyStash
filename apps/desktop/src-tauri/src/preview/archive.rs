@@ -91,7 +91,7 @@ pub(crate) fn extract_skp_thumbs(source: &Path) -> Result<Vec<DynamicImage>> {
 fn skp_zip_thumbs(source: &Path) -> Result<Vec<DynamicImage>> {
     let file = File::open(source)?;
     let mut archive = zip::ZipArchive::new(file)?;
-    let names: Vec<String> = archive.file_names().map(|n| n.to_owned()).collect();
+    let names: Vec<String> = archive.file_names().filter_map(|n| n.ok().map(str::to_owned)).collect();
 
     let ordered = skp_thumbnail_entries(&names);
     let mut images = Vec::new();
@@ -124,12 +124,12 @@ fn skp_thumbnail_entries(names: &[String]) -> Vec<String> {
         .filter_map(|preferred| names.iter().find(|name| name.eq_ignore_ascii_case(preferred)))
         .cloned()
         .collect();
-    ordered.extend(
-        names
-            .iter()
-            .filter(|name| is_thumbnail_name(name) && !ordered.iter().any(|kept| kept == *name))
-            .cloned(),
-    );
+    let extras: Vec<String> = names
+        .iter()
+        .filter(|name| is_thumbnail_name(name) && !ordered.iter().any(|kept| kept == *name))
+        .cloned()
+        .collect();
+    ordered.extend(extras);
     ordered
 }
 
@@ -176,7 +176,7 @@ pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
 fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
     let file = File::open(source).ok()?;
     let mut archive = zip::ZipArchive::new(file).ok()?;
-    let names: Vec<String> = archive.file_names().filter_map(|n| n.ok().map(|s| s.to_owned())).collect();
+    let names: Vec<String> = archive.file_names().filter_map(|n| n.ok().map(str::to_owned)).collect();
     let name = sbsar_preview_entry(&names)?;
 
     let mut entry = archive.by_name(&name).ok()?;

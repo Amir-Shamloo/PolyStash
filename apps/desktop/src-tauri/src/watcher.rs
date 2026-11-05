@@ -270,7 +270,7 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
 
             let (id, is_update) = if let Some((existing_id, _, _, existing_thumb)) = existing_map.get(&rel_path) {
                 if thumbnail_path.is_none() && existing_thumb.is_some() {
-                    thumbnail_path = Some(existing_thumb.clone());
+                    thumbnail_path.clone_from(existing_thumb);
                     preview_status = "done";
                     needs_job = false;
                 }
