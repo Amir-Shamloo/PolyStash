@@ -31,6 +31,15 @@ const MESH_EXTENSIONS: [&str; 10] = [
 /// harvested for these, so single-image formats never pay for the extra scan.
 const GALLERY_EXTENSIONS: [&str; 1] = ["skp"];
 
+/// GPU-compressed texture formats. `dds` is decoded natively in `raster.rs`;
+/// `ktx`/`ktx2` cannot be decoded by the `image` crate and are rendered by the
+/// frontend KTX2Loader instead.
+const GPU_TEXTURE_EXTENSIONS: [&str; 3] = ["dds", "ktx", "ktx2"];
+
+/// Closed or proprietary formats with no parseable preview. They complete
+/// immediately so the frontend can show the kind-coloured format icon.
+const CATEGORY_D_EXTENSIONS: [&str; 4] = ["sbs", "mdl", "mat", "abc"];
+
 pub use raster::{generate_image_thumb, is_native_image};
 
 /// Resize and write a decoded image to `output` as JPEG (when the output path
@@ -162,7 +171,8 @@ fn generate_embedded_thumbnail(ext: &str, source: &Path, file_stem: &str, thumb_
         "sbsar" => archive::extract_sbsar_thumb(source, &thumb_dest)?,
         "dwg" => cad::extract_dwg_thumb(source, &thumb_dest)?,
         "dxf" => cad::extract_dxf_thumb(source, &thumb_dest)?,
-        "c4d" | "blend" => cineware::extract_preview_png_thumb(source, &thumb_dest)?,
+        "c4d" => cineware::extract_c4d_thumb(source, &thumb_dest)?,
+        "blend" => cineware::extract_preview_png_thumb(source, &thumb_dest)?,
         "psd" | "psb" => psd::extract_psd_thumb(source, &thumb_dest)?,
         "exr" | "hdr" | "hdri" => raster::extract_hdr_thumb(source, &thumb_dest)?,
         "vrmat" => material::extract_vrmat_thumb(source, &thumb_dest)?,
@@ -329,6 +339,20 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
 
     // Mesh formats render live in the frontend; no backend thumbnail.
     if MESH_EXTENSIONS.contains(&ext.as_str()) {
+        jobs.complete(job, &[]).await;
+        return;
+    }
+
+    // dds decodes as a native image below; ktx/ktx2 are GPU-compressed textures
+    // that only the frontend KTX2Loader can render, so complete them with no thumb.
+    if GPU_TEXTURE_EXTENSIONS.contains(&ext.as_str()) && ext.as_str() != "dds" {
+        jobs.complete(job, &[]).await;
+        return;
+    }
+
+    // These are closed/proprietary, immediately done, colored icon on frontend;
+    // no thumbnail extraction attempted.
+    if CATEGORY_D_EXTENSIONS.contains(&ext.as_str()) {
         jobs.complete(job, &[]).await;
         return;
     }

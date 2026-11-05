@@ -133,6 +133,7 @@ const PREVIEW_EXTENSIONS: &[&str] = &[
     "dwg", "dxf", "3dm", "vrmat", "sbsar", "psd", "psb", "ai", "exr", "hdr", "hdri",
     "ies", "ldt", "c4d", "blend", "pdf",
     "jpg", "jpeg", "png", "tif", "tiff", "tga", "bmp", "webp", "avif",
+    "dds", "ktx", "ktx2", "sbs", "mdl", "mat", "abc",
     "mp4", "mov", "avi", "mkv", "webm", "m4v",
 ];
 

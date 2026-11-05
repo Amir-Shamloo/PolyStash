@@ -2,9 +2,12 @@ import { memo, useRef, useState, useEffect, useCallback } from 'react';
 import clsx from 'clsx';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset } from '../../types';
-import { ThreeViewer, getModelPath } from '../DetailPanel/ThreeViewer';
-import { ThumbnailCarousel, getAssetThumbnailUrls } from '../AssetGrid/ThumbnailCarousel';
+import { ThreeViewer, DdsViewer } from '../DetailPanel/ThreeViewer';
+import { PanoramaViewer } from '../DetailPanel/PanoramaViewer';
+import { IESLightViewer } from '../DetailPanel/IESLightViewer';
+import { ThumbnailCarousel } from '../AssetGrid/ThumbnailCarousel';
 import { useModelSnapshot } from '../../lib/previewSnapshot';
+import { resolvePreview } from '../../lib/previewRouting';
 import { IconStar, IconModel3D, IconImage, IconVideo, IconFileText } from '../Icons';
 import styles from './QuickLookModal.module.css';
 
@@ -142,59 +145,73 @@ function QuickLookHeader({ asset }: { asset: Asset }) {
   );
 }
 
-function PlaceholderIcon({ kind, ext }: { kind: string; ext: string }) {
-  const Icon = kind === '3d_model' ? IconModel3D
-    : kind === 'video' ? IconVideo
-    : kind === 'document' ? IconFileText
-    : IconImage;
+const PLACEHOLDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
+  '3d_model': IconModel3D,
+  video: IconVideo,
+  document: IconFileText,
+};
+
+function PlaceholderIcon({ kind, ext, message }: { kind: string; ext: string; message?: string }) {
+  const Icon = PLACEHOLDER_ICONS[kind] ?? IconImage;
 
   return (
     <div className={styles.placeholder}>
       <Icon size={64} />
       <p className={styles.placeholderExt}>.{ext.toUpperCase()}</p>
-      <p className={styles.placeholderText}>No preview available</p>
+      <p className={styles.placeholderText}>{message ?? 'No preview available'}</p>
     </div>
   );
 }
 
 interface ContentProps {
   asset: Asset;
-  modelPath?: string;
   snapshotUrl: string | null;
 }
 
-function QuickLookPreviewContent({ asset, modelPath, snapshotUrl }: ContentProps) {
-  if (modelPath) {
-    return (
-      <div className={styles.threeWrapper}>
-        <ThreeViewer modelPath={modelPath} />
-      </div>
-    );
+function QuickLookPreviewContent({ asset, snapshotUrl }: ContentProps) {
+  const preview = resolvePreview(asset, snapshotUrl);
+
+  switch (preview.type) {
+    case 'video':
+      return <VideoQuickLook filePath={preview.path} />;
+    case 'model':
+      return (
+        <div className={styles.threeWrapper}>
+          <ThreeViewer modelPath={preview.path} extension={preview.extension} />
+        </div>
+      );
+    case 'panorama':
+      return (
+        <div className={styles.threeWrapper}>
+          <PanoramaViewer filePath={preview.path} extension={preview.extension} />
+        </div>
+      );
+    case 'ies':
+      return (
+        <div className={styles.threeWrapper}>
+          <IESLightViewer filePath={preview.path} extension={preview.extension} />
+        </div>
+      );
+    case 'dds':
+      return (
+        <div className={styles.threeWrapper}>
+          <DdsViewer filePath={preview.path} />
+        </div>
+      );
+    case 'thumbnail':
+      return (
+        <div className={styles.imgWrapper}>
+          <ThumbnailCarousel
+            asset={asset}
+            snapshotUrl={snapshotUrl}
+            imgClassName={styles.largeImg}
+            alt={asset.fileName}
+          />
+        </div>
+      );
+    case 'placeholder':
+      return <PlaceholderIcon kind={preview.kind} ext={preview.extension} message={preview.message} />;
   }
-
-  const isVideo =
-    asset.kind === 'video' ||
-    ['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(asset.extension.toLowerCase());
-
-  if (isVideo && asset.filePath) {
-    return <VideoQuickLook filePath={asset.filePath} />;
-  }
-
-  const thumbs = getAssetThumbnailUrls(asset, snapshotUrl);
-  if (thumbs.length > 0) {
-    return (
-      <div className={styles.imgWrapper}>
-        <ThumbnailCarousel
-          asset={asset}
-          snapshotUrl={snapshotUrl}
-          imgClassName={styles.largeImg}
-          alt={asset.fileName}
-        />
-      </div>
-    );
-  }
-
-  return <PlaceholderIcon kind={asset.kind} ext={asset.extension} />;
 }
 
 export const QuickLookModal = memo(function QuickLookModal({
@@ -205,8 +222,6 @@ export const QuickLookModal = memo(function QuickLookModal({
 
   if (!isOpen || !asset) return null;
 
-  const modelPath = getModelPath(asset);
-
   return (
     <div className={styles.overlay} aria-modal="true" role="dialog">
       <div className={styles.container}>
@@ -215,7 +230,6 @@ export const QuickLookModal = memo(function QuickLookModal({
         <div className={styles.previewContent}>
           <QuickLookPreviewContent
             asset={asset}
-            modelPath={modelPath}
             snapshotUrl={snapshotUrl}
           />
         </div>

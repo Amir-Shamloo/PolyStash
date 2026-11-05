@@ -9,6 +9,8 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { USDZLoader } from 'three/examples/jsm/loaders/USDZLoader.js';
+import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
+import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { IconSun, IconGrid, IconRefresh, IconCameraReset } from '../Icons';
 import styles from './ThreeViewer.module.css';
@@ -62,6 +64,10 @@ export function usePLY(url: string) {
 
 export function useUSDZ(url: string) {
   return useLoader(USDZLoader, url);
+}
+
+export function useTDS(url: string) {
+  return useLoader(TDSLoader, url);
 }
 
 export function useVRML(url: string) {
@@ -123,6 +129,11 @@ function UsdzModel({ url }: { url: string }) {
   return <primitive object={group} />;
 }
 
+function TdsModel({ url }: { url: string }) {
+  const group = useTDS(url);
+  return <primitive object={group} />;
+}
+
 function VrmlModel({ url }: { url: string }) {
   const vrml = useVRML(url);
   return <primitive object={vrml} />;
@@ -145,7 +156,7 @@ export function getExtension(path: string): string {
 
 export const MESH_EXTENSIONS = new Set([
   'gltf', 'glb', 'fbx', 'obj', 'stl', 'dae',
-  'ply', 'usdz', 'x3d', 'wrl'
+  '3ds', 'ply', 'usd', 'usdz', 'x3d', 'wrl'
 ]);
 
 export function getModelPath(asset: {
@@ -168,11 +179,13 @@ type ModelRenderer = (fileUrl: string) => ReactNode;
 
 const MODEL_RENDERERS: Record<string, ModelRenderer> = {
   sbsar: () => <SbsarShaderBall />,
+  '3ds': (url) => <TdsModel url={url} />,
   fbx: (url) => <FbxModel url={url} />,
   obj: (url) => <ObjModel url={url} />,
   stl: (url) => <StlModel url={url} />,
   dae: (url) => <ColladaModel url={url} />,
   ply: (url) => <PlyModel url={url} />,
+  usd: (url) => <UsdzModel url={url} />,
   usdz: (url) => <UsdzModel url={url} />,
   wrl: (url) => <VrmlModel url={url} />,
   x3d: (url) => <VrmlModel url={url} />,
@@ -361,8 +374,45 @@ export function ThreeViewer({ modelPath, extension }: ThreeViewerProps) {
             </Stage>
             {hdriEnabled && <Environment preset={hdriPreset} />}
             <ContactShadows opacity={0.6} scale={10} blur={1.5} far={10} resolution={256} color="#000000" />
-            <OrbitControls ref={controlsRef as any} enableDamping autoRotate={autoRotate} makeDefault />
+            <OrbitControls ref={controlsRef as never} enableDamping autoRotate={autoRotate} makeDefault />
             <WireframeManager wireframe={wireframe} />
+          </Suspense>
+        </Canvas>
+      </ThreeErrorBoundary>
+    </div>
+  );
+}
+
+export function useDDS(url: string) {
+  return useLoader(DDSLoader, url);
+}
+
+function DdsPlane({ url }: { url: string }) {
+  const texture = useDDS(url);
+  return (
+    <mesh>
+      <planeGeometry args={[2, 2]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
+    </mesh>
+  );
+}
+
+export function DdsViewer({ filePath }: { filePath: string }) {
+  const fileUrl = convertFileSrc(filePath);
+  return (
+    <div className={styles.viewerContainer}>
+      <ThreeErrorBoundary
+        key={filePath}
+        fallback={
+          <div className={styles.fallback}>
+            Unable to render DDS texture
+          </div>
+        }
+      >
+        <Canvas camera={{ position: [0, 0, 2.5], fov: 45 }}>
+          <Suspense fallback={null}>
+            <DdsPlane url={fileUrl} />
+            <OrbitControls enableRotate={false} enablePan enableZoom makeDefault />
           </Suspense>
         </Canvas>
       </ThreeErrorBoundary>
