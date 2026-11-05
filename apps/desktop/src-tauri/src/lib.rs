@@ -18,6 +18,38 @@ pub struct AppState {
     pub app_handle: tauri::AppHandle,
 }
 
+macro_rules! command_handlers {
+    () => {
+        tauri::generate_handler![
+            commands::library::add_library,
+            commands::library::list_libraries,
+            commands::library::remove_library,
+            commands::library::refresh_library,
+            commands::library::refresh_all_libraries,
+            commands::directory::list_library_directories,
+            commands::directory::list_subdirectories,
+            commands::asset::search_assets,
+            commands::asset::get_asset,
+            commands::asset::update_asset,
+            commands::asset::delete_asset,
+            commands::asset::delete_assets,
+            commands::asset::rename_asset,
+            commands::tag::list_tags,
+            commands::tag::create_tag,
+            commands::tag::delete_tag,
+            commands::collection::list_collections,
+            commands::collection::create_collection,
+            commands::collection::add_to_collection,
+            commands::collection::remove_from_collection,
+            commands::collection::delete_collection,
+            commands::preview::request_preview,
+            commands::preview::get_preview_jobs,
+            commands::shell::reveal_in_explorer,
+            commands::shell::open_with_default,
+        ]
+    };
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Logging
@@ -121,31 +153,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::library::add_library,
-            commands::library::list_libraries,
-            commands::library::remove_library,
-            commands::library::refresh_library,
-            commands::library::refresh_all_libraries,
-            commands::asset::search_assets,
-            commands::asset::get_asset,
-            commands::asset::update_asset,
-            commands::asset::delete_asset,
-            commands::asset::delete_assets,
-            commands::asset::rename_asset,
-            commands::tag::list_tags,
-            commands::tag::create_tag,
-            commands::tag::delete_tag,
-            commands::collection::list_collections,
-            commands::collection::create_collection,
-            commands::collection::add_to_collection,
-            commands::collection::remove_from_collection,
-            commands::collection::delete_collection,
-            commands::preview::request_preview,
-            commands::preview::get_preview_jobs,
-            commands::shell::reveal_in_explorer,
-            commands::shell::open_with_default,
-        ])
+        .invoke_handler(command_handlers!())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

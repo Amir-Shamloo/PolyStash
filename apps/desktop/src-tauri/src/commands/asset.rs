@@ -4,10 +4,45 @@ use tauri::{State, Emitter};
 use serde_json;
 
 use crate::AppState;
+use crate::commands::directory::normalize_relative_dir;
 use crate::models::{Asset, SearchPayload, SearchResult, AssetPatch};
 use crate::db::{resolve_path, make_relative_path};
 
 type Result<T> = std::result::Result<T, String>;
+
+/// Escape SQL LIKE wildcards so a literal directory name cannot widen the match.
+pub(crate) fn escape_like_pattern(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
+/// Add the folder filters: the loose legacy directory match and the strict prefix.
+fn add_path_conditions(
+    directory: Option<&str>,
+    directory_prefix: Option<&str>,
+    conditions: &mut Vec<String>,
+    binds: &mut Vec<String>,
+) -> Result<()> {
+    if let Some(directory) = directory {
+        if !directory.trim().is_empty() {
+            conditions.push("a.file_path LIKE ?".into());
+            binds.push(format!("%{}%", directory.trim().replace('\\', "/")));
+        }
+    }
+
+    let Some(prefix) = directory_prefix else {
+        return Ok(());
+    };
+    let prefix = normalize_relative_dir(prefix)?;
+    if prefix != "." {
+        conditions.push("(a.file_path = ? OR a.file_path LIKE ? ESCAPE '\\')".into());
+        binds.push(prefix.clone());
+        binds.push(format!("{}/%", escape_like_pattern(&prefix)));
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 struct RawAssetRow {
@@ -373,12 +408,12 @@ pub async fn search_assets(
     }
 
     // Path and name pattern conditions
-    if let Some(dir) = &f.directory {
-        if !dir.trim().is_empty() {
-            conditions.push("a.file_path LIKE ?".into());
-            binds.push(format!("%{}%", dir.trim().replace('\\', "/")));
-        }
-    }
+    add_path_conditions(
+        f.directory.as_deref(),
+        f.directory_prefix.as_deref(),
+        &mut conditions,
+        &mut binds,
+    )?;
 
     if let Some(prefix) = &f.name_prefix {
         if !prefix.trim().is_empty() {
