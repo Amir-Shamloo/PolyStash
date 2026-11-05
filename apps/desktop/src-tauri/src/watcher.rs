@@ -131,8 +131,8 @@ struct PendingAsset {
 const PREVIEW_EXTENSIONS: &[&str] = &[
     "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "skp", "rfa", "rvt", "rte",
     "dwg", "dxf", "3dm", "vrmat", "sbsar", "psd", "psb", "ai", "exr", "hdr", "hdri",
-    "c4d", "blend", "pdf",
-    "jpg", "jpeg", "png", "tif", "tiff", "tga", "bmp", "webp",
+    "ies", "ldt", "c4d", "blend", "pdf",
+    "jpg", "jpeg", "png", "tif", "tiff", "tga", "bmp", "webp", "avif",
     "mp4", "mov", "avi", "mkv", "webm", "m4v",
 ];
 

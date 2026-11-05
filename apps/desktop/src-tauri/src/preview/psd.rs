@@ -23,14 +23,16 @@ pub(crate) fn extract_psd_thumb(source: &Path, output: &Path) -> Result<()> {
 
 fn pixel_data_to_image(pixels: ag_psd::PixelData) -> Result<DynamicImage> {
     let (width, height) = (pixels.width, pixels.height);
-    let expected = width as usize * height as usize;
+    let expected = (width as usize)
+        .checked_mul(height as usize)
+        .ok_or_else(|| anyhow!("PSD dimensions overflow"))?;
     let length = pixels.data.len();
 
-    if length == expected * 4 {
+    if Some(length) == expected.checked_mul(4) {
         let img = image::RgbaImage::from_raw(width, height, pixels.data)
             .ok_or_else(|| anyhow!("Invalid PSD RGBA buffer"))?;
         Ok(DynamicImage::ImageRgba8(img))
-    } else if length == expected * 3 {
+    } else if Some(length) == expected.checked_mul(3) {
         let img = image::RgbImage::from_raw(width, height, pixels.data)
             .ok_or_else(|| anyhow!("Invalid PSD RGB buffer"))?;
         Ok(DynamicImage::ImageRgb8(img))

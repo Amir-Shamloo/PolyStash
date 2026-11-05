@@ -177,7 +177,7 @@ fn parse_color(value: &str) -> Option<[f32; 3]> {
 }
 
 fn parse_hex_color(hex: &str) -> Option<[f32; 3]> {
-    if hex.len() != 6 {
+    if hex.len() != 6 || !hex.is_ascii() {
         return None;
     }
     let channel = |index: usize| {

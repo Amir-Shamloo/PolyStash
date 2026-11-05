@@ -1,9 +1,10 @@
 import { memo, useCallback } from 'react';
 import clsx from 'clsx';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset } from '../../types';
 import { useAssetStore } from '../../store';
-import { IconImage, IconVideo, IconStar, IconHeart, IconHeartFilled } from '../Icons';
+import { ThumbnailCarousel } from './ThumbnailCarousel';
+import { useModelSnapshot } from '../../lib/previewSnapshot';
+import { IconStar, IconHeart, IconHeartFilled } from '../Icons';
 import styles from './AssetListRow.module.css';
 
 interface AssetListRowProps {
@@ -28,6 +29,7 @@ export const AssetListRow = memo(function AssetListRow({
   asset, selected, onClick,
 }: AssetListRowProps) {
   const patchAsset = useAssetStore((s) => s.patchAsset);
+  const snapshotUrl = useModelSnapshot(asset);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -81,15 +83,12 @@ export const AssetListRow = memo(function AssetListRow({
 
       {/* Thumbnail */}
       <div className={styles.thumb}>
-        {asset.thumbnailPath && !asset.thumbnailPath.endsWith('.glb') ? (
-          <img src={convertFileSrc(asset.thumbnailPath)} alt={asset.fileName} className={styles.thumbImg} loading="lazy" />
-        ) : (['image', 'texture'].includes(asset.kind) && asset.filePath) ? (
-          <img src={convertFileSrc(asset.filePath)} alt={asset.fileName} className={styles.thumbImg} loading="lazy" />
-        ) : (
-          <div className={styles.thumbPlaceholder}>
-            {asset.kind === 'video' ? <IconVideo size={14} /> : <IconImage size={14} />}
-          </div>
-        )}
+        <ThumbnailCarousel
+          asset={asset}
+          snapshotUrl={snapshotUrl}
+          imgClassName={styles.thumbImg}
+          alt={asset.fileName}
+        />
       </div>
 
       {/* Color label */}

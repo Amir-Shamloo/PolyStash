@@ -160,7 +160,7 @@ fn generate_embedded_thumbnail(ext: &str, source: &Path, file_stem: &str, thumb_
     match ext {
         "skp" => archive::extract_skp_thumb(source, &thumb_dest)?,
         "sbsar" => archive::extract_sbsar_thumb(source, &thumb_dest)?,
-        "dwg" => archive::extract_dwg_thumb(source, &thumb_dest)?,
+        "dwg" => cad::extract_dwg_thumb(source, &thumb_dest)?,
         "dxf" => cad::extract_dxf_thumb(source, &thumb_dest)?,
         "c4d" | "blend" => cineware::extract_preview_png_thumb(source, &thumb_dest)?,
         "psd" | "psb" => psd::extract_psd_thumb(source, &thumb_dest)?,
