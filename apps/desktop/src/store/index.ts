@@ -12,6 +12,69 @@ import type {
 } from '../types';
 import { api } from '../api';
 
+// ── Folder Sentinels & Types ──────────────────────────────────────────────
+export interface ActiveFolder {
+  libraryId: string | null;
+  relativePath: string;
+}
+
+export function buildFolderId(active: ActiveFolder): string {
+  if (!active.libraryId) {
+    return 'root';
+  }
+  if (!active.relativePath) {
+    return `lib:${active.libraryId}`;
+  }
+  return `dir:${active.libraryId}:${active.relativePath}`;
+}
+
+export function parseFolderId(id: string): ActiveFolder {
+  if (id === 'root') {
+    return { libraryId: null, relativePath: '' };
+  }
+  if (id.startsWith('lib:')) {
+    return { libraryId: id.slice(4), relativePath: '' };
+  }
+  if (id.startsWith('dir:')) {
+    const rest = id.slice(4);
+    const colonIdx = rest.indexOf(':');
+    if (colonIdx === -1) {
+      return { libraryId: rest, relativePath: '' };
+    }
+    return {
+      libraryId: rest.slice(0, colonIdx),
+      relativePath: rest.slice(colonIdx + 1),
+    };
+  }
+  return { libraryId: null, relativePath: '' };
+}
+
+export function folderToDirectoryPrefix(folder: ActiveFolder | null): string | undefined {
+  if (!folder || folder.libraryId === null) {
+    return undefined;
+  }
+  return folder.relativePath;
+}
+
+export function folderToSearchQuery(
+  folder: ActiveFolder | null,
+  currentFilter: FilterSpec = {}
+): Partial<SearchQuery> {
+  const directoryPrefix = folderToDirectoryPrefix(folder);
+  const nextFilter: FilterSpec = { ...currentFilter };
+  if (directoryPrefix === undefined) {
+    delete nextFilter.directoryPrefix;
+  } else {
+    nextFilter.directoryPrefix = directoryPrefix;
+  }
+  return {
+    libraryId: folder?.libraryId ?? undefined,
+    libraryIds: undefined,
+    collectionId: undefined,
+    filter: nextFilter,
+  };
+}
+
 // ── UI State ──────────────────────────────────────────────────────────────
 interface UIState {
   viewMode: 'grid' | 'list';
@@ -22,6 +85,8 @@ interface UIState {
   focusedAssetId: string | null;
   activeLibraryId: string | null;
   activeCollectionId: string | null;
+  activeFolder: ActiveFolder | null;
+  folderTreeVersion: number;
 
   setViewMode: (mode: 'grid' | 'list') => void;
   setGridSize: (size: 'sm' | 'md' | 'lg') => void;
@@ -37,6 +102,8 @@ interface UIState {
   clearLibrarySelection: () => void;
   setActiveLibrary: (id: string | null) => void;
   setActiveCollection: (id: string | null) => void;
+  setActiveFolder: (folder: ActiveFolder | null) => void;
+  refreshFolderTree: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -51,6 +118,8 @@ export const useUIStore = create<UIState>()(
       activeLibraryId: null,
       selectedLibraryIds: [],
       activeCollectionId: null,
+      activeFolder: null,
+      folderTreeVersion: 0,
 
       setViewMode: (viewMode) => set({ viewMode }),
       setGridSize: (gridSize) => set({ gridSize }),
@@ -97,12 +166,24 @@ export const useUIStore = create<UIState>()(
         }),
 
       clearLibrarySelection: () =>
-        set({ selectedLibraryIds: [], activeLibraryId: null }),
+        set({ selectedLibraryIds: [], activeLibraryId: null, activeFolder: null }),
 
       setActiveLibrary: (id) =>
         set({ activeLibraryId: id, selectedLibraryIds: id ? [id] : [], activeCollectionId: null }),
       setActiveCollection: (id) =>
-        set({ activeCollectionId: id, activeLibraryId: null, selectedLibraryIds: [] }),
+        set({ activeCollectionId: id, activeLibraryId: null, selectedLibraryIds: [], activeFolder: null }),
+      setActiveFolder: (activeFolder) => {
+        set({
+          activeFolder,
+          activeLibraryId: activeFolder?.libraryId ?? null,
+          selectedLibraryIds: activeFolder?.libraryId ? [activeFolder.libraryId] : [],
+          activeCollectionId: null,
+        });
+        const currentFilter = useAssetStore.getState().query.filter;
+        useAssetStore.getState().setQuery(folderToSearchQuery(activeFolder, currentFilter));
+      },
+      refreshFolderTree: () =>
+        set((s) => ({ folderTreeVersion: s.folderTreeVersion + 1 })),
     }),
     {
       name: 'polystash-ui',
@@ -142,11 +223,13 @@ export const useLibraryStore = create<LibraryStore>()((set) => ({
   addLibrary: async (name, rootPaths) => {
     const lib = await api.addLibrary({ name, rootPaths });
     set((s) => ({ libraries: [...s.libraries, lib] }));
+    useUIStore.getState().refreshFolderTree();
   },
 
   removeLibrary: async (id) => {
     await api.removeLibrary(id);
     set((s) => ({ libraries: s.libraries.filter((l) => l.id !== id) }));
+    useUIStore.getState().refreshFolderTree();
   },
 }));
 

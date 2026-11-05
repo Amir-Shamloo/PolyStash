@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { open } from '@tauri-apps/plugin-dialog';
+import { listen } from '@tauri-apps/api/event';
 import {
   useLibraryStore, useCollectionStore, useTagStore,
   useUIStore, useAssetStore,
@@ -11,6 +12,7 @@ import {
   IconCheck, IconX, IconTrash,
 } from '../Icons';
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
+import { FolderTree } from './FolderTree';
 import type { Collection } from '../../types';
 import styles from './Sidebar.module.css';
 
@@ -34,8 +36,10 @@ export function Sidebar() {
     activeCollectionId,
     setActiveLibrary,
     setActiveCollection,
+    setActiveFolder,
     toggleSelectedLibrary,
     clearLibrarySelection,
+    folderTreeVersion,
   } = useUIStore();
   const replaceFilter = useAssetStore((s) => s.replaceFilter);
   const resetFilter = useAssetStore((s) => s.resetFilter);
@@ -46,9 +50,19 @@ export function Sidebar() {
 
   const [expanded, setExpanded] = useState({
     libraries: true,
+    folders: true,
     collections: true,
     tags: true,
   });
+
+  useEffect(() => {
+    const unlisten = listen('library:updated', () => {
+      useUIStore.getState().refreshFolderTree();
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   // Inline creation states
   const [isCreatingTag, setIsCreatingTag] = useState(false);
@@ -160,6 +174,7 @@ export function Sidebar() {
   const handleAllLibrariesClick = () => {
     setActiveCollection(null);
     clearLibrarySelection();
+    setActiveFolder(null);
     setQuery({
       libraryIds: undefined,
       libraryId: undefined,
@@ -416,6 +431,16 @@ export function Sidebar() {
             </div>
           );
         })}
+      </SidebarSection>
+
+      {/* ── Folders ── */}
+      <SidebarSection
+        label="Folders"
+        icon={<IconFolder size={14} />}
+        expanded={expanded.folders}
+        onToggle={() => toggle('folders')}
+      >
+        <FolderTree key={folderTreeVersion} />
       </SidebarSection>
 
       {/* ── Collections ── */}

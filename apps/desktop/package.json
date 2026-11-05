@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@headless-tree/core": "^1.8.0",
+    "@headless-tree/react": "^1.8.0",
     "@react-three/drei": "^9.113.0",
     "@react-three/fiber": "^8.17.6",
     "@tauri-apps/api": "^2.5.0",

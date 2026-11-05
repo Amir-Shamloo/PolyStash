@@ -95,6 +95,7 @@ export interface FilterSpec {
   previewStatus?: Asset['previewStatus'];
   unorganized?: boolean;
   directory?: string;
+  directoryPrefix?: string;
   namePrefix?: string;
   nameSuffix?: string;
   tagLogic?: 'and' | 'or' | 'and_or' | 'none';

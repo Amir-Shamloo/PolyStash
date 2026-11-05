@@ -197,6 +197,8 @@ pub struct FilterSpec {
     #[serde(rename = "previewStatus")]
     pub preview_status: Option<String>,
     pub directory: Option<String>,
+    #[serde(rename = "directoryPrefix")]
+    pub directory_prefix: Option<String>,
     #[serde(rename = "namePrefix")]
     pub name_prefix: Option<String>,
     #[serde(rename = "nameSuffix")]
