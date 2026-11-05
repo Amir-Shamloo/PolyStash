@@ -30,7 +30,7 @@ thiserror = "1"
 walkdir = "2"
 mime_guess = "2"
 chrono = { version = "0.4", features = ["serde"] }
-image = { version = "0.25", features = ["jpeg", "png", "tiff", "bmp", "gif", "tga", "webp", "exr", "hdr"] }
+image = { version = "0.25", features = ["jpeg", "png", "tiff", "bmp", "gif", "tga", "webp", "exr", "hdr", "avif", "dds"] }
 cfb = "0.16"
 zip = "9.0.5"
 ag-psd = "0.3"

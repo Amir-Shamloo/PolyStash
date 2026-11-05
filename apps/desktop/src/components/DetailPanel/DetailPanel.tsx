@@ -22,9 +22,12 @@ import {
 } from '../Icons';
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
 import { api } from '../../api';
-import { ThreeViewer, getModelPath } from './ThreeViewer';
-import { ThumbnailCarousel, getAssetThumbnailUrls } from '../AssetGrid/ThumbnailCarousel';
+import { ThreeViewer, DdsViewer, getModelPath } from './ThreeViewer';
+import { PanoramaViewer } from './PanoramaViewer';
+import { IESLightViewer } from './IESLightViewer';
+import { ThumbnailCarousel } from '../AssetGrid/ThumbnailCarousel';
 import { useModelSnapshot } from '../../lib/previewSnapshot';
+import { resolvePreview } from '../../lib/previewRouting';
 import styles from './DetailPanel.module.css';
 
 const COLOR_LABELS: ColorLabel[] = [
@@ -248,53 +251,66 @@ interface DetailPreviewProps {
   snapshotUrl?: string | null;
 }
 
-function renderPreviewBody(asset: Asset, modelPath?: string, snapshotUrl?: string | null) {
-  const thumbs = getAssetThumbnailUrls(asset, snapshotUrl);
-  if (thumbs.length > 0) {
-    return (
-      <ThumbnailCarousel
-        asset={asset}
-        snapshotUrl={snapshotUrl}
-        imgClassName={styles.thumbImg}
-        alt={asset.fileName}
-      />
-    );
-  }
-
-  if (asset.kind === 'video' && asset.filePath) {
-    return (
-      <video
-        src={convertFileSrc(asset.filePath)}
-        preload="metadata"
-        muted
-        playsInline
-        controls
-        className={styles.thumbImg}
-        style={{ objectFit: 'contain' }}
-      />
-    );
-  }
-
-  if (modelPath) {
-    return <ThreeViewer modelPath={modelPath} />;
-  }
-
-  const KindIcon = KIND_ICON[asset.kind] ?? IconImage;
-  const kindColor = KIND_COLOR[asset.kind] ?? 'var(--color-text-disabled)';
+function renderPreviewPlaceholder(kind: AssetKind, ext: string, message?: string) {
+  const KindIcon = KIND_ICON[kind] ?? IconImage;
+  const kindColor = KIND_COLOR[kind] ?? 'var(--color-text-disabled)';
   return (
     <div className={styles.thumbPlaceholder}>
       <KindIcon size={36} style={{ color: kindColor }} />
       <span className={styles.thumbExt} style={{ color: kindColor }}>
-        .{asset.extension.toUpperCase()}
+        .{ext.toUpperCase()}
       </span>
+      {message && (
+        <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: 4, textAlign: 'center' }}>
+          {message}
+        </span>
+      )}
     </div>
   );
 }
 
-function DetailPanelPreviewArea({ asset, modelPath, snapshotUrl }: DetailPreviewProps) {
+function renderPreviewBody(asset: Asset, snapshotUrl?: string | null) {
+  const preview = resolvePreview(asset, snapshotUrl);
+
+  switch (preview.type) {
+    case 'video':
+      return (
+        <video
+          src={convertFileSrc(preview.path)}
+          preload="metadata"
+          muted
+          playsInline
+          controls
+          className={styles.thumbImg}
+          style={{ objectFit: 'contain' }}
+        />
+      );
+    case 'model':
+      return <ThreeViewer modelPath={preview.path} extension={preview.extension} />;
+    case 'panorama':
+      return <PanoramaViewer filePath={preview.path} extension={preview.extension} />;
+    case 'ies':
+      return <IESLightViewer filePath={preview.path} extension={preview.extension} />;
+    case 'dds':
+      return <DdsViewer filePath={preview.path} />;
+    case 'thumbnail':
+      return (
+        <ThumbnailCarousel
+          asset={asset}
+          snapshotUrl={snapshotUrl}
+          imgClassName={styles.thumbImg}
+          alt={asset.fileName}
+        />
+      );
+    case 'placeholder':
+      return renderPreviewPlaceholder(preview.kind, preview.extension, preview.message);
+  }
+}
+
+function DetailPanelPreviewArea({ asset, snapshotUrl }: DetailPreviewProps) {
   return (
     <div className={styles.thumbArea}>
-      {renderPreviewBody(asset, modelPath, snapshotUrl)}
+      {renderPreviewBody(asset, snapshotUrl)}
     </div>
   );
 }
@@ -785,75 +801,74 @@ function CollectionsTab({
   );
 }
 
+function PreviewTabPlaceholder({ kind, ext, message }: { kind: AssetKind; ext: string; message?: string }) {
+  const KindIcon = KIND_ICON[kind] ?? IconImage;
+  const kindColor = KIND_COLOR[kind] ?? 'var(--color-text-disabled)';
+  return (
+    <div className={styles.previewEmpty}>
+      <div className={styles.emptyStatusIcon}>
+        <KindIcon size={32} style={{ color: kindColor }} />
+      </div>
+      <p className={styles.emptyStatusTitle}>
+        .{ext.toUpperCase()}
+      </p>
+      <p className={styles.emptyStatusSub}>
+        {message ?? 'No preview available'}
+      </p>
+    </div>
+  );
+}
+
+function renderTabContent(preview: ReturnType<typeof resolvePreview>, asset: Asset, snapshotUrl?: string | null) {
+  switch (preview.type) {
+    case 'model':
+      return <ThreeViewer modelPath={preview.path} extension={preview.extension} />;
+    case 'panorama':
+      return <PanoramaViewer filePath={preview.path} extension={preview.extension} />;
+    case 'ies':
+      return <IESLightViewer filePath={preview.path} extension={preview.extension} />;
+    case 'dds':
+      return <DdsViewer filePath={preview.path} />;
+    case 'video':
+      return (
+        <video
+          src={convertFileSrc(preview.path)}
+          controls
+          autoPlay
+          muted
+          playsInline
+          className={styles.previewImg}
+          style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+        />
+      );
+    case 'thumbnail':
+      return (
+        <ThumbnailCarousel
+          asset={asset}
+          snapshotUrl={snapshotUrl}
+          imgClassName={styles.previewImg}
+          alt={asset.fileName}
+        />
+      );
+    case 'placeholder':
+      return <PreviewTabPlaceholder kind={preview.kind} ext={preview.extension} message={preview.message} />;
+  }
+}
+
 // ── Preview Tab ───────────────────────────────────────────────────────────
 function PreviewTab({
   asset,
-  modelPath,
   snapshotUrl,
 }: {
   asset: Asset;
   modelPath?: string;
   snapshotUrl?: string | null;
 }) {
-  const thumbs = getAssetThumbnailUrls(asset, snapshotUrl);
-  const KindIcon = KIND_ICON[asset.kind] ?? IconImage;
-  const kindColor = KIND_COLOR[asset.kind] ?? 'var(--color-text-disabled)';
-
-  if (modelPath) {
-    return (
-      <div className={styles.previewArea}>
-        <div className={styles.previewViewerWrapper}>
-          <ThreeViewer modelPath={modelPath} />
-        </div>
-      </div>
-    );
-  }
-
-  if (asset.kind === 'video' && asset.filePath) {
-    return (
-      <div className={styles.previewArea}>
-        <div className={styles.previewViewerWrapper}>
-          <video
-            src={convertFileSrc(asset.filePath)}
-            controls
-            autoPlay
-            muted
-            playsInline
-            className={styles.previewImg}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (thumbs.length > 0) {
-    return (
-      <div className={styles.previewArea}>
-        <div className={styles.previewViewerWrapper}>
-          <ThumbnailCarousel
-            asset={asset}
-            snapshotUrl={snapshotUrl}
-            imgClassName={styles.previewImg}
-            alt={asset.fileName}
-          />
-        </div>
-      </div>
-    );
-  }
-
+  const preview = resolvePreview(asset, snapshotUrl);
   return (
     <div className={styles.previewArea}>
-      <div className={styles.previewEmpty}>
-        <div className={styles.emptyStatusIcon}>
-          <KindIcon size={32} style={{ color: kindColor }} />
-        </div>
-        <p className={styles.emptyStatusTitle}>
-          .{asset.extension.toUpperCase()}
-        </p>
-        <p className={styles.emptyStatusSub}>
-          No preview available
-        </p>
+      <div className={styles.previewViewerWrapper}>
+        {renderTabContent(preview, asset, snapshotUrl)}
       </div>
     </div>
   );

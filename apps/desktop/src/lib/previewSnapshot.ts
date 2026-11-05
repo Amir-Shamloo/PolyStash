@@ -7,6 +7,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { USDZLoader } from 'three/examples/jsm/loaders/USDZLoader.js';
+import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { useState, useEffect } from 'react';
 import type { Asset } from '../types';
@@ -33,17 +34,18 @@ type LoaderFn = (url: string) => Promise<THREE.Object3D>;
 
 const LOADER_DISPATCH: Record<string, LoaderFn> = {
   sbsar: async () => createPbrShaderBall(),
+  '3ds': (url) => new TDSLoader().loadAsync(url),
   obj: (url) => new OBJLoader().loadAsync(url),
   fbx: (url) => new FBXLoader().loadAsync(url),
   stl: (url) => loadMeshGeometry(new STLLoader(), url),
   ply: (url) => loadMeshGeometry(new PLYLoader(), url),
   dae: async (url) => (await new ColladaLoader().loadAsync(url)).scene,
+  usd: (url) => new USDZLoader().loadAsync(url),
   usdz: (url) => new USDZLoader().loadAsync(url),
   wrl: (url) => new VRMLLoader().loadAsync(url),
   x3d: (url) => new VRMLLoader().loadAsync(url),
   gltf: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
   glb: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
-  blend: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
 };
 
 async function loadObjectByExtension(fileUrl: string, ext: string): Promise<THREE.Object3D | null> {
@@ -153,8 +155,7 @@ export async function captureModelSnapshot(url: string, extension: string): Prom
 function isEligibleForSnapshot(asset: Asset | null | undefined): boolean {
   if (!asset) return false;
   if (asset.thumbnailPath && !asset.thumbnailPath.endsWith('.glb')) return false;
-  const ext = asset.extension.toLowerCase();
-  return ext === 'blend' || ext === 'sbsar';
+  return asset.extension.toLowerCase() === 'sbsar';
 }
 
 function executeSnapshotFetch(asset: Asset, onLoaded: (url: string) => void): () => void {
@@ -173,7 +174,7 @@ function executeSnapshotFetch(asset: Asset, onLoaded: (url: string) => void): ()
 }
 
 /**
- * Hook to retrieve an in-memory snapshot blob URL for models (.blend, .sbsar)
+ * Hook to retrieve an in-memory snapshot blob URL for models (.sbsar)
  * when no backend thumbnail exists.
  */
 export function useModelSnapshot(asset: Asset | null | undefined): string | null {
