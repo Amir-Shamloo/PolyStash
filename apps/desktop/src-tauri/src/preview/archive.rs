@@ -12,7 +12,7 @@ const DWG_SENTINEL: [u8; 16] = [
 ];
 
 /// Read at most `limit` bytes from the start of a file.
-fn read_prefix(path: &Path, limit: u64) -> Result<Vec<u8>> {
+pub(crate) fn read_prefix(path: &Path, limit: u64) -> Result<Vec<u8>> {
     let file = File::open(path)?;
     let mut buffer = Vec::new();
     file.take(limit).read_to_end(&mut buffer)?;
@@ -62,7 +62,7 @@ fn decode_dib_at(bytes: &[u8]) -> Option<DynamicImage> {
 }
 
 /// Decode the first embedded PNG, BMP, or bare DIB found in an image block.
-fn decode_embedded_image(bytes: &[u8]) -> Option<DynamicImage> {
+pub(crate) fn decode_embedded_image(bytes: &[u8]) -> Option<DynamicImage> {
     decode_at(bytes, find_png)
         .or_else(|| decode_at(bytes, find_bmp))
         .or_else(|| decode_dib_at(bytes))
@@ -91,10 +91,7 @@ pub(crate) fn extract_skp_thumbs(source: &Path) -> Result<Vec<DynamicImage>> {
 fn skp_zip_thumbs(source: &Path) -> Result<Vec<DynamicImage>> {
     let file = File::open(source)?;
     let mut archive = zip::ZipArchive::new(file)?;
-    let names: Vec<String> = archive
-        .file_names()
-        .map(|name| name.to_owned())
-        .collect();
+    let names: Vec<String> = archive.file_names().map(|n| n.to_owned()).collect();
 
     let ordered = skp_thumbnail_entries(&names);
     let mut images = Vec::new();
@@ -130,7 +127,8 @@ fn skp_thumbnail_entries(names: &[String]) -> Vec<String> {
     ordered.extend(
         names
             .iter()
-            .filter(|name| is_thumbnail_name(name) && !ordered.iter().any(|kept| kept == *name)),
+            .filter(|name| is_thumbnail_name(name) && !ordered.iter().any(|kept| kept == *name))
+            .cloned(),
     );
     ordered
 }
@@ -178,7 +176,7 @@ pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
 fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
     let file = File::open(source).ok()?;
     let mut archive = zip::ZipArchive::new(file).ok()?;
-    let names: Vec<String> = archive.file_names().map(|n| n.to_owned()).collect();
+    let names: Vec<String> = archive.file_names().filter_map(|n| n.ok().map(|s| s.to_owned())).collect();
     let name = sbsar_preview_entry(&names)?;
 
     let mut entry = archive.by_name(&name).ok()?;

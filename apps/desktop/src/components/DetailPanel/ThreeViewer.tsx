@@ -195,13 +195,10 @@ function WireframeManager({ wireframe }: { wireframe: boolean }) {
       scene.traverse((obj) => {
         if ((obj as THREE.Mesh).isMesh) {
           const mesh = obj as THREE.Mesh;
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((mat) => {
-              mat.wireframe = wireframe;
-            });
-          } else if (mesh.material) {
-            mesh.material.wireframe = wireframe;
-          }
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach((mat) => {
+            (mat as THREE.Material & { wireframe?: boolean }).wireframe = wireframe;
+          });
         }
       });
     };
