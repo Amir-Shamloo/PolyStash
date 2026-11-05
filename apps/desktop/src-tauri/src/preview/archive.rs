@@ -6,14 +6,13 @@ use std::path::Path;
 
 use super::ole::{dib_to_bmp, find_dib};
 use super::{find_png, save_thumb};
-
 /// Marker that precedes the preview block in classic AutoCAD DWG files.
 const DWG_SENTINEL: [u8; 16] = [
     0x1F, 0x25, 0x6D, 0x07, 0xD4, 0x36, 0x28, 0x28, 0x9D, 0x57, 0xCA, 0x3F, 0x9D, 0x44, 0x10, 0x2B,
 ];
 
 /// Read at most `limit` bytes from the start of a file.
-fn read_prefix(path: &Path, limit: u64) -> Result<Vec<u8>> {
+pub(crate) fn read_prefix(path: &Path, limit: u64) -> Result<Vec<u8>> {
     let file = File::open(path)?;
     let mut buffer = Vec::new();
     file.take(limit).read_to_end(&mut buffer)?;
@@ -63,7 +62,7 @@ fn decode_dib_at(bytes: &[u8]) -> Option<DynamicImage> {
 }
 
 /// Decode the first embedded PNG, BMP, or bare DIB found in an image block.
-fn decode_embedded_image(bytes: &[u8]) -> Option<DynamicImage> {
+pub(crate) fn decode_embedded_image(bytes: &[u8]) -> Option<DynamicImage> {
     decode_at(bytes, find_png)
         .or_else(|| decode_at(bytes, find_bmp))
         .or_else(|| decode_dib_at(bytes))
@@ -72,47 +71,69 @@ fn decode_embedded_image(bytes: &[u8]) -> Option<DynamicImage> {
 /// SketchUp stores newer models as ZIP containers with a thumbnail entry and
 /// older ones as plain binaries with an embedded PNG.
 pub(crate) fn extract_skp_thumb(source: &Path, output: &Path) -> Result<()> {
-    if let Ok(img) = skp_zip_thumb(source) {
-        return save_thumb(&img, output);
+    let thumbs = extract_skp_thumbs(source)?;
+    save_thumb(thumbs.first().ok_or_else(|| anyhow!("No SketchUp preview"))?, output)
+}
+
+/// Every embedded SketchUp preview, ordered as found in the archive.
+pub(crate) fn extract_skp_thumbs(source: &Path) -> Result<Vec<DynamicImage>> {
+    let images = skp_zip_thumbs(source).unwrap_or_default();
+    if !images.is_empty() {
+        return Ok(images);
     }
 
     let head = read_prefix(source, 1024 * 1024)?;
     let index = find_png(&head)
         .ok_or_else(|| anyhow!("No embedded thumbnail found in SketchUp file"))?;
-    let img = image::load_from_memory(&head[index..])?;
-    save_thumb(&img, output)
+    Ok(vec![image::load_from_memory(&head[index..])?])
 }
 
-fn skp_zip_thumb(source: &Path) -> Result<DynamicImage> {
+fn skp_zip_thumbs(source: &Path) -> Result<Vec<DynamicImage>> {
     let file = File::open(source)?;
     let mut archive = zip::ZipArchive::new(file)?;
-    let mut names: Vec<String> = Vec::new();
-    for name in archive.file_names() {
-        names.push(name?.into_owned());
-    }
-    let name = skp_thumbnail_entry(&names)
-        .ok_or_else(|| anyhow!("No thumbnail entry in SketchUp archive"))?;
+    let names: Vec<String> = archive
+        .file_names()
+        .filter_map(|n| n.ok().map(|s| s.into_owned()))
+        .collect();
 
-    let mut entry = archive.by_name(&name)?;
-    let mut bytes = Vec::new();
-    entry.read_to_end(&mut bytes)?;
-    Ok(image::load_from_memory(&bytes)?)
+    let ordered = skp_thumbnail_entries(&names);
+    let mut images = Vec::new();
+    for name in ordered {
+        let Ok(mut entry) = archive.by_name(&name) else {
+            continue;
+        };
+        let mut bytes = Vec::new();
+        if entry.read_to_end(&mut bytes).is_err() {
+            continue;
+        }
+        if let Ok(img) = image::load_from_memory(&bytes) {
+            images.push(img);
+        }
+    }
+    Ok(images)
 }
 
-fn skp_thumbnail_entry(names: &[String]) -> Option<String> {
+/// Preferred thumbnail entries first, then any remaining `thumb*` image, so a
+/// container with several previews yields an ordered gallery.
+fn skp_thumbnail_entries(names: &[String]) -> Vec<String> {
     const PREFERRED: [&str; 3] = [
         "meta/model_thumbnail.png",
         "meta/preview_thumbnail.png",
         "thumbnails/thumbnail.png",
     ];
 
-    for preferred in PREFERRED {
-        if let Some(name) = names.iter().find(|name| name.eq_ignore_ascii_case(preferred)) {
-            return Some(name.clone());
-        }
-    }
-
-    names.iter().find(|name| is_thumbnail_name(name)).cloned()
+    let mut ordered: Vec<String> = PREFERRED
+        .iter()
+        .filter_map(|preferred| names.iter().find(|name| name.eq_ignore_ascii_case(preferred)))
+        .cloned()
+        .collect();
+    let extras: Vec<String> = names
+        .iter()
+        .filter(|name| is_thumbnail_name(name) && !ordered.iter().any(|kept| kept == *name))
+        .cloned()
+        .collect();
+    ordered.extend(extras);
+    ordered
 }
 
 fn is_thumbnail_name(name: &str) -> bool {
@@ -144,4 +165,40 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         return None;
     }
     haystack.windows(needle.len()).position(|window| window == needle)
+}
+
+/// Substance archives are ZIP containers holding a rendered `preview.png`.
+/// Falling back is fine: the frontend renders a PBR shader ball when no
+/// backend thumbnail exists.
+pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
+    let img = sbsar_preview(source)
+        .ok_or_else(|| anyhow!("No preview.png inside Substance archive"))?;
+    save_thumb(&img, output)
+}
+
+fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
+    let file = File::open(source).ok()?;
+    let mut archive = zip::ZipArchive::new(file).ok()?;
+    let names: Vec<String> = archive
+        .file_names()
+        .filter_map(|n| n.ok().map(|s| s.into_owned()))
+        .collect();
+    let name = sbsar_preview_entry(&names)?;
+
+    let mut entry = archive.by_name(&name).ok()?;
+    let mut bytes = Vec::new();
+    entry.read_to_end(&mut bytes).ok()?;
+    image::load_from_memory(&bytes).ok()
+}
+
+fn sbsar_preview_entry(names: &[String]) -> Option<String> {
+    names
+        .iter()
+        .find(|name| name.eq_ignore_ascii_case("preview.png"))
+        .or_else(|| {
+            names
+                .iter()
+                .find(|name| name.to_ascii_lowercase().ends_with(".png"))
+        })
+        .cloned()
 }

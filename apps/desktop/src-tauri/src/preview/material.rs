@@ -7,6 +7,12 @@ use std::path::{Path, PathBuf};
 use super::raster::to_u8;
 use super::save_thumb;
 
+/// Decode a base64 payload, tolerating embedded whitespace.
+pub(crate) fn decode_base64(payload: &str) -> Option<Vec<u8>> {
+    let encoded: String = payload.chars().filter(|c| !c.is_whitespace()).collect();
+    STANDARD.decode(encoded).ok()
+}
+
 /// V-Ray material thumbnails: companion image, embedded base64 preview,
 /// referenced texture, or a generated sphere swatch.
 pub(crate) fn extract_vrmat_thumb(source: &Path, output: &Path) -> Result<()> {
@@ -50,8 +56,7 @@ fn preview_image(doc: &Document) -> Option<DynamicImage> {
     let node = doc.descendants().find(|node| node.has_tag_name("preview"))?;
     let text = node.text()?.trim();
     let payload = text.rsplit_once("base64,").map_or(text, |(_, value)| value);
-    let encoded: String = payload.chars().filter(|c| !c.is_whitespace()).collect();
-    let bytes = STANDARD.decode(encoded).ok()?;
+    let bytes = decode_base64(payload)?;
     image::load_from_memory(&bytes).ok()
 }
 

@@ -1,0 +1,115 @@
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  outline: none;
+}
+
+.container:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: -2px;
+}
+
+.carouselImg,
+.singleImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+
+.carouselImg {
+  pointer-events: none;
+}
+
+.navBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-overlay);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+  backdrop-filter: blur(6px);
+  z-index: 2;
+  padding: 0;
+}
+
+.container:hover .navBtn,
+.container:focus-within .navBtn {
+  opacity: 0.85;
+}
+
+.navBtn:hover,
+.navBtn:focus-visible {
+  opacity: 1 !important;
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-hover);
+  transform: translateY(-50%) scale(1.08);
+  outline: none;
+}
+
+.prevBtn {
+  left: 6px;
+}
+
+.nextBtn {
+  right: 6px;
+}
+
+.dots {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--color-bg-overlay);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--color-border);
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.container:hover .dots,
+.container:focus-within .dots {
+  opacity: 1;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  outline: none;
+}
+
+.dot:hover,
+.dot:focus-visible {
+  background: var(--color-text-primary);
+}
+
+.dotActive {
+  background: var(--color-brand-500) !important;
+  transform: scale(1.25);
+}

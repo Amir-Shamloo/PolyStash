@@ -27,13 +27,26 @@ interface FolderTreeRowProps {
   onSelect: (folder: ActiveFolder) => void;
 }
 
+function ChevronIcon({ hasChildren, isLoading, isExpanded }: { hasChildren: boolean; isLoading: boolean; isExpanded: boolean }) {
+  if (!hasChildren) return <span className={styles.emptySlot} />;
+  if (isLoading) return <span className={styles.spinner} aria-label="Loading" />;
+  return (
+    <span className={styles.chevron}>
+      {isExpanded ? <IconChevronDown size={11} /> : <IconChevronRight size={11} />}
+    </span>
+  );
+}
+
 function FolderTreeRow({ item, onSelect }: FolderTreeRowProps) {
   const itemProps = item.getProps();
   const isExpanded = item.isExpanded();
   const isLoading = item.isLoading();
   const isSelected = item.isSelected();
   const level = item.getItemMeta().level;
-  const isEmptyFolder = isExpanded && !isLoading && item.getChildren().length === 0;
+  // A folder only gets a chevron when it actually has subdirectories to reveal.
+  // headless-tree resolves children lazily, so a not-yet-loaded folder reports
+  // zero children; `isFolder()` covers those and avoids hiding the arrow.
+  const hasChildren = isLoading || item.isFolder() || item.getChildren().length > 0;
 
   return (
     <button
@@ -55,19 +68,12 @@ function FolderTreeRow({ item, onSelect }: FolderTreeRowProps) {
         className={styles.chevronSlot}
         onClick={(e) => {
           e.stopPropagation();
+          if (!hasChildren) return;
           if (isExpanded) item.collapse();
           else item.expand();
         }}
       >
-        {isLoading ? (
-          <span className={styles.spinner} aria-label="Loading" />
-        ) : isEmptyFolder ? (
-          <span className={styles.emptySlot} />
-        ) : (
-          <span className={styles.chevron}>
-            {isExpanded ? <IconChevronDown size={11} /> : <IconChevronRight size={11} />}
-          </span>
-        )}
+        <ChevronIcon hasChildren={hasChildren} isLoading={isLoading} isExpanded={isExpanded} />
       </span>
 
       <span className={styles.iconSlot}>
