@@ -44,9 +44,9 @@ function FolderTreeRow({ item, onSelect }: FolderTreeRowProps) {
   const isSelected = item.isSelected();
   const level = item.getItemMeta().level;
   // A folder only gets a chevron when it actually has subdirectories to reveal.
-  // headless-tree resolves children lazily; `isExpandable()` is true only when
-  // the item can actually expand (has or will have children).
-  const hasChildren = isLoading || item.isExpandable();
+  // headless-tree resolves children lazily — a not-yet-expanded folder reports
+  // zero children. We show the chevron while loading OR when children exist.
+  const hasChildren = isLoading || item.getChildren().length > 0;
 
   return (
     <button
