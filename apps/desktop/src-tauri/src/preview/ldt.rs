@@ -726,7 +726,7 @@ mod tests {
             "CRI80",
             "10",
         ];
-        lines.extend(std::iter::repeat("0").take(DIRECT_RATIO_COUNT));
+        lines.extend(std::iter::repeat_n("0", DIRECT_RATIO_COUNT));
         lines.extend(["0", "90", "180", "270"]);
         lines.extend(["0", "45", "90"]);
         for _ in 0..4 {
