@@ -58,12 +58,14 @@ export function folderToDirectoryPrefix(folder: ActiveFolder | null): string | u
 
 export function folderToSearchQuery(
   folder: ActiveFolder | null,
-  currentFilter: FilterSpec = {}
+  currentFilter: FilterSpec = {},
+  includeSubfolders: boolean = true
 ): Partial<SearchQuery> {
   const directoryPrefix = folderToDirectoryPrefix(folder);
-  const nextFilter: FilterSpec = { ...currentFilter };
+  const nextFilter: FilterSpec = { ...currentFilter, includeSubfolders };
   if (directoryPrefix === undefined) {
     delete nextFilter.directoryPrefix;
+    delete nextFilter.directory;
   } else {
     nextFilter.directoryPrefix = directoryPrefix;
   }
@@ -71,6 +73,7 @@ export function folderToSearchQuery(
     libraryId: folder?.libraryId ?? undefined,
     libraryIds: undefined,
     collectionId: undefined,
+    includeSubfolders,
     filter: nextFilter,
   };
 }
@@ -92,6 +95,7 @@ interface UIState {
   setGridSize: (size: 'sm' | 'md' | 'lg') => void;
   toggleSidebar: () => void;
   toggleDetailPanel: () => void;
+  setDetailPanelOpen: (open: boolean) => void;
   selectAsset: (id: string, multi?: boolean) => void;
   selectAll: (ids: string[]) => void;
   clearSelection: () => void;
@@ -125,6 +129,7 @@ export const useUIStore = create<UIState>()(
       setGridSize: (gridSize) => set({ gridSize }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleDetailPanel: () => set((s) => ({ detailPanelOpen: !s.detailPanelOpen })),
+      setDetailPanelOpen: (detailPanelOpen) => set({ detailPanelOpen }),
 
       selectAsset: (id, multi = false) =>
         set((s) => {
@@ -132,9 +137,9 @@ export const useUIStore = create<UIState>()(
             const next = new Set(s.selectedAssetIds);
             if (next.has(id)) next.delete(id);
             else next.add(id);
-            return { selectedAssetIds: next, focusedAssetId: id };
+            return { selectedAssetIds: next, focusedAssetId: id, detailPanelOpen: true };
           }
-          return { selectedAssetIds: new Set([id]), focusedAssetId: id };
+          return { selectedAssetIds: new Set([id]), focusedAssetId: id, detailPanelOpen: true };
         }),
 
       selectAll: (ids) =>
@@ -180,7 +185,8 @@ export const useUIStore = create<UIState>()(
           activeCollectionId: null,
         });
         const currentFilter = useAssetStore.getState().query.filter;
-        useAssetStore.getState().setQuery(folderToSearchQuery(activeFolder, currentFilter));
+        const includeSubfolders = useAssetStore.getState().query.includeSubfolders ?? true;
+        useAssetStore.getState().setQuery(folderToSearchQuery(activeFolder, currentFilter, includeSubfolders));
       },
       refreshFolderTree: () =>
         set((s) => ({ folderTreeVersion: s.folderTreeVersion + 1 })),
@@ -206,7 +212,7 @@ interface LibraryStore {
   removeLibrary: (id: string) => Promise<void>;
 }
 
-export const useLibraryStore = create<LibraryStore>()((set) => ({
+export const useLibraryStore = create<LibraryStore>()((set, get) => ({
   libraries: [],
   loading: false,
 
@@ -228,8 +234,28 @@ export const useLibraryStore = create<LibraryStore>()((set) => ({
 
   removeLibrary: async (id) => {
     await api.removeLibrary(id);
-    set((s) => ({ libraries: s.libraries.filter((l) => l.id !== id) }));
+    const updatedLibraries = get().libraries.filter((l) => l.id !== id);
+    set({ libraries: updatedLibraries });
     useUIStore.getState().refreshFolderTree();
+
+    const ui = useUIStore.getState();
+    const isCurrentActive = ui.activeLibraryId === id;
+    const isSelected = ui.selectedLibraryIds.includes(id);
+
+    if (updatedLibraries.length === 0) {
+      ui.clearLibrarySelection();
+      useAssetStore.setState({ assets: [], total: 0, assetMap: new Map() });
+    } else if (isCurrentActive || isSelected) {
+      const nextSelected = ui.selectedLibraryIds.filter((libId) => libId !== id);
+      ui.setSelectedLibraryIds(nextSelected);
+      useAssetStore.getState().setQuery({
+        libraryIds: nextSelected.length > 0 ? nextSelected : undefined,
+        libraryId: nextSelected.length === 1 ? nextSelected[0] : undefined,
+      });
+      useAssetStore.getState().search();
+    } else {
+      useAssetStore.getState().search();
+    }
   },
 }));
 
@@ -265,13 +291,14 @@ const defaultQuery: SearchQuery = {
   filter: {},
   sort: { field: 'date', order: 'desc' },
   includeSubcollections: true,
+  includeSubfolders: true,
 };
 
 export const useAssetStore = create<AssetStore>()((set, get) => ({
   assets: [],
   total: 0,
   page: 0,
-  pageSize: 100,
+  pageSize: 100_000,
   loading: false,
   query: defaultQuery,
   assetMap: new Map(),
@@ -292,7 +319,14 @@ export const useAssetStore = create<AssetStore>()((set, get) => ({
 
   resetFilter: () =>
     set((s) => ({
-      query: { ...s.query, collectionId: undefined, filter: {} },
+      query: {
+        ...s.query,
+        collectionId: undefined,
+        filter: {
+          includeSubcollections: s.query.includeSubcollections,
+          includeSubfolders: s.query.includeSubfolders,
+        },
+      },
       page: 0,
     })),
 
@@ -321,6 +355,11 @@ export const useAssetStore = create<AssetStore>()((set, get) => ({
   setPage: (page) => set({ page }),
 
   search: async () => {
+    const libraries = useLibraryStore.getState().libraries;
+    if (libraries.length === 0) {
+      set({ assets: [], total: 0, assetMap: new Map(), loading: false });
+      return;
+    }
     const { query, page, pageSize } = get();
     set({ loading: true });
     try {

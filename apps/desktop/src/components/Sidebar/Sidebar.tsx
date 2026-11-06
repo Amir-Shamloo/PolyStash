@@ -13,6 +13,7 @@ import {
 } from '../Icons';
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
 import { FolderTree } from './FolderTree';
+import { SectionSettingsPopover } from './SectionSettingsPopover';
 import type { Collection } from '../../types';
 import styles from './Sidebar.module.css';
 
@@ -41,6 +42,7 @@ export function Sidebar() {
     clearLibrarySelection,
     folderTreeVersion,
   } = useUIStore();
+  const query = useAssetStore((s) => s.query);
   const replaceFilter = useAssetStore((s) => s.replaceFilter);
   const resetFilter = useAssetStore((s) => s.resetFilter);
   const clearFilter = useAssetStore((s) => s.clearFilter);
@@ -362,8 +364,20 @@ export function Sidebar() {
         icon={<IconFolder size={14} />}
         expanded={expanded.libraries}
         onToggle={() => toggle('libraries')}
-        onAdd={handleAddLibrary}
       >
+        <div className={styles.addLibraryWrap}>
+          <button
+            id="sidebar-add-library-btn"
+            type="button"
+            className={styles.addLibraryBtn}
+            onClick={handleAddLibrary}
+            title="Add Library Folder"
+          >
+            <IconPlus size={13} />
+            <span>Add Library</span>
+          </button>
+        </div>
+
         {libraries.length === 0 && (
           <p className={styles.empty}>No libraries yet</p>
         )}
@@ -439,6 +453,22 @@ export function Sidebar() {
         icon={<IconFolder size={14} />}
         expanded={expanded.folders}
         onToggle={() => toggle('folders')}
+        headerActions={
+          <SectionSettingsPopover
+            title="Folder Settings"
+            toggleLabel="Include subfolders"
+            description="Recursively include assets from nested subfolders"
+            checked={query.includeSubfolders !== false}
+            onChange={(val) => {
+              setQuery({
+                includeSubfolders: val,
+                filter: { ...query.filter, includeSubfolders: val },
+              });
+              search();
+            }}
+            idPrefix="folders"
+          />
+        }
       >
         <FolderTree key={folderTreeVersion} />
       </SidebarSection>
@@ -449,6 +479,22 @@ export function Sidebar() {
         icon={<IconCollection size={14} />}
         expanded={expanded.collections}
         onToggle={() => toggle('collections')}
+        headerActions={
+          <SectionSettingsPopover
+            title="Collection Settings"
+            toggleLabel="Include subcollections"
+            description="Recursively include assets from child collections"
+            checked={query.includeSubcollections !== false}
+            onChange={(val) => {
+              setQuery({
+                includeSubcollections: val,
+                filter: { ...query.filter, includeSubcollections: val },
+              });
+              search();
+            }}
+            idPrefix="collections"
+          />
+        }
         onAdd={() => {
           setExpanded((e) => ({ ...e, collections: true }));
           setIsCreatingCollection(true);
@@ -633,11 +679,12 @@ interface SidebarSectionProps {
   expanded: boolean;
   onToggle: () => void;
   onAdd?: () => void;
+  headerActions?: React.ReactNode;
   children: React.ReactNode;
 }
 
 function SidebarSection({
-  label, icon, expanded, onToggle, onAdd, children,
+  label, icon, expanded, onToggle, onAdd, headerActions, children,
 }: SidebarSectionProps) {
   return (
     <div className={styles.section}>
@@ -647,11 +694,14 @@ function SidebarSection({
           {icon}
           <span className={styles.sectionLabel}>{label}</span>
         </button>
-        {onAdd && (
-          <button className={styles.addBtn} onClick={onAdd} title={`Add ${label}`} id={`add-${label.toLowerCase()}`}>
-            <IconPlus size={12} />
-          </button>
-        )}
+        <div className={styles.sectionActions}>
+          {headerActions}
+          {onAdd && (
+            <button className={styles.addBtn} onClick={onAdd} title={`Add ${label}`} id={`add-${label.toLowerCase()}`}>
+              <IconPlus size={12} />
+            </button>
+          )}
+        </div>
       </div>
       {expanded && <div className={styles.sectionBody}>{children}</div>}
     </div>

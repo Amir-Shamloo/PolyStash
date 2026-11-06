@@ -1,0 +1,351 @@
+.container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+/* Trigger button */
+.triggerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.triggerBtn:hover {
+  background: var(--color-bg-overlay);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+.triggerBtn:active {
+  transform: scale(0.96);
+}
+
+.triggerActive {
+  background: hsl(220 85% 50% / 0.12);
+  border-color: hsl(220 85% 50% / 0.45);
+  color: var(--color-brand-300);
+}
+
+.triggerActive:hover {
+  background: hsl(220 85% 50% / 0.18);
+  border-color: hsl(220 85% 50% / 0.6);
+  color: var(--color-brand-200);
+}
+
+.triggerIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+.triggerText {
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  background: var(--color-brand-500);
+  color: #ffffff;
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+  margin-left: 2px;
+}
+
+.chevronRotated {
+  transform: rotate(180deg);
+  color: var(--color-text-primary);
+}
+
+/* Popover Panel */
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.popoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.headerTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.allBtn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.allBtn:hover {
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+}
+
+.allBtnActive {
+  background: hsl(220 85% 50% / 0.15);
+  border-color: var(--color-brand-500);
+  color: var(--color-brand-300);
+}
+
+/* Inner Search */
+.searchBox {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-base);
+  position: relative;
+}
+
+.searchBoxIcon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  margin-right: var(--space-2);
+}
+
+.searchBoxInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  outline: none;
+  font-family: var(--font-sans);
+}
+
+.searchBoxInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.searchClearBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.searchClearBtn:hover {
+  color: var(--color-text-primary);
+}
+
+/* List */
+.list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-1);
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.itemRow:hover {
+  background: var(--color-bg-elevated);
+}
+
+.itemRowChecked {
+  background: hsl(220 85% 50% / 0.08);
+}
+
+.itemRowChecked:hover {
+  background: hsl(220 85% 50% / 0.12);
+}
+
+/* Checkbox */
+.checkboxWrap {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkboxInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkboxCustom {
+  width: 15px;
+  height: 15px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--color-border-hover);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-base);
+  transition: all var(--transition-fast);
+  color: #fff;
+}
+
+.checkboxChecked {
+  background: var(--color-brand-500);
+  border-color: var(--color-brand-500);
+}
+
+/* Icon Badge */
+.iconBadge {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Meta */
+.itemMeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.itemTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.itemLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.itemBadge {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  letter-spacing: 0.04em;
+}
+
+.itemFormats {
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.noMatches {
+  padding: var(--space-4) var(--space-2);
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+}
+
+/* Footer */
+.popoverFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space-3);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.footerSummary {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.resetBtn {
+  background: none;
+  border: none;
+  color: var(--color-brand-400);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.resetBtn:hover {
+  text-decoration: underline;
+  color: var(--color-brand-300);
+}

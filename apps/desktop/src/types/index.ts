@@ -10,6 +10,42 @@ export type AssetKind =
   | 'document'
   | 'other';
 
+const EXTENSION_KIND_MAP: Record<string, AssetKind> = {
+  // 3D CAD & Geometry Models
+  fbx: '3d_model', obj: '3d_model', '3ds': '3d_model', dae: '3d_model',
+  gltf: '3d_model', glb: '3d_model', skp: '3d_model', blend: '3d_model',
+  c4d: '3d_model', '3dm': '3d_model', rfa: '3d_model', rvt: '3d_model',
+  dwg: '3d_model', dxf: '3d_model', stl: '3d_model', usd: '3d_model',
+  usdz: '3d_model', max: '3d_model', ply: '3d_model', x3d: '3d_model', wrl: '3d_model',
+  // Materials & Shaders
+  mat: 'material', vrmat: 'material', sbsar: 'material', sbs: 'material', mdl: 'material',
+  // Textures & Surface Maps
+  jpg: 'texture', jpeg: 'texture', png: 'texture', tga: 'texture',
+  tif: 'texture', tiff: 'texture', bmp: 'texture', dds: 'texture',
+  ktx: 'texture', ktx2: 'texture', webp: 'texture', avif: 'texture',
+  // Environment & HDRI
+  hdr: 'hdri', exr: 'hdri', hdri: 'hdri',
+  // Photometric Lights
+  ies: 'ies', ldt: 'ies',
+  // Video & Motion
+  mp4: 'video', mov: 'video', avi: 'video', mkv: 'video', webm: 'video', m4v: 'video',
+  // Layered, Vector & Graphics
+  psd: 'image', psb: 'image', ai: 'image', svg: 'image', gif: 'image',
+  // Documents & Text
+  pdf: 'document', txt: 'document', md: 'document', rtf: 'document', docx: 'document',
+  // Point caches & Other
+  abc: 'other',
+};
+
+/**
+ * Authoritative mapping from lowercase file extension to AssetKind.
+ * Matches backend AssetKind::from_extension rules.
+ */
+export function kindFromExtension(ext: string): AssetKind {
+  const cleanExt = ext.toLowerCase().replace(/^\./, '').trim();
+  return EXTENSION_KIND_MAP[cleanExt] ?? 'other';
+}
+
 export type ColorLabel =
   | 'none'
   | 'red'
@@ -103,6 +139,7 @@ export interface FilterSpec {
   collectionIds?: string[];
   collectionLogic?: 'and' | 'or' | 'and_or' | 'none';
   includeSubcollections?: boolean;
+  includeSubfolders?: boolean;
 }
 
 export interface SearchQuery {
@@ -113,6 +150,7 @@ export interface SearchQuery {
   libraryIds?: string[];
   collectionId?: string;
   includeSubcollections?: boolean;
+  includeSubfolders?: boolean;
 }
 
 // ── Preview job ──────────────────────────────────────────────────────────

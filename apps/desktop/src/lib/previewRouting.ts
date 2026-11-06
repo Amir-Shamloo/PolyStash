@@ -7,6 +7,7 @@ export const PANORAMA_EXTENSIONS = new Set(['hdr', 'exr', 'hdri']);
 export const LIGHT_EXTENSIONS = new Set(['ies', 'ldt']);
 export const GPU_TEXTURE_EXTENSIONS = new Set(['dds', 'ktx', 'ktx2']);
 export const CATEGORY_D_EXTENSIONS = new Set(['sbs', 'mdl', 'mat', 'abc']);
+export const NO_PREVIEW_EXTENSIONS = new Set(['abc', 'x3d', 'avif']);
 
 export type PreviewView =
   | { type: 'video'; path: string }
@@ -22,6 +23,31 @@ function resolveVideo(asset: Asset): PreviewView | null {
   const ext = asset.extension.toLowerCase();
   if (asset.kind === 'video' || VIDEO_EXTENSIONS.has(ext)) {
     return { type: 'video', path: asset.filePath };
+  }
+  return null;
+}
+
+function resolveNoPreview(asset: Asset, snapshotUrl?: string | null): PreviewView | null {
+  const ext = asset.extension.toLowerCase();
+  if (ext === 'abc' || ext === 'x3d') {
+    return {
+      type: 'placeholder',
+      kind: asset.kind,
+      extension: ext,
+      message: '3D scene preview unavailable',
+    };
+  }
+  if (ext === 'avif') {
+    const thumbs = getAssetThumbnailUrls(asset, snapshotUrl);
+    if (thumbs.length > 0) {
+      return { type: 'thumbnail', urls: thumbs };
+    }
+    return {
+      type: 'placeholder',
+      kind: asset.kind,
+      extension: ext,
+      message: 'AVIF preview unavailable without thumbnail',
+    };
   }
   return null;
 }
@@ -92,6 +118,7 @@ export function resolvePreview(
 ): PreviewView {
   return (
     resolveVideo(asset) ??
+    resolveNoPreview(asset, snapshotUrl) ??
     resolveModel(asset) ??
     resolveEnvironment(asset) ??
     resolveGpuTexture(asset) ??

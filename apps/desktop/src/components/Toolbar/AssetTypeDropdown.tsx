@@ -1,0 +1,416 @@
+import { useState, useRef, useMemo, useCallback } from 'react';
+import clsx from 'clsx';
+import type { AssetKind } from '../../types';
+import { useAssetStore } from '../../store';
+import { useOutsideDismiss } from './useOutsideDismiss';
+import styles from './AssetTypeDropdown.module.css';
+
+interface KindDefinition {
+  kind: AssetKind;
+  label: string;
+  badge: string;
+  formats: string;
+  color: string;
+  icon: (props: { size?: number }) => JSX.Element;
+}
+
+const KIND_DEFS: KindDefinition[] = [
+  {
+    kind: '3d_model',
+    label: '3D Models',
+    badge: '3D',
+    formats: 'max, 3dm, rvt, rfa, blend, fbx, obj, gltf, glb, c4d, skp, usd, stl, ply',
+    color: '#3b82f6',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    kind: 'material',
+    label: 'Materials',
+    badge: 'MAT',
+    formats: 'vrmat, mat, sbsar, sbs, mdl',
+    color: '#a855f7',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9" fill="currentColor" fillOpacity={0.2} />
+        <circle cx="9" cy="9" r="2" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    kind: 'texture',
+    label: 'Textures',
+    badge: 'TEX',
+    formats: 'jpg, png, tga, tif, tiff, bmp, dds, ktx, ktx2, webp, avif',
+    color: '#06b6d4',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18M9 21V9M15 21V9M3 15h18" strokeOpacity={0.7} />
+      </svg>
+    ),
+  },
+  {
+    kind: 'hdri',
+    label: 'HDRI Environments',
+    badge: 'HDR',
+    formats: 'hdr, exr, hdri',
+    color: '#f59e0b',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+      </svg>
+    ),
+  },
+  {
+    kind: 'ies',
+    label: 'IES Light Profiles',
+    badge: 'IES',
+    formats: 'ies, ldt',
+    color: '#eab308',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 2v6M9 8h6l3 10H6L9 8z" />
+        <path d="M8 22h8" />
+      </svg>
+    ),
+  },
+  {
+    kind: 'video',
+    label: 'Videos',
+    badge: 'VID',
+    formats: 'mp4, mov, avi, mkv, webm, m4v',
+    color: '#ef4444',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    kind: 'image',
+    label: 'Images & Vectors',
+    badge: 'IMG',
+    formats: 'psd, psb, ai, svg, gif',
+    color: '#10b981',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    ),
+  },
+  {
+    kind: 'document',
+    label: 'Documents',
+    badge: 'DOC',
+    formats: 'pdf, docx, txt, md, rtf',
+    color: '#6366f1',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <line x1="10" y1="9" x2="8" y2="9" />
+      </svg>
+    ),
+  },
+  {
+    kind: 'other',
+    label: 'Other Assets',
+    badge: 'ETC',
+    formats: 'abc, zip, other supported files',
+    color: '#94a3b8',
+    icon: ({ size = 16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8" cy="12" r="1" fill="currentColor" />
+        <circle cx="12" cy="12" r="1" fill="currentColor" />
+        <circle cx="16" cy="12" r="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+];
+
+function isActivateKey(key: string): boolean {
+  return key === ' ' || key === 'Enter';
+}
+
+interface ItemRowProps {
+  def: KindDefinition;
+  isChecked: boolean;
+  onToggle: (kind: AssetKind) => void;
+}
+
+function AssetTypeItemRow({ def, isChecked, onToggle }: ItemRowProps) {
+  const IconComp = def.icon;
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isActivateKey(e.key)) {
+      e.preventDefault();
+      onToggle(def.kind);
+    }
+  };
+
+  return (
+    <div
+      id={`asset-type-item-${def.kind}`}
+      className={clsx(styles.itemRow, isChecked && styles.itemRowChecked)}
+      onClick={() => onToggle(def.kind)}
+      role="option"
+      aria-selected={isChecked}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
+      <label className={styles.checkboxWrap} onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          className={styles.checkboxInput}
+          checked={isChecked}
+          onChange={() => onToggle(def.kind)}
+        />
+        <span className={clsx(styles.checkboxCustom, isChecked && styles.checkboxChecked)}>
+          {isChecked && (
+            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </span>
+      </label>
+
+      <div
+        className={styles.iconBadge}
+        style={{ color: def.color, background: `${def.color}18`, borderColor: `${def.color}35` }}
+      >
+        <IconComp size={15} />
+      </div>
+
+      <div className={styles.itemMeta}>
+        <div className={styles.itemTitleRow}>
+          <span className={styles.itemLabel}>{def.label}</span>
+          <span className={styles.itemBadge} style={{ color: def.color, borderColor: `${def.color}40` }}>
+            {def.badge}
+          </span>
+        </div>
+        <span className={styles.itemFormats} title={def.formats}>
+          {def.formats}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function matchesSearch(def: KindDefinition, q: string): boolean {
+  if (def.label.toLowerCase().includes(q)) return true;
+  if (def.formats.toLowerCase().includes(q)) return true;
+  return def.badge.toLowerCase().includes(q);
+}
+
+function filterKindDefs(defs: KindDefinition[], term: string): KindDefinition[] {
+  const q = term.trim().toLowerCase();
+  if (!q) return defs;
+  return defs.filter((def) => matchesSearch(def, q));
+}
+
+interface PopoverProps {
+  selectedKinds: AssetKind[];
+  isAllSelected: boolean;
+  onToggleKind: (kind: AssetKind) => void;
+  onSelectAll: () => void;
+}
+
+function AssetTypePopover({ selectedKinds, isAllSelected, onToggleKind, onSelectAll }: PopoverProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredDefs = useMemo(
+    () => filterKindDefs(KIND_DEFS, searchTerm),
+    [searchTerm]
+  );
+
+  return (
+    <div className={styles.popover} role="dialog" aria-label="Asset type filters">
+      <div className={styles.popoverHeader}>
+        <span className={styles.headerTitle}>Filter by Asset Type</span>
+        <button
+          type="button"
+          id="asset-type-all-btn"
+          className={clsx(styles.allBtn, isAllSelected && styles.allBtnActive)}
+          onClick={onSelectAll}
+        >
+          All Types
+        </button>
+      </div>
+
+      <div className={styles.searchBox}>
+        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={styles.searchBoxIcon} aria-hidden>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          autoFocus
+          placeholder="Search types & extensions…"
+          className={styles.searchBoxInput}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            className={styles.searchClearBtn}
+            onClick={() => setSearchTerm('')}
+            title="Clear type search"
+            aria-label="Clear type search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      <div className={styles.list} role="listbox" aria-multiselectable="true">
+        {filteredDefs.map((def) => (
+          <AssetTypeItemRow
+            key={def.kind}
+            def={def}
+            isChecked={selectedKinds.includes(def.kind)}
+            onToggle={onToggleKind}
+          />
+        ))}
+        {filteredDefs.length === 0 && (
+          <p className={styles.noMatches}>No asset types match &ldquo;{searchTerm}&rdquo;</p>
+        )}
+      </div>
+
+      <div className={styles.popoverFooter}>
+        <span className={styles.footerSummary}>
+          {isAllSelected ? 'Showing all formats' : `${selectedKinds.length} of ${KIND_DEFS.length} selected`}
+        </span>
+        {!isAllSelected && (
+          <button type="button" className={styles.resetBtn} onClick={onSelectAll} title="Reset to all types">
+            Reset
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getTriggerLabel(selectedKinds: AssetKind[]): string {
+  if (selectedKinds.length === 0) return 'All Types';
+  if (selectedKinds.length === 1) {
+    const match = KIND_DEFS.find((d) => d.kind === selectedKinds[0]);
+    return match ? match.label : '1 Type';
+  }
+  return `${selectedKinds.length} Types`;
+}
+
+function toggleKindSelection(current: AssetKind[], kind: AssetKind): AssetKind[] | undefined {
+  const next = current.includes(kind) ? current.filter((k) => k !== kind) : [...current, kind];
+  return next.length > 0 ? next : undefined;
+}
+
+interface TriggerProps {
+  isOpen: boolean;
+  isAllSelected: boolean;
+  selectedCount: number;
+  triggerLabel: string;
+  onToggle: () => void;
+}
+
+function AssetTypeTrigger({
+  isOpen,
+  isAllSelected,
+  selectedCount,
+  triggerLabel,
+  onToggle,
+}: TriggerProps) {
+  const title = isAllSelected ? 'Filter by asset type' : `Filtering by: ${triggerLabel}`;
+
+  return (
+    <button
+      id="asset-type-dropdown-trigger"
+      type="button"
+      className={clsx(styles.triggerBtn, !isAllSelected && styles.triggerActive)}
+      onClick={onToggle}
+      aria-haspopup="listbox"
+      aria-expanded={isOpen}
+      title={title}
+    >
+      <span className={styles.triggerIconWrap}>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polygon points="12 2 2 7 12 12 22 7 12 2" />
+          <polyline points="2 17 12 22 22 17" />
+          <polyline points="2 12 12 17 22 12" />
+        </svg>
+      </span>
+      <span className={styles.triggerText}>{triggerLabel}</span>
+      {!isAllSelected && <span className={styles.countBadge}>{selectedCount}</span>}
+      <span className={clsx(styles.chevron, isOpen && styles.chevronRotated)}>
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </span>
+    </button>
+  );
+}
+
+export function AssetTypeDropdown() {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const closeDropdown = useCallback(() => setIsOpen(false), []);
+  const toggleDropdown = useCallback(() => setIsOpen((prev) => !prev), []);
+
+  useOutsideDismiss(containerRef, isOpen, closeDropdown);
+
+  const kinds = useAssetStore((s) => s.query.filter.kinds);
+  const setFilter = useAssetStore((s) => s.setFilter);
+  const search = useAssetStore((s) => s.search);
+
+  const selectedKinds = useMemo(() => kinds ?? [], [kinds]);
+  const isAllSelected = selectedKinds.length === 0;
+
+  const handleToggleKind = useCallback(
+    (kind: AssetKind) => {
+      setFilter({ kinds: toggleKindSelection(selectedKinds, kind) });
+      search();
+    },
+    [selectedKinds, setFilter, search]
+  );
+
+  const handleSelectAll = useCallback(() => {
+    setFilter({ kinds: undefined });
+    search();
+  }, [setFilter, search]);
+
+  const triggerLabel = useMemo(() => getTriggerLabel(selectedKinds), [selectedKinds]);
+
+  return (
+    <div className={styles.container} ref={containerRef}>
+      <AssetTypeTrigger
+        isOpen={isOpen}
+        isAllSelected={isAllSelected}
+        selectedCount={selectedKinds.length}
+        triggerLabel={triggerLabel}
+        onToggle={toggleDropdown}
+      />
+      {isOpen && (
+        <AssetTypePopover
+          selectedKinds={selectedKinds}
+          isAllSelected={isAllSelected}
+          onToggleKind={handleToggleKind}
+          onSelectAll={handleSelectAll}
+        />
+      )}
+    </div>
+  );
+}

@@ -129,11 +129,19 @@ struct PendingAsset {
 /// Every format with a backend or frontend preview path belongs here;
 /// formats absent from this list are never queued for preview generation.
 const PREVIEW_EXTENSIONS: &[&str] = &[
-    "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "skp", "rfa", "rvt", "rte",
-    "dwg", "dxf", "3dm", "vrmat", "sbsar", "psd", "psb", "ai", "exr", "hdr", "hdri",
-    "ies", "ldt", "c4d", "blend", "pdf",
-    "jpg", "jpeg", "png", "tif", "tiff", "tga", "bmp", "webp", "avif",
-    "dds", "ktx", "ktx2", "sbs", "mdl", "mat", "abc",
+    // Mesh and CAD
+    "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "ply", "usd", "usdz",
+    "x3d", "wrl", "skp", "rfa", "rvt", "rte", "dwg", "dxf", "3dm",
+    // Materials and textures
+    "vrmat", "sbsar", "dds", "ktx", "ktx2", "sbs", "mdl", "mat", "abc",
+    "jpg", "jpeg", "png", "gif", "tif", "tiff", "tga", "bmp", "webp", "avif",
+    // HDRI
+    "exr", "hdr", "hdri",
+    // Documents and layered images
+    "psd", "psb", "ai", "pdf", "c4d", "blend",
+    // Photometric
+    "ies", "ldt",
+    // Video
     "mp4", "mov", "avi", "mkv", "webm", "m4v",
 ];
 

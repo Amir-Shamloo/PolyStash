@@ -35,7 +35,7 @@ fn is_plausible_bmp_header(bytes: &[u8], index: usize) -> bool {
 }
 
 /// Locate a plausible `BM` bitmap file header inside a byte buffer.
-fn find_bmp(bytes: &[u8]) -> Option<usize> {
+pub(crate) fn find_bmp(bytes: &[u8]) -> Option<usize> {
     let mut index = 0;
     while index + 14 <= bytes.len() {
         if &bytes[index..index + 2] == b"BM" && is_plausible_bmp_header(bytes, index) {

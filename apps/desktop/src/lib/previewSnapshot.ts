@@ -11,6 +11,10 @@ import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { useState, useEffect } from 'react';
 import type { Asset } from '../types';
+import {
+  centerObject,
+  sanitizeModelMaterialsAndNormals,
+} from '../components/DetailPanel/ThreeViewerUtils';
 
 const snapshotUrlCache = new Map<string, string>();
 
@@ -43,7 +47,6 @@ const LOADER_DISPATCH: Record<string, LoaderFn> = {
   usd: (url) => new USDZLoader().loadAsync(url),
   usdz: (url) => new USDZLoader().loadAsync(url),
   wrl: (url) => new VRMLLoader().loadAsync(url),
-  x3d: (url) => new VRMLLoader().loadAsync(url),
   gltf: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
   glb: async (url) => (await new GLTFLoader().loadAsync(url)).scene,
 };
@@ -54,13 +57,8 @@ async function loadObjectByExtension(fileUrl: string, ext: string): Promise<THRE
 }
 
 function frameCameraOnObject(camera: THREE.PerspectiveCamera, object: THREE.Object3D): void {
-  const box = new THREE.Box3().setFromObject(object);
+  const box = centerObject(object);
   const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-
-  object.position.x -= center.x;
-  object.position.y -= center.y;
-  object.position.z -= center.z;
 
   const maxDim = Math.max(size.x, size.y, size.z) || 1;
   const fovRad = (camera.fov * Math.PI) / 180;
@@ -100,13 +98,16 @@ function createSnapshotRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer 
 }
 
 function setupSnapshotSceneLights(scene: THREE.Scene): void {
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  dirLight.position.set(5, 10, 7);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  const dirLight = new THREE.DirectionalLight(0xfff6ed, 1.5);
+  dirLight.position.set(5, 8, 6);
   scene.add(dirLight);
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
-  fillLight.position.set(-5, -2, -5);
+  const fillLight = new THREE.DirectionalLight(0xe3edfc, 0.7);
+  fillLight.position.set(-5, 3, -3);
   scene.add(fillLight);
+  const rimLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  rimLight.position.set(0, 5, -6);
+  scene.add(rimLight);
 }
 
 /**
@@ -132,6 +133,9 @@ export async function captureModelSnapshot(url: string, extension: string): Prom
 
     const modelObj = await loadObjectByExtension(fileUrl, extension.toLowerCase());
     if (!modelObj) return null;
+
+    centerObject(modelObj);
+    sanitizeModelMaterialsAndNormals(modelObj);
 
     scene.add(modelObj);
     frameCameraOnObject(camera, modelObj);

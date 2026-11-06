@@ -7,12 +7,15 @@
   background: var(--color-bg-surface);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
-  /* Tauri drag region for custom title bar */
   -webkit-app-region: drag;
+  user-select: none;
 }
 
-/* No-drag regions within the toolbar */
-.brand, .searchContainer, .searchWrap, .controls {
+/* No-drag interactive children */
+.brand,
+.searchSection,
+.typeFilterSection,
+.controls {
   -webkit-app-region: no-drag;
 }
 
@@ -25,136 +28,86 @@
 }
 
 .logo {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-}
-.logo svg { width: 100%; height: 100%; }
-
-.appName {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  letter-spacing: 0.02em;
-}
-
-/* Search Container & Subcollection Checkbox */
-.searchContainer {
-  flex: 1;
-  max-width: 720px;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-}
-
-.subcollectionsCheckboxLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 8px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  user-select: none;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.subcollectionsCheckboxLabel:hover {
-  background: var(--color-bg-overlay);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-hover);
-}
-
-.subcollectionsCheckboxActive {
-  color: var(--color-brand-300);
-  border-color: hsl(220 85% 50% / 0.4);
-  background: hsl(220 85% 50% / 0.08);
-}
-
-.subcollectionsCheckboxInput {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 0;
-  height: 0;
-}
-
-.subcollectionsCheckboxCustom {
-  width: 15px;
-  height: 15px;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--color-border-hover);
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
-  background: var(--color-bg-base);
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
 }
 
-.subcollectionsCheckboxActive .subcollectionsCheckboxCustom {
-  background: var(--color-brand-500);
-  border-color: var(--color-brand-500);
-  color: #fff;
+.logo svg {
+  width: 100%;
+  height: 100%;
 }
 
-.subcollectionsCheckboxCustom svg {
-  width: 11px;
-  height: 11px;
+.appName {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
 }
 
-.subcollectionsCheckboxText {
-  font-weight: 500;
-  font-size: 11.5px;
-  letter-spacing: 0.01em;
-}
-
-/* Search */
-.searchWrap {
+/* Search Section */
+.searchSection {
   flex: 1;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+}
+
+.searchWrap {
+  width: 100%;
   position: relative;
-  max-width: 560px;
   display: flex;
   align-items: center;
 }
 
 .searchIcon {
   position: absolute;
-  left: var(--space-3);
+  left: 10px;
   color: var(--color-text-muted);
   pointer-events: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .searchInput {
   width: 100%;
   height: 32px;
-  padding: 0 var(--space-8) 0 36px;
+  padding: 0 var(--space-8) 0 32px;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  font-size: 13px;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  font-size: 12.5px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
-.searchInput::placeholder { color: var(--color-text-muted); }
+
+.searchInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.searchInput:hover {
+  border-color: var(--color-border-hover);
+  background: var(--color-bg-overlay);
+}
+
 .searchInput:focus {
   outline: none;
-  border-color: var(--color-border-focus);
+  border-color: var(--color-brand-500);
+  background: var(--color-bg-base);
   box-shadow: 0 0 0 3px hsl(220 85% 50% / 0.15);
 }
-.searchInput::-webkit-search-cancel-button { display: none; }
+
+.searchInput::-webkit-search-cancel-button {
+  display: none;
+}
 
 .spinner {
   position: absolute;
-  right: var(--space-3);
+  right: 10px;
   width: 14px;
   height: 14px;
   border: 2px solid var(--color-border);
@@ -162,11 +115,18 @@
   border-radius: 50%;
 }
 
+/* Asset Type Filter Dropdown Section */
+.typeFilterSection {
+  display: flex;
+  align-items: center;
+}
+
 /* Controls */
 .controls {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  margin-left: auto;
   flex-shrink: 0;
 }
 
@@ -177,6 +137,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
+  padding: 1px;
 }
 
 .iconBtn {
@@ -190,18 +151,21 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
+
 .iconBtn:hover {
   background: var(--color-bg-overlay);
   color: var(--color-text-primary);
 }
+
+.iconBtn:active {
+  transform: scale(0.96);
+}
+
 .iconBtn.active {
   background: hsl(220 85% 50% / 0.15);
   color: var(--color-brand-300);
-}
-.iconBtn.dimmed {
-  color: var(--color-text-disabled);
 }
 
 .gridSizeDot {
@@ -210,27 +174,7 @@
 
 .divider {
   width: 1px;
-  height: 20px;
+  height: 18px;
   background: var(--color-border);
-  margin: 0 var(--space-1);
+  margin: 0 2px;
 }
-
-.primaryBtn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 28px;
-  padding: 0 var(--space-3);
-  background: var(--color-brand-500);
-  border: none;
-  border-radius: var(--radius-md);
-  color: #fff;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background var(--transition-fast), transform var(--transition-fast);
-}
-.primaryBtn:hover { background: var(--color-brand-400); transform: translateY(-1px); }
-.primaryBtn:active { transform: translateY(0); }
-.primaryBtn svg { width: 14px; height: 14px; }

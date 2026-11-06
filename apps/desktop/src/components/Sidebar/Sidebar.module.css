@@ -45,6 +45,12 @@
 
 .sectionLabel { flex: 1; text-align: left; }
 
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .addBtn {
   display: flex;
   align-items: center;
@@ -61,6 +67,38 @@
 .addBtn:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-overlay);
+}
+
+.addLibraryWrap {
+  padding: 4px var(--space-1) var(--space-2);
+}
+
+.addLibraryBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.addLibraryBtn:hover {
+  background: var(--color-bg-overlay);
+  border-color: var(--color-brand-500);
+  color: var(--color-brand-300);
+}
+
+.addLibraryBtn:active {
+  transform: scale(0.97);
 }
 
 .sectionBody {

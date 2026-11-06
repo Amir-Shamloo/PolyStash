@@ -15,13 +15,37 @@ interface OrbitHandle {
   update: () => void;
 }
 
-interface IESToolbarProps {
-  autoRotate: boolean;
-  onToggleRotate: () => void;
-  onResetCamera: () => void;
+function IconMaximize({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
 }
 
-function IESToolbar({ autoRotate, onToggleRotate, onResetCamera }: IESToolbarProps) {
+function IconMinimize({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 14h6m0 0v6m0-6L3 21m17-7h-6m0 0v6m0-6l7 7M14 10V4m0 6h6m-6 0l7-7M10 10V4m0 6H4m6 0L3 3" />
+    </svg>
+  );
+}
+
+interface IESToolbarProps {
+  autoRotate: boolean;
+  isFullscreen?: boolean;
+  onToggleRotate: () => void;
+  onResetCamera: () => void;
+  onToggleFullscreen?: () => void;
+}
+
+function IESToolbar({
+  autoRotate,
+  isFullscreen = false,
+  onToggleRotate,
+  onResetCamera,
+  onToggleFullscreen,
+}: IESToolbarProps) {
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="IES Light Viewer Controls">
       <button
@@ -34,6 +58,7 @@ function IESToolbar({ autoRotate, onToggleRotate, onResetCamera }: IESToolbarPro
       >
         <IconRefresh size={13} />
       </button>
+
       <button
         type="button"
         className={styles.toolbarBtn}
@@ -43,6 +68,18 @@ function IESToolbar({ autoRotate, onToggleRotate, onResetCamera }: IESToolbarPro
       >
         <IconCameraReset size={13} />
       </button>
+
+      {onToggleFullscreen && (
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={onToggleFullscreen}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+        >
+          {isFullscreen ? <IconMinimize size={13} /> : <IconMaximize size={13} />}
+        </button>
+      )}
     </div>
   );
 }
@@ -63,7 +100,7 @@ function IESPhotometricScene({ texture }: { texture: THREE.Texture }) {
 
   return (
     <>
-      <ambientLight intensity={0.15} />
+      <ambientLight intensity={0.25} color="#ffffff" />
       <spotLight
         ref={spotLightRef}
         position={[0, 4, 1.5]}
@@ -92,9 +129,16 @@ function IESPhotometricScene({ texture }: { texture: THREE.Texture }) {
 export interface IESLightViewerProps {
   filePath: string;
   extension?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-export function IESLightViewer({ filePath, extension }: IESLightViewerProps) {
+export function IESLightViewer({
+  filePath,
+  extension,
+  isFullscreen,
+  onToggleFullscreen,
+}: IESLightViewerProps) {
   const [autoRotate, setAutoRotate] = useState(false);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -156,22 +200,25 @@ export function IESLightViewer({ filePath, extension }: IESLightViewerProps) {
     <div className={styles.viewerContainer}>
       <IESToolbar
         autoRotate={autoRotate}
+        isFullscreen={isFullscreen}
         onToggleRotate={() => setAutoRotate((v) => !v)}
         onResetCamera={handleResetCamera}
+        onToggleFullscreen={onToggleFullscreen}
       />
 
       <ThreeErrorBoundary
         key={filePath}
-        fallback={
-          <div className={styles.fallback}>
-            Unable to render photometric light preview
-          </div>
-        }
+        extension={cleanExt}
       >
         <Canvas
           shadows
           camera={{ position: [0, 3, 5], fov: 50 }}
-          gl={{ toneMapping: THREE.ACESFilmicToneMapping }}
+          gl={{
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.0,
+            outputColorSpace: THREE.SRGBColorSpace,
+            antialias: true,
+          }}
         >
           <Suspense fallback={null}>
             {texture && <IESPhotometricScene texture={texture} />}
