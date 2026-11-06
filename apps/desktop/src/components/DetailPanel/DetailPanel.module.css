@@ -470,3 +470,320 @@
 .actionBtnLoading {
   color: var(--color-brand-400) !important;
 }
+
+/* ── Detail Panel Redesign (v0.0.7): Header close & divider ── */
+.headerDivider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.closePanelBtn {
+  color: var(--color-text-secondary);
+}
+
+.closePanelBtn:hover {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-overlay) !important;
+}
+
+.nameErrorBanner {
+  color: #ef4444;
+  font-size: 11px;
+  padding: 3px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ── Organize Tab ── */
+.organizeSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.organizeGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.organizeGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.organizeGroupTitle {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.groupTitleWithIcon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-primary);
+}
+
+.organizeBadge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  background: hsl(142 60% 45% / 0.15);
+  color: hsl(142 65% 55%);
+  border-radius: var(--radius-full);
+}
+
+.statusGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+
+.statusLabel {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.noItemsText {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0;
+}
+
+.tagsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tagsSubGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tagsSubLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.collectionsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.collectionPill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.collectionPill:hover {
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.collectionPillActive {
+  background: hsl(220 85% 50% / 0.12);
+  border-color: hsl(220 85% 50% / 0.45);
+  color: var(--color-brand-300);
+}
+
+.collectionPillActive:hover {
+  background: hsl(220 85% 50% / 0.18);
+}
+
+.collectionDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.collectionPathName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collectionCount {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Info Tab ── */
+.infoTabContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.infoSection {
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.infoSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.infoSectionTitle {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.formatChip {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-brand-400);
+}
+
+.bytesHint {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+}
+
+.pathCell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pathText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.pathText:hover {
+  color: var(--color-brand-400);
+  text-decoration: underline;
+}
+
+.pathActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.miniPathBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.miniPathBtn:hover {
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+}
+
+.metaCountBadge {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.noMetadataText {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0;
+}
+
+.metaGroupsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: 2px;
+}
+
+.metaSubGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metaSubGroupTitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-brand-400);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.metaKeyLabel {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  word-break: break-all;
+  padding-top: 1px;
+}

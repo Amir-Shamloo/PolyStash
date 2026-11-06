@@ -89,7 +89,9 @@ export function AssetGrid() {
       </div>
       <div className={styles.footer}>
         <span className={styles.footerCount}>
-          {assets.length} of {total.toLocaleString()} assets
+          {assets.length === total
+            ? `${total.toLocaleString()} ${total === 1 ? 'asset' : 'assets'}`
+            : `${assets.length.toLocaleString()} of ${total.toLocaleString()} assets`}
         </span>
       </div>
     </div>

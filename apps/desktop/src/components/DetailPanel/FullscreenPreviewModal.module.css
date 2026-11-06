@@ -1,0 +1,126 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--color-bg-base);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  height: 44px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.extBadge {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-brand-500);
+}
+
+.fileName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+
+.closeBtn:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 1px;
+}
+
+.body {
+  flex: 1;
+  width: 100%;
+  height: calc(100% - 44px);
+  position: relative;
+  background: var(--color-bg-base);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.textureContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at center, var(--color-bg-elevated) 0%, var(--color-bg-base) 100%);
+  overflow: auto;
+}
+
+.textureImage {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-sm);
+}
+
+.shortcutHint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-right: 8px;
+}

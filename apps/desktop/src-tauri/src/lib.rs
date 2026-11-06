@@ -44,6 +44,7 @@ macro_rules! command_handlers {
             commands::collection::delete_collection,
             commands::preview::request_preview,
             commands::preview::get_preview_jobs,
+            commands::preview::convert_ldt_to_ies,
             commands::shell::reveal_in_explorer,
             commands::shell::open_with_default,
         ]

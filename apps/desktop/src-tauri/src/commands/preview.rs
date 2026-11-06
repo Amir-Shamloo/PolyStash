@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
@@ -5,8 +6,49 @@ use chrono::Utc;
 
 use crate::AppState;
 use crate::models::PreviewJob;
+use crate::preview::ldt;
 
 type Result<T> = std::result::Result<T, String>;
+
+/// Convert a European EULUMDAT file to an IES file next to it, so the frontend
+/// IES loader can build the photometric web. Returns the absolute IES path.
+#[tauri::command]
+pub async fn convert_ldt_to_ies(file_path: String) -> Result<String> {
+    tauri::async_runtime::spawn_blocking(move || convert_ldt(&file_path))
+        .await
+        .map_err(|e| format!("LDT conversion task failed: {}", e))?
+}
+
+fn convert_ldt(file_path: &str) -> Result<String> {
+    let source = Path::new(file_path);
+    if !source.is_file() {
+        return Err(format!("File not found: {}", file_path));
+    }
+
+    let ies_path = source.with_extension("ies");
+    if is_up_to_date(&ies_path, source) {
+        return Ok(ies_path.to_string_lossy().into_owned());
+    }
+
+    // The self-contained converter keeps the LM-63-2002 numeric header layout
+    // the three.js loader expects, without pulling in an AGPL dependency.
+    let ies = ldt::convert_file(source)?;
+    std::fs::write(&ies_path, ies)
+        .map_err(|e| format!("Cannot write {}: {}", ies_path.display(), e))?;
+
+    Ok(ies_path.to_string_lossy().into_owned())
+}
+
+/// A derived IES that is at least as new as the LDT is reused, which also keeps
+/// a matching user-supplied file from being overwritten.
+fn is_up_to_date(derived: &Path, source: &Path) -> bool {
+    let modified = |path: &Path| std::fs::metadata(path).and_then(|meta| meta.modified()).ok();
+
+    match (modified(derived), modified(source)) {
+        (Some(derived), Some(source)) => derived >= source,
+        _ => false,
+    }
+}
 
 #[tauri::command]
 pub async fn request_preview(

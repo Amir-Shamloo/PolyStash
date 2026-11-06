@@ -2,6 +2,8 @@ mod archive;
 mod cad;
 mod cineware;
 mod document;
+mod embedded;
+pub mod ldt;
 mod material;
 mod ole;
 mod placeholder;
@@ -23,8 +25,8 @@ pub const THUMB_SIZE: u32 = 512;
 
 /// Formats rendered live in the frontend with three.js; the backend emits
 /// no thumbnail for these and completes the job immediately.
-const MESH_EXTENSIONS: [&str; 10] = [
-    "gltf", "glb", "fbx", "obj", "stl", "dae", "ply", "usdz", "x3d", "wrl",
+const MESH_EXTENSIONS: [&str; 11] = [
+    "gltf", "glb", "fbx", "obj", "stl", "dae", "ply", "usdz", "usd", "3ds", "wrl",
 ];
 
 /// Containers that can genuinely hold several previews; a gallery is only
@@ -36,9 +38,9 @@ const GALLERY_EXTENSIONS: [&str; 1] = ["skp"];
 /// frontend KTX2Loader instead.
 const GPU_TEXTURE_EXTENSIONS: [&str; 3] = ["dds", "ktx", "ktx2"];
 
-/// Closed or proprietary formats with no parseable preview. They complete
-/// immediately so the frontend can show the kind-coloured format icon.
-const CATEGORY_D_EXTENSIONS: [&str; 4] = ["sbs", "mdl", "mat", "abc"];
+/// Formats the frontend shows as a plain kind icon: no backend thumbnail and
+/// no live 3D preview, so they complete immediately.
+const CATEGORY_D_EXTENSIONS: [&str; 5] = ["sbs", "mdl", "mat", "abc", "x3d"];
 
 pub use raster::{generate_image_thumb, is_native_image};
 
@@ -171,12 +173,13 @@ fn generate_embedded_thumbnail(ext: &str, source: &Path, file_stem: &str, thumb_
         "sbsar" => archive::extract_sbsar_thumb(source, &thumb_dest)?,
         "dwg" => cad::extract_dwg_thumb(source, &thumb_dest)?,
         "dxf" => cad::extract_dxf_thumb(source, &thumb_dest)?,
+        "3dm" => embedded::extract_3dm_thumb(source, &thumb_dest)?,
         "c4d" => cineware::extract_c4d_thumb(source, &thumb_dest)?,
         "blend" => cineware::extract_preview_png_thumb(source, &thumb_dest)?,
         "psd" | "psb" => psd::extract_psd_thumb(source, &thumb_dest)?,
         "exr" | "hdr" | "hdri" => raster::extract_hdr_thumb(source, &thumb_dest)?,
         "vrmat" => material::extract_vrmat_thumb(source, &thumb_dest)?,
-        // Deferred formats (ai, 3dm, 3ds) and anything unknown: neutral tile.
+        // Deferred formats (ai) and anything unknown: neutral tile.
         _ => placeholder::generate_placeholder(&thumb_dest)?,
     }
 
@@ -316,13 +319,34 @@ async fn complete_with_placeholder(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, fil
     }
 }
 
+/// Complete a Collada job. A format with an embedded picture gets it as the
+/// thumbnail; without one the job completes with no thumb so the frontend
+/// renders the mesh with three.js.
+async fn complete_dae_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
+    let file_stem = thumb_stem(source);
+    let thumb_file_name = format!("{}_thumb.png", file_stem);
+    let thumb_dest = jobs.thumb_dir.join(&thumb_file_name);
+
+    match embedded::extract_dae_thumb(source, &thumb_dest) {
+        Ok(()) => {
+            let rel = format!(".polystash/thumbs/{}", thumb_file_name);
+            jobs.complete(job, &[rel]).await;
+        }
+        Err(_) => jobs.complete(job, &[]).await,
+    }
+}
+
+/// File stem used to name the thumbnail, or a fixed fallback for unusual paths.
+fn thumb_stem(path: &Path) -> &str {
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("preview")
+}
+
 /// Generate the thumbnail for one job and record the outcome.
 async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
     let full_source = resolve_source(jobs.root_path, job.file_path);
-    let file_stem = full_source
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("preview");
+    let file_stem = thumb_stem(&full_source);
     let ext = full_source
         .extension()
         .and_then(|s| s.to_str())
@@ -334,6 +358,13 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         let mut gallery = vec![rel_thumb];
         gallery.extend(existing_thumb_set(jobs.thumb_dir, file_stem).into_iter().skip(1));
         jobs.complete(job, &gallery).await;
+        return;
+    }
+
+    // Collada is a mesh format, but some exports carry a preview image; prefer
+    // it over the live frontend render when it exists.
+    if ext == "dae" {
+        complete_dae_job(jobs, job, &full_source).await;
         return;
     }
 
@@ -350,8 +381,7 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         return;
     }
 
-    // These are closed/proprietary, immediately done, colored icon on frontend;
-    // no thumbnail extraction attempted.
+    // No backend thumbnail and no live 3D preview: done, kind icon on frontend.
     if CATEGORY_D_EXTENSIONS.contains(&ext.as_str()) {
         jobs.complete(job, &[]).await;
         return;
@@ -362,10 +392,17 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         return;
     }
 
-    match generate_thumbnail(&ext, &full_source, file_stem, jobs.thumb_dir).await {
+    complete_with_extraction(jobs, job, &full_source, &ext).await;
+}
+
+/// Run the format-specific extractor (plus any gallery) and record the result.
+async fn complete_with_extraction(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path, ext: &str) {
+    let file_stem = thumb_stem(source);
+
+    match generate_thumbnail(ext, source, file_stem, jobs.thumb_dir).await {
         Ok(primary) => {
             let mut gallery = vec![primary];
-            gallery.extend(generate_gallery(&ext, &full_source, file_stem, jobs.thumb_dir));
+            gallery.extend(generate_gallery(ext, source, file_stem, jobs.thumb_dir));
             jobs.complete(job, &gallery).await;
         }
         Err(e) => {
@@ -373,7 +410,7 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
             // failure: complete with a neutral tile so the asset never stalls.
             tracing::warn!(
                 "Extraction failed for {}: {}. Falling back to placeholder.",
-                full_source.display(),
+                source.display(),
                 e
             );
             complete_with_placeholder(jobs, job, file_stem).await;

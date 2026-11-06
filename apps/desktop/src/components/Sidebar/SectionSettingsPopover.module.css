@@ -1,0 +1,169 @@
+.container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.gearBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.gearBtn:hover {
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+}
+
+.gearBtnActive {
+  background: hsl(220 85% 50% / 0.15);
+  color: var(--color-brand-300);
+}
+
+/* Popover dialog */
+.popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 240px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popoverFadeIn 0.12s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.popoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space-3);
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.popoverTitle {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.01em;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeBtn:hover {
+  color: var(--color-text-primary);
+}
+
+.popoverBody {
+  padding: var(--space-3);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.textColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggleLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.toggleDesc {
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+}
+
+/* Switch */
+.switchWrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.switchInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switchSlider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-overlay);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.switchKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-radius: var(--radius-full);
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.switchChecked {
+  background: var(--color-brand-500);
+  border-color: var(--color-brand-500);
+}
+
+.switchChecked .switchKnob {
+  transform: translateX(14px);
+}

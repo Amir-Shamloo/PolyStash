@@ -16,13 +16,37 @@ interface OrbitHandle {
   update: () => void;
 }
 
-interface PanoramaToolbarProps {
-  autoRotate: boolean;
-  onToggleRotate: () => void;
-  onResetCamera: () => void;
+function IconMaximize({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
 }
 
-function PanoramaToolbar({ autoRotate, onToggleRotate, onResetCamera }: PanoramaToolbarProps) {
+function IconMinimize({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 14h6m0 0v6m0-6L3 21m17-7h-6m0 0v6m0-6l7 7M14 10V4m0 6h6m-6 0l7-7M10 10V4m0 6H4m6 0L3 3" />
+    </svg>
+  );
+}
+
+interface PanoramaToolbarProps {
+  autoRotate: boolean;
+  isFullscreen?: boolean;
+  onToggleRotate: () => void;
+  onResetCamera: () => void;
+  onToggleFullscreen?: () => void;
+}
+
+function PanoramaToolbar({
+  autoRotate,
+  isFullscreen = false,
+  onToggleRotate,
+  onResetCamera,
+  onToggleFullscreen,
+}: PanoramaToolbarProps) {
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Panorama Viewer Controls">
       <button
@@ -35,6 +59,7 @@ function PanoramaToolbar({ autoRotate, onToggleRotate, onResetCamera }: Panorama
       >
         <IconRefresh size={13} />
       </button>
+
       <button
         type="button"
         className={styles.toolbarBtn}
@@ -44,6 +69,18 @@ function PanoramaToolbar({ autoRotate, onToggleRotate, onResetCamera }: Panorama
       >
         <IconCameraReset size={13} />
       </button>
+
+      {onToggleFullscreen && (
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={onToggleFullscreen}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+        >
+          {isFullscreen ? <IconMinimize size={13} /> : <IconMaximize size={13} />}
+        </button>
+      )}
     </div>
   );
 }
@@ -73,9 +110,16 @@ function EquirectEnvironment({ url, isExr }: { url: string; isExr: boolean }) {
 export interface PanoramaViewerProps {
   filePath: string;
   extension?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-export function PanoramaViewer({ filePath, extension }: PanoramaViewerProps) {
+export function PanoramaViewer({
+  filePath,
+  extension,
+  isFullscreen,
+  onToggleFullscreen,
+}: PanoramaViewerProps) {
   const [autoRotate, setAutoRotate] = useState(false);
   const controlsRef = useRef<OrbitHandle | null>(null);
 
@@ -95,21 +139,24 @@ export function PanoramaViewer({ filePath, extension }: PanoramaViewerProps) {
     <div className={styles.viewerContainer}>
       <PanoramaToolbar
         autoRotate={autoRotate}
+        isFullscreen={isFullscreen}
         onToggleRotate={() => setAutoRotate((v) => !v)}
         onResetCamera={handleResetCamera}
+        onToggleFullscreen={onToggleFullscreen}
       />
 
       <ThreeErrorBoundary
         key={filePath}
-        fallback={
-          <div className={styles.fallback}>
-            Unable to render 360° panorama
-          </div>
-        }
+        extension={cleanExt}
       >
         <Canvas
           camera={{ position: [0, 0, 0.1], fov: 75 }}
-          gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+          gl={{
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.0,
+            outputColorSpace: THREE.SRGBColorSpace,
+            antialias: true,
+          }}
         >
           <Suspense fallback={null}>
             <EquirectEnvironment url={fileUrl} isExr={isExr} />

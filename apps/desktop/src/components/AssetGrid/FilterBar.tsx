@@ -1,88 +1,45 @@
-import { useState } from 'react';
-import { useAssetStore } from '../../store';
-import type { AssetKind, ColorLabel, FilterSpec, SearchQuery } from '../../types';
-import { IconFilter, IconX, IconLayers, IconFileText, IconInbox, IconHeartFilled } from '../Icons';
-import styles from './FilterBar.module.css';
+import { useMemo, useCallback } from 'react';
 import clsx from 'clsx';
-
-const KIND_OPTIONS: { label: string; value: AssetKind }[] = [
-  { label: '3D Models', value: '3d_model' },
-  { label: 'Materials', value: 'material' },
-  { label: 'Textures', value: 'texture' },
-  { label: 'HDRI', value: 'hdri' },
-  { label: 'Images', value: 'image' },
-  { label: 'Video', value: 'video' },
-  { label: 'Documents', value: 'document' },
-];
+import { useAssetStore } from '../../store';
+import type { ColorLabel, FilterSpec, SearchQuery } from '../../types';
+import { IconFilter, IconX, IconHeartFilled } from '../Icons';
+import styles from './FilterBar.module.css';
 
 const COLOR_LABELS: ColorLabel[] = [
   'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink',
-];
-
-interface SoftwareFilter {
-  id: string;
-  label: string;
-  extLabel: string;
-  extensions: string[];
-  color: string;
-}
-
-const SOFTWARE_OPTIONS: SoftwareFilter[] = [
-  { id: 'max',         label: '3ds Max',     extLabel: '.max',       extensions: ['max'],                    color: '#0696d7' },
-  { id: 'rhino',       label: 'Rhino',       extLabel: '.3dm',       extensions: ['3dm'],                    color: '#e53935' },
-  { id: 'revit',       label: 'Revit',       extLabel: '.rvt, .rfa', extensions: ['rvt', 'rfa'],             color: '#00838f' },
-  { id: 'autocad',     label: 'AutoCAD',     extLabel: '.dwg, .dxf', extensions: ['dwg', 'dxf'],             color: '#c62828' },
-  { id: 'sketchup',    label: 'SketchUp',    extLabel: '.skp',       extensions: ['skp'],                    color: '#005f9e' },
-  { id: 'blender',     label: 'Blender',     extLabel: '.blend',     extensions: ['blend'],                  color: '#f5792a' },
-  { id: 'vray',        label: 'V-Ray',       extLabel: '.vrmat',     extensions: ['vrmat', 'mat'],           color: '#8e24aa' },
-  { id: 'photoshop',   label: 'Photoshop',   extLabel: '.psd',       extensions: ['psd', 'psb'],             color: '#1e88e5' },
-  { id: 'illustrator', label: 'Illustrator', extLabel: '.ai',        extensions: ['ai', 'svg'],              color: '#ff8f00' },
-  { id: 'hdri',        label: 'HDR / EXR',   extLabel: '.exr, .hdr', extensions: ['exr', 'hdr', 'hdri'],      color: '#d81b60' },
-  { id: 'open3d',      label: 'FBX / OBJ',   extLabel: '.fbx, .obj', extensions: ['fbx', 'obj', '3ds', 'gltf', 'glb', 'stl', 'dae'], color: '#43a047' },
-  { id: 'textures',    label: 'Textures',    extLabel: '.jpg, .png', extensions: ['jpg', 'jpeg', 'png', 'tif', 'tiff', 'tga', 'bmp', 'webp'], color: '#00acc1' },
-];
-
-interface ExtensionOption {
-  ext: string;
-  label: string;
-  softwareHint: string;
-}
-
-const EXTENSION_OPTIONS: ExtensionOption[] = [
-  { ext: 'max',   label: '.max',   softwareHint: '3ds Max' },
-  { ext: '3dm',   label: '.3dm',   softwareHint: 'Rhino' },
-  { ext: 'rvt',   label: '.rvt',   softwareHint: 'Revit Project' },
-  { ext: 'rfa',   label: '.rfa',   softwareHint: 'Revit Family' },
-  { ext: 'dwg',   label: '.dwg',   softwareHint: 'AutoCAD DWG' },
-  { ext: 'skp',   label: '.skp',   softwareHint: 'SketchUp' },
-  { ext: 'blend', label: '.blend', softwareHint: 'Blender' },
-  { ext: 'vrmat', label: '.vrmat', softwareHint: 'V-Ray' },
-  { ext: 'psd',   label: '.psd',   softwareHint: 'Photoshop' },
-  { ext: 'ai',    label: '.ai',    softwareHint: 'Illustrator' },
-  { ext: 'exr',   label: '.exr',   softwareHint: 'OpenEXR' },
-  { ext: 'hdr',   label: '.hdr',   softwareHint: 'Radiance HDR' },
-  { ext: 'fbx',   label: '.fbx',   softwareHint: 'FBX' },
-  { ext: 'obj',   label: '.obj',   softwareHint: 'OBJ' },
-  { ext: '3ds',   label: '.3ds',   softwareHint: '3DS' },
-  { ext: 'jpg',   label: '.jpg',   softwareHint: 'JPEG' },
-  { ext: 'png',   label: '.png',   softwareHint: 'PNG' },
-  { ext: 'tif',   label: '.tif',   softwareHint: 'TIFF' },
 ];
 
 const FIVE_MB = 5 * 1024 * 1024;
 const FIFTY_MB = 50 * 1024 * 1024;
 const ONE_DAY_MS = 86400000;
 
+interface PresetOption {
+  value: string;
+  label: string;
+}
+
+const DATE_OPTIONS: PresetOption[] = [
+  { value: '', label: 'Any date' },
+  { value: 'today', label: 'Today' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+];
+
+const SIZE_OPTIONS: PresetOption[] = [
+  { value: '', label: 'Any size' },
+  { value: 'lt5', label: '< 5 MB' },
+  { value: '5to50', label: '5–50 MB' },
+  { value: 'gt50', label: '> 50 MB' },
+];
+
 function presetFromDateRange(from: number | undefined): string {
   if (from === undefined) return '';
+  const now = Date.now();
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  const todayStart = d.getTime();
-  if (from >= todayStart) return 'today';
-  const sevenDaysAgo = Date.now() - 7 * ONE_DAY_MS;
-  if (from >= sevenDaysAgo - 10000) return '7d';
-  const thirtyDaysAgo = Date.now() - 30 * ONE_DAY_MS;
-  if (from >= thirtyDaysAgo - 10000) return '30d';
+  if (from >= d.getTime()) return 'today';
+  if (from >= now - 7 * ONE_DAY_MS - 10000) return '7d';
+  if (from >= now - 30 * ONE_DAY_MS - 10000) return '30d';
   return '';
 }
 
@@ -92,154 +49,188 @@ function dateRangeFromPreset(val: string): { from: number } | undefined {
     d.setHours(0, 0, 0, 0);
     return { from: d.getTime() };
   }
-  if (val === '7d') {
-    return { from: Date.now() - 7 * ONE_DAY_MS };
-  }
-  if (val === '30d') {
-    return { from: Date.now() - 30 * ONE_DAY_MS };
-  }
-  return undefined;
+  const daysOffset: Record<string, number> = {
+    '7d': 7,
+    '30d': 30,
+  };
+  const days = daysOffset[val];
+  return days !== undefined ? { from: Date.now() - days * ONE_DAY_MS } : undefined;
+}
+
+const SIZE_PRESET_MAP: Record<string, { min?: number; max?: number }> = {
+  lt5: { max: FIVE_MB },
+  '5to50': { min: FIVE_MB, max: FIFTY_MB },
+  gt50: { min: FIFTY_MB },
+};
+
+function sizeRangeFromPreset(val: string): { min?: number; max?: number } | undefined {
+  return SIZE_PRESET_MAP[val];
 }
 
 function presetFromSizeRange(r: { min?: number; max?: number } | undefined): string {
   if (!r) return '';
-  const { min, max } = r;
-  if (min === undefined && max === FIVE_MB) return 'lt5';
-  if (min === FIVE_MB && max === FIFTY_MB) return '5to50';
-  if (min === FIFTY_MB && max === undefined) return 'gt50';
-  return '';
-}
-
-function sizeRangeFromPreset(val: string): { min?: number; max?: number } | undefined {
-  if (val === 'lt5') return { max: FIVE_MB };
-  if (val === '5to50') return { min: FIVE_MB, max: FIFTY_MB };
-  if (val === 'gt50') return { min: FIFTY_MB };
-  return undefined;
-}
-
-function hasMetadataFilters(filter: FilterSpec): boolean {
-  if (filter.isFavorite || filter.unorganized) return true;
-  if (filter.rating !== undefined || filter.previewStatus !== undefined) return true;
-  return filter.dateRange !== undefined || filter.sizeRange !== undefined;
-}
-
-function hasArrayFilters(filter: FilterSpec): boolean {
-  if (filter.kinds && filter.kinds.length > 0) return true;
-  if (filter.colorLabels && filter.colorLabels.length > 0) return true;
-  return Boolean(filter.extensions && filter.extensions.length > 0);
-}
-
-function checkHasActiveFilters(filter: FilterSpec): boolean {
-  return hasMetadataFilters(filter) || hasArrayFilters(filter);
-}
-
-function hasTagFilters(filter: FilterSpec): boolean {
-  return Boolean(filter.tags && filter.tags.length > 0);
-}
-
-function checkIsAllActive(filter: FilterSpec): boolean {
-  return !checkHasActiveFilters(filter) && !hasTagFilters(filter);
-}
-
-interface StatusFilterControlsProps {
-  filter: FilterSpec;
-  setFilter: (patch: Partial<FilterSpec>) => void;
-  search: () => void;
-  isAllActive: boolean;
-  onAllClick: () => void;
-}
-
-function StatusFilterControls({
-  filter,
-  setFilter,
-  search,
-  isAllActive,
-  onAllClick,
-}: StatusFilterControlsProps) {
-  const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFilter({ dateRange: dateRangeFromPreset(e.target.value) });
-    search();
+  const key = `${r.min ?? 'none'}-${r.max ?? 'none'}`;
+  const keyMap: Record<string, string> = {
+    [`none-${FIVE_MB}`]: 'lt5',
+    [`${FIVE_MB}-${FIFTY_MB}`]: '5to50',
+    [`${FIFTY_MB}-none`]: 'gt50',
   };
+  return keyMap[key] ?? '';
+}
 
-  const handleSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFilter({ sizeRange: sizeRangeFromPreset(e.target.value) });
-    search();
-  };
+function hasArrayFilters(f: FilterSpec): boolean {
+  const lists = [f.kinds, f.colorLabels, f.tags, f.extensions];
+  for (const list of lists) {
+    if (list && list.length > 0) return true;
+  }
+  return false;
+}
 
-  const handlePreviewStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setFilter({ previewStatus: (val || undefined) as FilterSpec['previewStatus'] });
-    search();
-  };
+function hasRangeFilters(f: FilterSpec): boolean {
+  if (f.rating !== undefined) return true;
+  if (f.dateRange !== undefined) return true;
+  return f.sizeRange !== undefined;
+}
 
+function checkHasActiveFilters(f: FilterSpec): boolean {
+  if (f.isFavorite) return true;
+  if (hasRangeFilters(f)) return true;
+  return hasArrayFilters(f);
+}
+
+function toggleColorLabelItem(
+  current: ColorLabel[] | undefined,
+  label: ColorLabel
+): ColorLabel[] | undefined {
+  const list = current ?? [];
+  const next = list.includes(label) ? list.filter((l) => l !== label) : [...list, label];
+  return next.length > 0 ? next : undefined;
+}
+
+interface ColorLabelButtonProps {
+  label: ColorLabel;
+  isSelected: boolean;
+  onToggle: (label: ColorLabel) => void;
+}
+
+function ColorLabelButton({ label, isSelected, onToggle }: ColorLabelButtonProps) {
   return (
-    <>
-      {/* All assets */}
-      <button
-        type="button"
-        id="filter-all"
-        className={clsx(styles.pill, isAllActive && styles.active)}
-        onClick={onAllClick}
-        title="Show all assets (clear filters)"
-      >
-        All assets
-      </button>
-
-      {/* Date Added filter */}
-      <select
-        id="filter-date-added"
-        className={styles.select}
-        value={presetFromDateRange(filter.dateRange?.from)}
-        onChange={handleDateChange}
-      >
-        <option value="">Any date</option>
-        <option value="today">Today</option>
-        <option value="7d">Last 7 days</option>
-        <option value="30d">Last 30 days</option>
-      </select>
-
-      {/* File Size filter */}
-      <select
-        id="filter-size"
-        className={styles.select}
-        value={presetFromSizeRange(filter.sizeRange)}
-        onChange={handleSizeChange}
-      >
-        <option value="">Any size</option>
-        <option value="lt5">&lt; 5 MB</option>
-        <option value="5to50">5–50 MB</option>
-        <option value="gt50">&gt; 50 MB</option>
-      </select>
-
-      {/* Preview Status filter */}
-      <select
-        id="filter-preview-status"
-        className={styles.select}
-        value={filter.previewStatus ?? ''}
-        onChange={handlePreviewStatusChange}
-      >
-        <option value="">Any</option>
-        <option value="done">Has Preview</option>
-        <option value="pending">Pending / Generating</option>
-        <option value="none">Needs Preview</option>
-      </select>
-    </>
+    <button
+      id={`filter-color-${label}`}
+      type="button"
+      className={clsx(styles.colorDot, isSelected && styles.colorActive)}
+      style={{ background: `var(--swatch-${label})` }}
+      title={`Filter by ${label}`}
+      aria-label={`Color label ${label}`}
+      onClick={() => onToggle(label)}
+    />
   );
 }
 
-function RatingSelect({
+interface ColorLabelsRowProps {
+  selectedLabels?: ColorLabel[];
+  onToggle: (label: ColorLabel) => void;
+}
+
+function ColorLabelsRow({ selectedLabels = [], onToggle }: ColorLabelsRowProps) {
+  return (
+    <div className={styles.colorGroup} role="group" aria-label="Color label filters">
+      {COLOR_LABELS.map((label) => (
+        <ColorLabelButton
+          key={label}
+          label={label}
+          isSelected={selectedLabels.includes(label)}
+          onToggle={onToggle}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface PresetSelectProps {
+  id: string;
+  value: string;
+  options: PresetOption[];
+  ariaLabel: string;
+  onChange: (val: string) => void;
+}
+
+function PresetSelect({ id, value, options, ariaLabel, onChange }: PresetSelectProps) {
+  return (
+    <select
+      id={id}
+      className={styles.select}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={ariaLabel}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+interface SelectFilterProps {
+  onChange: (patch: Partial<FilterSpec>) => void;
+}
+
+function DateFilterSelect({
+  from,
+  onChange,
+}: SelectFilterProps & { from: number | undefined }) {
+  const handleChange = (val: string) => {
+    onChange({ dateRange: dateRangeFromPreset(val) });
+  };
+
+  return (
+    <PresetSelect
+      id="filter-date-added"
+      value={presetFromDateRange(from)}
+      options={DATE_OPTIONS}
+      ariaLabel="Filter by date added"
+      onChange={handleChange}
+    />
+  );
+}
+
+function SizeFilterSelect({
+  sizeRange,
+  onChange,
+}: SelectFilterProps & { sizeRange: FilterSpec['sizeRange'] }) {
+  const handleChange = (val: string) => {
+    onChange({ sizeRange: sizeRangeFromPreset(val) });
+  };
+
+  return (
+    <PresetSelect
+      id="filter-size"
+      value={presetFromSizeRange(sizeRange)}
+      options={SIZE_OPTIONS}
+      ariaLabel="Filter by file size"
+      onChange={handleChange}
+    />
+  );
+}
+
+function RatingFilterSelect({
   rating,
   onChange,
-}: {
-  rating?: { min: number; max: number };
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-}) {
+}: SelectFilterProps & { rating: FilterSpec['rating'] }) {
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const min = parseInt(e.target.value, 10);
+    onChange({ rating: min > 0 ? { min, max: 5 } : undefined });
+  };
+
   return (
     <select
       id="filter-rating"
       className={styles.select}
       value={rating?.min ?? 0}
-      onChange={onChange}
+      onChange={handleChange}
+      aria-label="Filter by rating"
     >
       <option value={0}>Any rating</option>
       <option value={1}>★+</option>
@@ -251,446 +242,141 @@ function RatingSelect({
   );
 }
 
-interface SortAndClearControlsProps {
+interface ButtonProps {
+  isActive?: boolean;
+  onClick: () => void;
+}
+
+function AllAssetsButton({ isActive, onClick }: ButtonProps) {
+  return (
+    <button
+      type="button"
+      id="filter-all"
+      className={clsx(styles.pill, isActive && styles.activePill)}
+      onClick={onClick}
+      title="Show all assets (clear filters)"
+    >
+      All assets
+    </button>
+  );
+}
+
+function FavoriteFilterButton({
+  isFavorite,
+  onClick,
+}: {
+  isFavorite?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      id="filter-favorites"
+      className={clsx(styles.favoritePill, isFavorite && styles.favoriteActive)}
+      onClick={onClick}
+      title="Filter favorite assets"
+    >
+      <IconHeartFilled
+        size={12}
+        className={clsx(isFavorite ? styles.heartActive : styles.heartMuted)}
+      />
+      <span>Favorites</span>
+    </button>
+  );
+}
+
+function SortOrderButton({
+  order,
+  onToggle,
+}: {
+  order: SearchQuery['sort']['order'];
+  onToggle: () => void;
+}) {
+  const isAsc = order === 'asc';
+  const label = isAsc ? 'Ascending (click to toggle)' : 'Descending (click to toggle)';
+
+  return (
+    <button
+      id="filter-sort-order"
+      type="button"
+      className={styles.sortOrderBtn}
+      onClick={onToggle}
+      title={label}
+      aria-label={isAsc ? 'Sort ascending' : 'Sort descending'}
+    >
+      {isAsc ? '↑' : '↓'}
+    </button>
+  );
+}
+
+function ClearFiltersButton({ onClear }: { onClear: () => void }) {
+  return (
+    <button
+      id="filter-clear"
+      type="button"
+      className={styles.clearBtn}
+      onClick={onClear}
+      title="Clear all filters"
+    >
+      <IconX size={11} />
+      <span>Clear</span>
+    </button>
+  );
+}
+
+interface SortAndClearProps {
   sort: SearchQuery['sort'];
-  setSort: (field: SearchQuery['sort']['field'], order: SearchQuery['sort']['order']) => void;
-  search: () => void;
   hasActiveFilters: boolean;
+  onSetSort: (field: SearchQuery['sort']['field'], order: SearchQuery['sort']['order']) => void;
   onClear: () => void;
+  onSearch: () => void;
 }
 
 function SortAndClearControls({
   sort,
-  setSort,
-  search,
   hasActiveFilters,
+  onSetSort,
   onClear,
-}: SortAndClearControlsProps) {
+  onSearch,
+}: SortAndClearProps) {
   const handleSortFieldChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSort(e.target.value as never, sort.order);
-    search();
+    const field = e.target.value as SearchQuery['sort']['field'];
+    const order = field === 'name' ? 'asc' : 'desc';
+    onSetSort(field, order);
+    onSearch();
   };
 
   const handleSortOrderToggle = () => {
-    setSort(sort.field, sort.order === 'asc' ? 'desc' : 'asc');
-    search();
+    const nextOrder = sort.order === 'asc' ? 'desc' : 'asc';
+    onSetSort(sort.field, nextOrder);
+    onSearch();
   };
 
   return (
-    <div className={styles.right}>
-      <select
-        id="filter-sort-field"
-        className={styles.select}
-        value={sort.field}
-        onChange={handleSortFieldChange}
-      >
-        <option value="date">Date</option>
-        <option value="name">Name</option>
-        <option value="size">Size</option>
-        <option value="rating">Rating</option>
-        <option value="favorite">Favorites</option>
-        <option value="kind">Kind</option>
-      </select>
-      <button
-        id="filter-sort-order"
-        className={styles.sortOrderBtn}
-        onClick={handleSortOrderToggle}
-        title={sort.order === 'asc' ? 'Ascending' : 'Descending'}
-      >
-        {sort.order === 'asc' ? '↑' : '↓'}
-      </button>
-
-      {hasActiveFilters && (
-        <button
-          id="filter-clear"
-          className={styles.clearBtn}
-          onClick={onClear}
-          title="Clear all filters"
+    <div className={styles.rightGroup}>
+      <div className={styles.sortGroup}>
+        <label htmlFor="filter-sort-field" className={styles.sortLabel}>
+          Sort:
+        </label>
+        <select
+          id="filter-sort-field"
+          className={styles.select}
+          value={sort.field}
+          onChange={handleSortFieldChange}
+          aria-label="Sort assets by"
         >
-          <IconX size={12} />
-          Clear
-        </button>
-      )}
-    </div>
-  );
-}
+          <option value="date">Date</option>
+          <option value="name">Name</option>
+          <option value="size">Size</option>
+          <option value="rating">Rating</option>
+          <option value="favorite">Favorites</option>
+          <option value="kind">Kind</option>
+        </select>
 
-interface PrimaryFilterRowProps {
-  filter: FilterSpec;
-  sort: SearchQuery['sort'];
-  setFilter: (patch: Partial<FilterSpec>) => void;
-  resetFilter: () => void;
-  setSort: (field: SearchQuery['sort']['field'], order: SearchQuery['sort']['order']) => void;
-  search: () => void;
-}
-
-function PrimaryFilterRow({
-  filter,
-  sort,
-  setFilter,
-  resetFilter,
-  setSort,
-  search,
-}: PrimaryFilterRowProps) {
-  const hasActiveFilters = checkHasActiveFilters(filter);
-  const isAllActive = checkIsAllActive(filter);
-
-  const handleAllClick = () => {
-    resetFilter();
-    search();
-  };
-
-  const toggleFavorite = () => {
-    setFilter({ isFavorite: filter.isFavorite ? undefined : true });
-    search();
-  };
-
-  const toggleUnorganized = () => {
-    setFilter({ unorganized: filter.unorganized ? undefined : true });
-    search();
-  };
-
-  const toggleKind = (kind: AssetKind) => {
-    const current = filter.kinds ?? [];
-    const next = current.includes(kind)
-      ? current.filter((k) => k !== kind)
-      : [...current, kind];
-    setFilter({ kinds: next.length ? next : undefined });
-    search();
-  };
-
-  const toggleColorLabel = (label: ColorLabel) => {
-    const current = filter.colorLabels ?? [];
-    const next = current.includes(label)
-      ? current.filter((l) => l !== label)
-      : [...current, label];
-    setFilter({ colorLabels: next.length ? next : undefined });
-    search();
-  };
-
-  const handleRatingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const min = parseInt(e.target.value);
-    setFilter({ rating: min > 0 ? { min, max: 5 } : undefined });
-    search();
-  };
-
-  const clearFilters = () => {
-    setFilter({
-      kinds: undefined,
-      colorLabels: undefined,
-      rating: undefined,
-      extensions: undefined,
-      unorganized: undefined,
-      isFavorite: undefined,
-      dateRange: undefined,
-      sizeRange: undefined,
-      previewStatus: undefined,
-    });
-    search();
-  };
-
-  return (
-    <div className={styles.primaryRow}>
-      <div className={styles.left}>
-        <IconFilter size={14} />
-
-        {/* Kind & Status pills */}
-        <div className={styles.pills}>
-          <button
-            id="filter-favorites"
-            className={clsx(styles.favoritePill, filter.isFavorite && styles.favoriteActive)}
-            onClick={toggleFavorite}
-            title="Show only favorite assets"
-          >
-            <IconHeartFilled size={12} className={clsx(filter.isFavorite ? styles.heartActive : styles.heartMuted)} />
-            <span>Favorites</span>
-          </button>
-          <button
-            id="filter-unorganized"
-            className={clsx(styles.pill, filter.unorganized && styles.active)}
-            onClick={toggleUnorganized}
-            title="Filter assets not assigned to any collection (unorganized)"
-          >
-            <IconInbox size={12} />
-            <span>Unorganized</span>
-          </button>
-          {KIND_OPTIONS.map(({ label, value }) => (
-            <button
-              key={value}
-              id={`filter-kind-${value}`}
-              className={clsx(styles.pill, filter.kinds?.includes(value) && styles.active)}
-              onClick={() => toggleKind(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.sep} />
-
-        {/* Color labels */}
-        <div className={styles.colorRow}>
-          {COLOR_LABELS.map((label) => (
-            <button
-              key={label}
-              id={`filter-color-${label}`}
-              className={clsx(styles.colorBtn, filter.colorLabels?.includes(label) && styles.colorActive)}
-              style={{ background: `var(--swatch-${label})` }}
-              title={label}
-              onClick={() => toggleColorLabel(label)}
-            />
-          ))}
-        </div>
-
-        <div className={styles.sep} />
-
-        <StatusFilterControls
-          filter={filter}
-          setFilter={setFilter}
-          search={search}
-          isAllActive={isAllActive}
-          onAllClick={handleAllClick}
-        />
-
-        <RatingSelect rating={filter.rating} onChange={handleRatingChange} />
+        <SortOrderButton order={sort.order} onToggle={handleSortOrderToggle} />
       </div>
 
-      <SortAndClearControls
-        sort={sort}
-        setSort={setSort}
-        search={search}
-        hasActiveFilters={hasActiveFilters}
-        onClear={clearFilters}
-      />
-    </div>
-  );
-}
-
-function SoftwarePills({
-  filter,
-  onToggle,
-}: {
-  filter: FilterSpec;
-  onToggle: (sw: SoftwareFilter) => void;
-}) {
-  const current = filter.extensions ?? [];
-  return (
-    <div className={styles.pills}>
-      {SOFTWARE_OPTIONS.map((sw) => {
-        const active = sw.extensions.some((ext) => current.includes(ext));
-        return (
-          <button
-            key={sw.id}
-            id={`filter-sw-${sw.id}`}
-            className={clsx(styles.swPill, active && styles.swActive)}
-            style={{
-              '--sw-active-bg': `${sw.color}22`,
-              '--sw-active-border': sw.color,
-              '--sw-active-color': '#ffffff',
-              '--sw-active-glow': `${sw.color}40`,
-            } as React.CSSProperties}
-            onClick={() => onToggle(sw)}
-            title={`Filter by ${sw.label} (${sw.extLabel})`}
-          >
-            <span className={styles.swDot} style={{ background: sw.color }} />
-            <span>{sw.label}</span>
-            <span className={styles.swExtBadge}>{sw.extLabel}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function ExtensionPills({
-  filter,
-  onToggle,
-}: {
-  filter: FilterSpec;
-  onToggle: (ext: string) => void;
-}) {
-  const current = filter.extensions ?? [];
-  return (
-    <div className={styles.pills}>
-      {EXTENSION_OPTIONS.map(({ ext, label, softwareHint }) => {
-        const active = current.includes(ext);
-        return (
-          <button
-            key={ext}
-            id={`filter-ext-${ext}`}
-            className={clsx(styles.extPill, active && styles.extActive)}
-            onClick={() => onToggle(ext)}
-            title={`${label} (${softwareHint})`}
-          >
-            <span>{label}</span>
-            <span className={styles.extSoftwareHint}>{softwareHint}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function ExtensionDropdown({
-  extensions,
-  onChange,
-  onClear,
-}: {
-  extensions?: string[];
-  onChange: (ext: string) => void;
-  onClear: () => void;
-}) {
-  const activeExtCount = extensions?.length ?? 0;
-  return (
-    <div className={styles.right}>
-      <select
-        id="filter-ext-select"
-        className={styles.select}
-        value={extensions?.length === 1 ? extensions[0] : ''}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">Specific Extension…</option>
-        <optgroup label="3D CAD & Models">
-          <option value="max">.max (3ds Max)</option>
-          <option value="3dm">.3dm (Rhino)</option>
-          <option value="rvt">.rvt (Revit Project)</option>
-          <option value="rfa">.rfa (Revit Family)</option>
-          <option value="skp">.skp (SketchUp)</option>
-          <option value="blend">.blend (Blender)</option>
-          <option value="fbx">.fbx (Filmbox 3D)</option>
-          <option value="obj">.obj (Wavefront OBJ)</option>
-          <option value="3ds">.3ds (3D Studio)</option>
-        </optgroup>
-        <optgroup label="Materials & Shaders">
-          <option value="vrmat">.vrmat (V-Ray Material)</option>
-          <option value="mat">.mat (3ds Max Material)</option>
-        </optgroup>
-        <optgroup label="Vector & Layered">
-          <option value="psd">.psd (Photoshop)</option>
-          <option value="psb">.psb (Photoshop Big)</option>
-          <option value="ai">.ai (Illustrator)</option>
-          <option value="svg">.svg (Vector)</option>
-        </optgroup>
-        <optgroup label="Environment & HDRI">
-          <option value="exr">.exr (OpenEXR)</option>
-          <option value="hdr">.hdr (Radiance HDR)</option>
-        </optgroup>
-        <optgroup label="Textures">
-          <option value="jpg">.jpg (JPEG)</option>
-          <option value="png">.png (PNG)</option>
-          <option value="tif">.tif (TIFF)</option>
-        </optgroup>
-      </select>
-
-      {activeExtCount > 0 && (
-        <div className={styles.activeBadge}>
-          <span>{activeExtCount} {activeExtCount === 1 ? 'type' : 'types'}</span>
-          <button
-            className={styles.clearMiniBtn}
-            onClick={onClear}
-            title="Clear extension filter"
-          >
-            <IconX size={10} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface SoftwareExtensionRowProps {
-  filter: FilterSpec;
-  setFilter: (patch: Partial<FilterSpec>) => void;
-  search: () => void;
-}
-
-function SoftwareExtensionRow({
-  filter,
-  setFilter,
-  search,
-}: SoftwareExtensionRowProps) {
-  const [filterMode, setFilterMode] = useState<'software' | 'extension'>('software');
-  const activeExtCount = filter.extensions?.length ?? 0;
-
-  const toggleSoftware = (sw: SoftwareFilter) => {
-    const current = filter.extensions ?? [];
-    const allPresent = sw.extensions.every((ext) => current.includes(ext));
-    const next = allPresent
-      ? current.filter((ext) => !sw.extensions.includes(ext))
-      : Array.from(new Set([...current, ...sw.extensions]));
-    setFilter({ extensions: next.length > 0 ? next : undefined });
-    search();
-  };
-
-  const toggleExtension = (ext: string) => {
-    const current = filter.extensions ?? [];
-    const next = current.includes(ext)
-      ? current.filter((e) => e !== ext)
-      : [...current, ext];
-    setFilter({ extensions: next.length > 0 ? next : undefined });
-    search();
-  };
-
-  const clearExtensions = () => {
-    setFilter({ extensions: undefined });
-    search();
-  };
-
-  const handleDropdownChange = (val: string) => {
-    if (!val) {
-      clearExtensions();
-    } else {
-      setFilter({ extensions: [val] });
-      search();
-    }
-  };
-
-  return (
-    <div className={styles.secondaryRow} id="filter-row-software-ext">
-      <div className={styles.left}>
-        <div className={styles.modeSwitch}>
-          <button
-            id="filter-mode-software"
-            className={clsx(styles.modeBtn, filterMode === 'software' && styles.modeActive)}
-            onClick={() => setFilterMode('software')}
-            title="Filter by software application"
-          >
-            <IconLayers size={13} />
-            <span>Software</span>
-          </button>
-          <button
-            id="filter-mode-extension"
-            className={clsx(styles.modeBtn, filterMode === 'extension' && styles.modeActive)}
-            onClick={() => setFilterMode('extension')}
-            title="Filter by exact file extension"
-          >
-            <IconFileText size={13} />
-            <span>File Type</span>
-          </button>
-        </div>
-
-        <div className={styles.sep} />
-
-        <button
-          id="filter-ext-all"
-          className={clsx(styles.pill, activeExtCount === 0 && styles.active)}
-          onClick={clearExtensions}
-        >
-          All
-        </button>
-
-        {filterMode === 'software' ? (
-          <SoftwarePills filter={filter} onToggle={toggleSoftware} />
-        ) : (
-          <ExtensionPills filter={filter} onToggle={toggleExtension} />
-        )}
-      </div>
-
-      <ExtensionDropdown
-        extensions={filter.extensions}
-        onChange={handleDropdownChange}
-        onClear={clearExtensions}
-      />
+      {hasActiveFilters && <ClearFiltersButton onClear={onClear} />}
     </div>
   );
 }
@@ -699,20 +385,61 @@ export function FilterBar() {
   const { query, setFilter, resetFilter, setSort, search } = useAssetStore();
   const { filter, sort } = query;
 
+  const hasActiveFilters = useMemo(() => checkHasActiveFilters(filter), [filter]);
+
+  const handleAllClick = useCallback(() => {
+    resetFilter();
+    search();
+  }, [resetFilter, search]);
+
+  const toggleFavorite = useCallback(() => {
+    setFilter({ isFavorite: filter.isFavorite ? undefined : true });
+    search();
+  }, [filter.isFavorite, setFilter, search]);
+
+  const handleToggleColorLabel = useCallback(
+    (label: ColorLabel) => {
+      setFilter({ colorLabels: toggleColorLabelItem(filter.colorLabels, label) });
+      search();
+    },
+    [filter.colorLabels, setFilter, search]
+  );
+
+  const handleFilterChange = useCallback(
+    (patch: Partial<FilterSpec>) => {
+      setFilter(patch);
+      search();
+    },
+    [setFilter, search]
+  );
+
   return (
-    <div className={styles.filterContainer} id="filter-bar">
-      <PrimaryFilterRow
-        filter={filter}
+    <div className={styles.filterBar} id="filter-bar">
+      <div className={styles.leftGroup}>
+        <span className={styles.filterIconWrap} aria-hidden>
+          <IconFilter size={13} />
+        </span>
+
+        <AllAssetsButton isActive={!hasActiveFilters} onClick={handleAllClick} />
+        <FavoriteFilterButton isFavorite={filter.isFavorite} onClick={toggleFavorite} />
+
+        <div className={styles.divider} />
+
+        <ColorLabelsRow selectedLabels={filter.colorLabels} onToggle={handleToggleColorLabel} />
+
+        <div className={styles.divider} />
+
+        <DateFilterSelect from={filter.dateRange?.from} onChange={handleFilterChange} />
+        <SizeFilterSelect sizeRange={filter.sizeRange} onChange={handleFilterChange} />
+        <RatingFilterSelect rating={filter.rating} onChange={handleFilterChange} />
+      </div>
+
+      <SortAndClearControls
         sort={sort}
-        setFilter={setFilter}
-        resetFilter={resetFilter}
-        setSort={setSort}
-        search={search}
-      />
-      <SoftwareExtensionRow
-        filter={filter}
-        setFilter={setFilter}
-        search={search}
+        hasActiveFilters={hasActiveFilters}
+        onSetSort={setSort}
+        onClear={handleAllClick}
+        onSearch={search}
       />
     </div>
   );
