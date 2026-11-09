@@ -140,7 +140,7 @@ pub(crate) async fn pdf_metadata(source: &Path) -> Option<Value> {
         insert_pdf_field(&mut fields, key.trim(), value.trim());
     }
 
-    (!fields.is_empty()).then(|| Value::Object(fields))
+    (!fields.is_empty()).then_some(Value::Object(fields))
 }
 
 fn insert_pdf_field(fields: &mut Map<String, Value>, key: &str, value: &str) {
