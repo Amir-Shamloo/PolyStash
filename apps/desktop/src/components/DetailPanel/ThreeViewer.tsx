@@ -1,7 +1,8 @@
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useLoader, useThree } from '@react-three/fiber';
 import { Environment, ContactShadows, OrbitControls } from '@react-three/drei';
 import { Suspense, Component, useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as THREE from 'three';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { IconGrid, IconRefresh, IconCameraReset, IconInfo } from '../Icons';
