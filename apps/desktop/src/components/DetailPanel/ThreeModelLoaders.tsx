@@ -96,7 +96,7 @@ function resolveGltfResourceUri(uri: unknown): unknown {
  * Relative URIs resolve against the .gltf's own directory via parse()'s path.
  * shortcut: no DRACO/KTX2 support in this parse path, add loaders if such files appear.
  */
-export async function loadGltfResolvingUris(safeUrl: string): Promise<THREE.Group> {
+export async function loadGltfResolvingUris(safeUrl: string): Promise<THREE.Object3D> {
   const res = await fetch(safeUrl);
   if (!res.ok) throw new Error(`HTTP ${res.status} loading ${safeUrl}`);
   const json = await res.json();

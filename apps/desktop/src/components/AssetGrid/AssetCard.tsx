@@ -72,7 +72,7 @@ function CardThumbPlaceholder({ asset }: { asset: Asset }) {
 
   return (
     <div className={styles.thumbPlaceholder} style={{ color: kindColor }}>
-      <KindIcon size={36} style={{ color: kindColor }} />
+      <KindIcon size={36} />
       <span style={{ fontSize: '11px', fontWeight: 600, color: kindColor, marginTop: 4 }}>
         {extLabel}
       </span>

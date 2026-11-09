@@ -3,6 +3,7 @@ import { Environment, ContactShadows, OrbitControls } from '@react-three/drei';
 import { Suspense, Component, useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as THREE from 'three';
 import clsx from 'clsx';
+import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { IconGrid, IconRefresh, IconCameraReset, IconInfo } from '../Icons';
 import { computeModelStats, frameCameraAuto, type ModelStats } from './ThreeViewerUtils';
 import { MODEL_RENDERERS, ensureConvertedModelUrl } from './ThreeModelLoaders';
@@ -396,6 +397,60 @@ export function ThreeViewer({
             <ContactShadows opacity={0.6} scale={10} blur={1.5} far={10} resolution={256} color="#000000" />
             <OrbitControls ref={controlsRef as never} enableDamping autoRotate={autoRotate} makeDefault />
             <WireframeManager wireframe={wireframe} />
+          </Suspense>
+        </Canvas>
+      </ThreeErrorBoundary>
+    </div>
+  );
+}
+
+function DdsPlane({ url }: { url: string }) {
+  const texture = useLoader(DDSLoader, url);
+  return (
+    <mesh>
+      <planeGeometry args={[2, 2]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
+    </mesh>
+  );
+}
+
+export function DdsViewer({
+  filePath,
+  isFullscreen,
+  onToggleFullscreen,
+}: {
+  filePath: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+}) {
+  const fileUrl = convertFileSrc(filePath);
+  return (
+    <div className={styles.viewerContainer}>
+      {onToggleFullscreen && (
+        <div className={styles.toolbar} role="toolbar" aria-label="DDS Controls">
+          <button
+            type="button"
+            className={styles.toolbarBtn}
+            onClick={onToggleFullscreen}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <IconMinimize size={13} /> : <IconMaximize size={13} />}
+          </button>
+        </div>
+      )}
+      <ThreeErrorBoundary key={filePath} extension="DDS">
+        <Canvas
+          camera={{ position: [0, 0, 2.5], fov: 45 }}
+          gl={{
+            toneMapping: THREE.ACESFilmicToneMapping,
+            outputColorSpace: THREE.SRGBColorSpace,
+            antialias: true,
+          }}
+        >
+          <Suspense fallback={null}>
+            <DdsPlane url={fileUrl} />
+            <OrbitControls enableRotate={false} enablePan enableZoom makeDefault />
           </Suspense>
         </Canvas>
       </ThreeErrorBoundary>

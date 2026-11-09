@@ -9,7 +9,7 @@ import { IESLightViewer } from './IESLightViewer';
 import { VideoPreviewPlayer } from './VideoPreviewPlayer';
 import { ThumbnailCarousel } from '../AssetGrid/ThumbnailCarousel';
 import { FullscreenPreviewModal } from './FullscreenPreviewModal';
-import { IconModel3D, IconImage, IconVideo, IconFileText } from '../Icons';
+import { IconModel3D, IconImage, IconVideo, IconFileText, IconFolder } from '../Icons';
 import styles from './DetailPreviewArea.module.css';
 
 export interface DetailPreviewAreaProps {
@@ -36,6 +36,7 @@ const KIND_ICON: Record<AssetKind, React.FC<{ size?: number; style?: React.CSSPr
   video: IconVideo,
   image: IconImage,
   document: IconFileText,
+  folder: IconFolder,
   other: IconImage,
 };
 
@@ -48,6 +49,7 @@ const KIND_COLOR: Record<AssetKind, string> = {
   video: 'hsl(  4 80% 55%)',
   image: 'hsl(140 64% 46%)',
   document: 'hsl(213 84% 55%)',
+  folder: 'hsl( 38 92% 56%)',
   other: 'hsl(220  8% 50%)',
 };
 

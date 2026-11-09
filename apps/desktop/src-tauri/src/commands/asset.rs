@@ -750,7 +750,7 @@ pub async fn update_asset(
             merge_asset_metadata(pool, &id, metadata).await;
         }
         if let Some(ref tags) = patch.tags {
-            sync_asset_tags(state, pool, &id, tags).await;
+            sync_asset_tags(&state, pool, &id, tags).await;
         }
     }
 
