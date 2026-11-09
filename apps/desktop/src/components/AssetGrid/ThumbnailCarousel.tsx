@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useMemo } from 'react';
+import { memo, useState, useCallback, useMemo, useEffect } from 'react';
 import clsx from 'clsx';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset } from '../../types';
@@ -18,66 +18,96 @@ export interface ThumbnailCarouselProps {
 const PROTOCOL_REGEX = /^(blob:|https?:|asset:)/;
 const ABSOLUTE_PATH_REGEX = /^([/\\]|[a-zA-Z]:[/\\])/;
 
-function isDirectUrl(path: string): boolean {
-  return PROTOCOL_REGEX.test(path);
+const BROWSER_DECODABLE_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp', 'avif',
+]);
+
+interface RelativePathRef {
+  baseThumb: string;
+  relPath: string;
 }
 
-function isAbsolutePath(path: string): boolean {
-  return ABSOLUTE_PATH_REGEX.test(path);
+function getSeparator(pathStr: string): string {
+  return pathStr.includes('\\') ? '\\' : '/';
 }
 
-function resolveRelativePath(baseThumb: string, relPath: string): string {
-  const sep = baseThumb.includes('\\') ? '\\' : '/';
-  const polystashIdx = baseThumb.search(/[/\\]\.polystash/);
+function resolveFromPolystashRoot(ref: RelativePathRef, polystashIdx: number): string {
+  const sep = getSeparator(ref.baseThumb);
+  const root = ref.baseThumb.slice(0, polystashIdx);
+  const cleanRel = ref.relPath.replace(/^[/\\]+/, '').split(/[/\\]/).join(sep);
+  return `${root}${sep}${cleanRel}`;
+}
+
+function resolveFromParentDir(ref: RelativePathRef): string {
+  const sep = getSeparator(ref.baseThumb);
+  const lastSlash = Math.max(ref.baseThumb.lastIndexOf('/'), ref.baseThumb.lastIndexOf('\\'));
+  const dir = lastSlash !== -1 ? ref.baseThumb.slice(0, lastSlash) : '';
+  const filename = ref.relPath.split(/[/\\]/).pop() || ref.relPath;
+  return dir ? `${dir}${sep}${filename}` : ref.relPath;
+}
+
+function resolveRelativePath(ref: RelativePathRef): string {
+  const polystashIdx = ref.baseThumb.search(/[/\\]\.polystash/);
   if (polystashIdx !== -1) {
-    const root = baseThumb.slice(0, polystashIdx);
-    const cleanRel = relPath.replace(/^[/\\]+/, '').split(/[/\\]/).join(sep);
-    return `${root}${sep}${cleanRel}`;
+    return resolveFromPolystashRoot(ref, polystashIdx);
   }
-
-  const lastSlash = Math.max(baseThumb.lastIndexOf('/'), baseThumb.lastIndexOf('\\'));
-  const dir = lastSlash !== -1 ? baseThumb.slice(0, lastSlash) : '';
-  const filename = relPath.split(/[/\\]/).pop() || relPath;
-  return dir ? `${dir}${sep}${filename}` : relPath;
+  return resolveFromParentDir(ref);
 }
 
 export function resolveThumbnailUrl(asset: Asset, rawPath?: string): string {
   if (!rawPath) return '';
-  if (isDirectUrl(rawPath)) return rawPath;
-  if (isAbsolutePath(rawPath)) return convertFileSrc(rawPath);
+  if (PROTOCOL_REGEX.test(rawPath)) return rawPath;
+  if (ABSOLUTE_PATH_REGEX.test(rawPath)) return convertFileSrc(rawPath);
 
   const resolved = asset.thumbnailPath
-    ? resolveRelativePath(asset.thumbnailPath, rawPath)
+    ? resolveRelativePath({ baseThumb: asset.thumbnailPath, relPath: rawPath })
     : rawPath;
   return convertFileSrc(resolved);
 }
 
-function getMultiThumbs(asset: Asset): string[] | null {
+function getValidRasterThumbPath(asset: Asset): string | null {
+  const clean = asset.thumbnailPath?.trim();
+  if (!clean || clean.endsWith('.glb')) return null;
+  return clean;
+}
+
+function isNonEmptyString(val: unknown): val is string {
+  return typeof val === 'string' && val.trim().length > 0;
+}
+
+function getMultiThumbs(asset: Asset): string[] {
   const thumbsMeta = asset.metadata?.['polystash.thumbs'];
-  if (!Array.isArray(thumbsMeta) || thumbsMeta.length === 0) return null;
+  if (!Array.isArray(thumbsMeta)) return [];
+  const primaryThumb = getValidRasterThumbPath(asset);
 
   return thumbsMeta
-    .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
-    .map((p, idx) => {
-      const isPrimary = idx === 0 && Boolean(asset.thumbnailPath) && !asset.thumbnailPath?.endsWith('.glb');
-      return isPrimary ? convertFileSrc(asset.thumbnailPath!) : resolveThumbnailUrl(asset, p);
-    });
+    .filter(isNonEmptyString)
+    .map((p, idx) =>
+      idx === 0 && primaryThumb ? convertFileSrc(primaryThumb) : resolveThumbnailUrl(asset, p)
+    );
+}
+
+function getNativeImageUrl(asset: Asset): string | null {
+  const ext = asset.extension.toLowerCase();
+  if (!BROWSER_DECODABLE_EXTENSIONS.has(ext) || !asset.filePath) return null;
+  return convertFileSrc(asset.filePath);
 }
 
 function getSingleThumb(asset: Asset, snapshotUrl?: string | null): string | null {
-  if (asset.thumbnailPath && !asset.thumbnailPath.endsWith('.glb')) {
-    return convertFileSrc(asset.thumbnailPath);
-  }
-  const isImageKind = asset.kind === 'image' || asset.kind === 'texture';
-  if (isImageKind && asset.filePath) {
+  if (asset.extension.toLowerCase() === 'gif' && asset.filePath) {
     return convertFileSrc(asset.filePath);
   }
-  return snapshotUrl || null;
+  const rasterThumb = getValidRasterThumbPath(asset);
+  if (rasterThumb) return convertFileSrc(rasterThumb);
+  return getNativeImageUrl(asset) ?? (snapshotUrl || null);
 }
 
 export function getAssetThumbnailUrls(asset: Asset, snapshotUrl?: string | null): string[] {
+  if (asset.extension.toLowerCase() === 'gif' && asset.filePath) {
+    return [convertFileSrc(asset.filePath)];
+  }
   const multi = getMultiThumbs(asset);
-  if (multi && multi.length > 0) return multi;
+  if (multi.length > 0) return multi;
 
   const single = getSingleThumb(asset, snapshotUrl);
   return single ? [single] : [];
@@ -131,25 +161,37 @@ function CarouselControls({ total, current, onPrev, onNext, onSelect }: Carousel
   );
 }
 
-function stepPrev(curr: number, total: number): number {
+interface CarouselBounds {
+  curr: number;
+  total: number;
+}
+
+function stepPrev({ curr, total }: CarouselBounds): number {
   return curr > 0 ? curr - 1 : total - 1;
 }
 
-function stepNext(curr: number, total: number): number {
+function stepNext({ curr, total }: CarouselBounds): number {
   return curr + 1 < total ? curr + 1 : 0;
 }
 
-function useCarouselIndex(total: number) {
+function getKeyStepDelta(key: string): -1 | 1 | 0 {
+  if (key === 'ArrowLeft') return -1;
+  if (key === 'ArrowRight') return 1;
+  return 0;
+}
+
+function useCarouselIndex(bounds: { total: number }) {
+  const { total } = bounds;
   const [index, setIndex] = useState(0);
 
   const prev = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setIndex((curr) => stepPrev(curr, total));
+    setIndex((curr) => stepPrev({ curr, total }));
   }, [total]);
 
   const next = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setIndex((curr) => stepNext(curr, total));
+    setIndex((curr) => stepNext({ curr, total }));
   }, [total]);
 
   const select = useCallback((targetIndex: number, e: React.MouseEvent) => {
@@ -158,17 +200,34 @@ function useCarouselIndex(total: number) {
   }, []);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (total <= 1) return;
-    if (e.key === 'ArrowLeft') {
-      e.stopPropagation();
-      setIndex((curr) => stepPrev(curr, total));
-    } else if (e.key === 'ArrowRight') {
-      e.stopPropagation();
-      setIndex((curr) => stepNext(curr, total));
-    }
+    const delta = getKeyStepDelta(e.key);
+    if (total <= 1 || delta === 0) return;
+    e.stopPropagation();
+    setIndex((curr) => (delta < 0 ? stepPrev({ curr, total }) : stepNext({ curr, total })));
   }, [total]);
 
   return { index: index < total ? index : 0, prev, next, select, onKeyDown };
+}
+
+function useValidUrls(params: { urls: string[]; asset: Asset; snapshotUrl?: string | null }) {
+  const { urls, asset, snapshotUrl } = params;
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setFailedUrls(new Set());
+  }, [asset.id, snapshotUrl]);
+
+  const markFailed = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const failedSrc = e.currentTarget.getAttribute('src') ?? e.currentTarget.src;
+    setFailedUrls((prevSet) => new Set(prevSet).add(failedSrc));
+  }, []);
+
+  const validUrls = useMemo(
+    () => urls.filter((u) => !failedUrls.has(u)),
+    [urls, failedUrls]
+  );
+
+  return { validUrls, markFailed };
 }
 
 export const ThumbnailCarousel = memo(function ThumbnailCarousel({
@@ -184,19 +243,22 @@ export const ThumbnailCarousel = memo(function ThumbnailCarousel({
     () => getAssetThumbnailUrls(asset, snapshotUrl),
     [asset, snapshotUrl]
   );
-  const { index, prev, next, select, onKeyDown } = useCarouselIndex(urls.length);
+  const { validUrls, markFailed } = useValidUrls({ urls, asset, snapshotUrl });
+  const { index, prev, next, select, onKeyDown } = useCarouselIndex({ total: validUrls.length });
+  const label = alt || asset.fileName;
 
-  if (urls.length === 0) {
+  if (validUrls.length === 0) {
     return <>{fallback}</>;
   }
 
-  if (urls.length === 1) {
+  if (validUrls.length === 1) {
     return (
       <img
-        src={urls[0]}
-        alt={alt || asset.fileName}
+        src={validUrls[0]}
+        alt={label}
         className={clsx(styles.singleImg, imgClassName)}
         loading={loading}
+        onError={markFailed}
       />
     );
   }
@@ -210,14 +272,15 @@ export const ThumbnailCarousel = memo(function ThumbnailCarousel({
       onKeyDown={onKeyDown}
     >
       <img
-        src={urls[index]}
-        alt={`${alt || asset.fileName} (preview ${index + 1} of ${urls.length})`}
+        src={validUrls[index]}
+        alt={`${label} (preview ${index + 1} of ${validUrls.length})`}
         className={clsx(styles.carouselImg, imgClassName)}
         loading={loading}
+        onError={markFailed}
       />
 
       <CarouselControls
-        total={urls.length}
+        total={validUrls.length}
         current={index}
         onPrev={prev}
         onNext={next}

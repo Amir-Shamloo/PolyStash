@@ -1,13 +1,13 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber';
-import { Stage, Environment, ContactShadows, OrbitControls } from '@react-three/drei';
+import { Environment, ContactShadows, OrbitControls } from '@react-three/drei';
 import { Suspense, Component, useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as THREE from 'three';
-import clsx from 'clsx';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { IconGrid, IconRefresh, IconCameraReset, IconInfo } from '../Icons';
-import { computeModelStats, type ModelStats } from './ThreeViewerUtils';
-import { MODEL_RENDERERS } from './ThreeModelLoaders';
+import { computeModelStats, frameCameraAuto, type ModelStats } from './ThreeViewerUtils';
+import { MODEL_RENDERERS, ensureConvertedModelUrl } from './ThreeModelLoaders';
 import styles from './ThreeViewer.module.css';
 
 interface ErrorBoundaryProps {
@@ -37,16 +37,25 @@ function IconMinimize({ size = 13 }: { size?: number }) {
   );
 }
 
+function isCrateOrUsdcError(msg: string): boolean {
+  return msg.includes('Crate') || msg.includes('.usdc');
+}
+
+function isArchiveError(msg: string): boolean {
+  return msg.includes('zip') || msg.includes('fflate');
+}
+
 function resolveFallbackHint(extension?: string, errorMessage?: string): string {
   const ext = extension?.toUpperCase() || '3D';
-  if (!errorMessage) {
-    return `Unable to render ${ext} preview`;
-  }
-  if (errorMessage.includes('Crate') || errorMessage.includes('.usdc')) {
+  if (!errorMessage) return `Unable to render ${ext} preview`;
+  if (isCrateOrUsdcError(errorMessage)) {
     return 'Binary USD (USDC crate) is not supported. Use .USDZ archive.';
   }
-  if (errorMessage.includes('zip') || errorMessage.includes('fflate')) {
+  if (isArchiveError(errorMessage)) {
     return `Invalid archive format for ${ext}. Ensure file is a valid package.`;
+  }
+  if (ext === 'GLTF' || ext === 'GLB') {
+    return `Unable to load ${ext} scene. Check external .bin/texture buffers or export as self-contained .GLB.`;
   }
   return `Unable to render ${ext} preview`;
 }
@@ -93,7 +102,7 @@ export function getExtension(path: string): string {
 
 export const MESH_EXTENSIONS = new Set([
   'gltf', 'glb', 'fbx', 'obj', 'stl', 'dae',
-  '3ds', 'ply', 'usd', 'usdz', 'wrl',
+  '3ds', 'ply', 'usdz', 'wrl',
 ]);
 
 export function getModelPath(asset: {
@@ -112,29 +121,47 @@ export function getModelPath(asset: {
   );
 }
 
+interface OrbitHandle {
+  target: THREE.Vector3;
+  reset: () => void;
+  update: () => void;
+  saveState?: () => void;
+}
+
 export function Model({
   url,
   extension,
   onStatsReady,
+  controlsRef,
 }: {
   url: string;
   extension?: string;
   onStatsReady?: (stats: ModelStats) => void;
+  controlsRef?: React.RefObject<OrbitHandle | null>;
 }) {
-  const fileUrl = convertFileSrc(url);
+  const { camera } = useThree();
+  const fileUrl = ensureConvertedModelUrl(url);
   const ext = (extension || getExtension(url)).toLowerCase();
   const render = MODEL_RENDERERS[ext] ?? MODEL_RENDERERS.gltf;
 
   const handleLoaded = useCallback(
     (obj: THREE.Object3D) => {
+      if (camera instanceof THREE.PerspectiveCamera) {
+        frameCameraAuto(camera, obj);
+      }
+      if (controlsRef?.current) {
+        controlsRef.current.target.set(0, 0, 0);
+        controlsRef.current.update();
+        controlsRef.current.saveState?.();
+      }
       if (onStatsReady) {
         onStatsReady(computeModelStats(obj));
       }
     },
-    [onStatsReady]
+    [camera, controlsRef, onStatsReady]
   );
 
-  return <>{render({ url: fileUrl, onLoaded: handleLoaded })}</>;
+  return <>{render({ url: fileUrl, extension: ext, onLoaded: handleLoaded })}</>;
 }
 
 function WireframeManager({ wireframe }: { wireframe: boolean }) {
@@ -147,7 +174,9 @@ function WireframeManager({ wireframe }: { wireframe: boolean }) {
           const mesh = obj as THREE.Mesh;
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           mats.forEach((mat) => {
-            (mat as THREE.Material & { wireframe?: boolean }).wireframe = wireframe;
+            if (mat) {
+              (mat as THREE.Material & { wireframe?: boolean }).wireframe = wireframe;
+            }
           });
         }
       });
@@ -185,12 +214,6 @@ function StudioLighting() {
       />
     </>
   );
-}
-
-interface OrbitHandle {
-  target: THREE.Vector3;
-  reset: () => void;
-  update: () => void;
 }
 
 interface ToolbarProps {
@@ -281,6 +304,8 @@ export interface ThreeViewerProps {
   extension?: string;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  /** Called once the model geometry is parsed; stats mirror the info panel. */
+  onStats?: (stats: ModelStats) => void;
 }
 
 export function ThreeViewer({
@@ -288,6 +313,7 @@ export function ThreeViewer({
   extension,
   isFullscreen,
   onToggleFullscreen,
+  onStats,
 }: ThreeViewerProps) {
   const [wireframe, setWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -304,6 +330,15 @@ export function ThreeViewer({
       controlsRef.current.update();
     }
   }, []);
+
+  // Stable: keeps Model's onLoaded effect from re-firing every render.
+  const handleStatsReady = useCallback(
+    (stats: ModelStats) => {
+      setModelStats(stats);
+      onStats?.(stats);
+    },
+    [onStats]
+  );
 
   return (
     <div className={styles.viewerContainer}>
@@ -343,7 +378,7 @@ export function ThreeViewer({
         <Canvas
           shadows
           dpr={[1, 2]}
-          camera={{ fov: 50, position: [0, 0, 5] }}
+          camera={{ fov: 45, position: [3, 2.25, 3.75] }}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 1.0,
@@ -353,9 +388,12 @@ export function ThreeViewer({
         >
           <Suspense fallback={null}>
             <StudioLighting />
-            <Stage adjustCamera intensity={0.4} shadows={false} environment={null}>
-              <Model url={modelPath} extension={cleanExt} onStatsReady={setModelStats} />
-            </Stage>
+            <Model
+              url={modelPath}
+              extension={cleanExt}
+              onStatsReady={handleStatsReady}
+              controlsRef={controlsRef}
+            />
             <Environment preset="city" />
             <ContactShadows opacity={0.6} scale={10} blur={1.5} far={10} resolution={256} color="#000000" />
             <OrbitControls ref={controlsRef as never} enableDamping autoRotate={autoRotate} makeDefault />
@@ -402,10 +440,7 @@ export function DdsViewer({
           </button>
         </div>
       )}
-      <ThreeErrorBoundary
-        key={filePath}
-        extension="DDS"
-      >
+      <ThreeErrorBoundary key={filePath} extension="DDS">
         <Canvas
           camera={{ position: [0, 0, 2.5], fov: 45 }}
           gl={{

@@ -10,11 +10,14 @@ use super::save_thumb;
 const C4D_HEADER_WINDOW: u64 = 8 * 1024 * 1024;
 
 /// Blender stores a rendered preview near the start of the file as a plain PNG
-/// chunk. This is a byte-scan heuristic, not a format parser: no usable preview
-/// means the caller falls back to the neutral placeholder (and the frontend
-/// renders the model live).
+/// chunk. Large scenes can push that chunk past 4 MB, so the scan covers 8 MB.
+const BLEND_PREVIEW_WINDOW: u64 = 8 * 1024 * 1024;
+
+/// Byte-scan for the embedded preview PNG. This is a heuristic, not a format
+/// parser: no usable preview means the caller falls back to the neutral
+/// placeholder (and the frontend renders the model live).
 pub(crate) fn extract_preview_png_thumb(source: &Path, output: &Path) -> Result<()> {
-    let head = read_prefix(source, 4 * 1024 * 1024)?;
+    let head = read_prefix(source, BLEND_PREVIEW_WINDOW)?;
     let index = super::find_png(&head)
         .ok_or_else(|| anyhow!("No embedded preview image found"))?;
     let img = image::load_from_memory(&head[index..])?;

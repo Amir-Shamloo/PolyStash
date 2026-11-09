@@ -9,7 +9,7 @@ interface KindDefinition {
   kind: AssetKind;
   label: string;
   badge: string;
-  formats: string;
+  formats: string[];
   color: string;
   icon: (props: { size?: number }) => JSX.Element;
 }
@@ -19,7 +19,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: '3d_model',
     label: '3D Models',
     badge: '3D',
-    formats: 'max, 3dm, rvt, rfa, blend, fbx, obj, gltf, glb, c4d, skp, usd, stl, ply',
+    formats: ['max', '3dm', 'rvt', 'rfa', 'blend', 'fbx', 'obj', 'gltf', 'glb', 'c4d', 'skp', 'usd', 'usdz', 'stl', 'ply', '3ds', 'dae', 'dwg', 'dxf', 'wrl', 'x3d'],
     color: '#3b82f6',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -33,7 +33,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'material',
     label: 'Materials',
     badge: 'MAT',
-    formats: 'vrmat, mat, sbsar, sbs, mdl',
+    formats: ['vrmat', 'mat', 'sbsar', 'sbs', 'mdl'],
     color: '#a855f7',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -47,7 +47,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'texture',
     label: 'Textures',
     badge: 'TEX',
-    formats: 'jpg, png, tga, tif, tiff, bmp, dds, ktx, ktx2, webp, avif',
+    formats: ['jpg', 'jpeg', 'png', 'tga', 'tif', 'tiff', 'bmp', 'dds', 'ktx', 'ktx2', 'webp', 'avif'],
     color: '#06b6d4',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -60,7 +60,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'hdri',
     label: 'HDRI Environments',
     badge: 'HDR',
-    formats: 'hdr, exr, hdri',
+    formats: ['hdr', 'exr', 'hdri'],
     color: '#f59e0b',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -73,7 +73,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'ies',
     label: 'IES Light Profiles',
     badge: 'IES',
-    formats: 'ies, ldt',
+    formats: ['ies', 'ldt'],
     color: '#eab308',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -86,7 +86,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'video',
     label: 'Videos',
     badge: 'VID',
-    formats: 'mp4, mov, avi, mkv, webm, m4v',
+    formats: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'],
     color: '#ef4444',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -99,7 +99,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'image',
     label: 'Images & Vectors',
     badge: 'IMG',
-    formats: 'psd, psb, ai, svg, gif',
+    formats: ['psd', 'psb', 'ai', 'svg', 'gif'],
     color: '#10b981',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -113,7 +113,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'document',
     label: 'Documents',
     badge: 'DOC',
-    formats: 'pdf, docx, txt, md, rtf',
+    formats: ['pdf', 'docx', 'txt', 'md', 'rtf'],
     color: '#6366f1',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -129,7 +129,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: 'other',
     label: 'Other Assets',
     badge: 'ETC',
-    formats: 'abc, zip, other supported files',
+    formats: ['abc', 'zip'],
     color: '#94a3b8',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -142,113 +142,305 @@ const KIND_DEFS: KindDefinition[] = [
   },
 ];
 
-function isActivateKey(key: string): boolean {
-  return key === ' ' || key === 'Enter';
+const ALL_FORMATS = new Set(KIND_DEFS.flatMap((d) => d.formats));
+
+function isKindSelected(
+  def: KindDefinition,
+  selectedKinds: AssetKind[],
+  selectedExts: string[]
+): 'all' | 'partial' | 'none' {
+  if (selectedKinds.includes(def.kind)) return 'all';
+  const matchingCount = def.formats.filter((ext) => selectedExts.includes(ext)).length;
+  if (matchingCount === 0) return 'none';
+  if (matchingCount === def.formats.length) return 'all';
+  return 'partial';
 }
 
-interface ItemRowProps {
+function isFormatSelected(
+  ext: string,
+  kind: AssetKind,
+  selectedKinds: AssetKind[],
+  selectedExts: string[]
+): boolean {
+  return selectedKinds.includes(kind) || selectedExts.includes(ext);
+}
+
+interface FormatChipsProps {
   def: KindDefinition;
-  isChecked: boolean;
-  onToggle: (kind: AssetKind) => void;
+  visibleFormats: string[];
+  selectedKinds: AssetKind[];
+  selectedExts: string[];
+  onToggleFormat: (ext: string, def: KindDefinition) => void;
 }
 
-function AssetTypeItemRow({ def, isChecked, onToggle }: ItemRowProps) {
-  const IconComp = def.icon;
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isActivateKey(e.key)) {
-      e.preventDefault();
-      onToggle(def.kind);
-    }
-  };
-
+function FormatChipsList({
+  def,
+  visibleFormats,
+  selectedKinds,
+  selectedExts,
+  onToggleFormat,
+}: FormatChipsProps) {
   return (
-    <div
-      id={`asset-type-item-${def.kind}`}
-      className={clsx(styles.itemRow, isChecked && styles.itemRowChecked)}
-      onClick={() => onToggle(def.kind)}
-      role="option"
-      aria-selected={isChecked}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-    >
-      <label className={styles.checkboxWrap} onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          className={styles.checkboxInput}
-          checked={isChecked}
-          onChange={() => onToggle(def.kind)}
-        />
-        <span className={clsx(styles.checkboxCustom, isChecked && styles.checkboxChecked)}>
-          {isChecked && (
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
-        </span>
-      </label>
-
-      <div
-        className={styles.iconBadge}
-        style={{ color: def.color, background: `${def.color}18`, borderColor: `${def.color}35` }}
-      >
-        <IconComp size={15} />
-      </div>
-
-      <div className={styles.itemMeta}>
-        <div className={styles.itemTitleRow}>
-          <span className={styles.itemLabel}>{def.label}</span>
-          <span className={styles.itemBadge} style={{ color: def.color, borderColor: `${def.color}40` }}>
-            {def.badge}
-          </span>
-        </div>
-        <span className={styles.itemFormats} title={def.formats}>
-          {def.formats}
-        </span>
-      </div>
+    <div className={styles.formatsGrid} role="group" aria-label={`${def.label} formats`}>
+      {visibleFormats.map((ext) => {
+        const active = isFormatSelected(ext, def.kind, selectedKinds, selectedExts);
+        return (
+          <button
+            key={ext}
+            type="button"
+            id={`asset-format-item-${ext}`}
+            className={clsx(styles.formatChipBtn, active && styles.formatChipActive)}
+            onClick={() => onToggleFormat(ext, def)}
+            aria-pressed={active}
+          >
+            <span>.{ext}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function matchesSearch(def: KindDefinition, q: string): boolean {
-  if (def.label.toLowerCase().includes(q)) return true;
-  if (def.formats.toLowerCase().includes(q)) return true;
-  return def.badge.toLowerCase().includes(q);
+function KindCheckbox({
+  selectionState,
+  onToggle,
+}: {
+  selectionState: 'all' | 'partial' | 'none';
+  onToggle: () => void;
+}) {
+  const isChecked = selectionState === 'all';
+  const isPartial = selectionState === 'partial';
+
+  return (
+    <label className={styles.checkboxWrap} onClick={(e) => e.stopPropagation()}>
+      <input
+        type="checkbox"
+        className={styles.checkboxInput}
+        checked={isChecked}
+        onChange={onToggle}
+      />
+      <span
+        className={clsx(
+          styles.checkboxCustom,
+          isChecked && styles.checkboxChecked,
+          isPartial && styles.checkboxPartial
+        )}
+      >
+        {isChecked && (
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+        {isPartial && (
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        )}
+      </span>
+    </label>
+  );
 }
 
-function filterKindDefs(defs: KindDefinition[], term: string): KindDefinition[] {
-  const q = term.trim().toLowerCase();
-  if (!q) return defs;
-  return defs.filter((def) => matchesSearch(def, q));
+function ExpandButton({
+  label,
+  isExpanded,
+  onClick,
+}: {
+  label: string;
+  isExpanded: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const ariaLabel = isExpanded ? `Collapse ${label}` : `Expand ${label}`;
+  const title = isExpanded ? 'Hide formats' : 'Show individual formats';
+
+  return (
+    <button
+      type="button"
+      className={clsx(styles.expandBtn, isExpanded && styles.expandBtnRotated)}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      title={title}
+    >
+      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </button>
+  );
+}
+
+interface ItemRowProps {
+  def: KindDefinition;
+  visibleFormats: string[];
+  selectionState: 'all' | 'partial' | 'none';
+  isExpanded: boolean;
+  selectedKinds: AssetKind[];
+  selectedExts: string[];
+  onToggleExpand: (kind: AssetKind) => void;
+  onSelectKindAll: (def: KindDefinition) => void;
+  onSelectKindNone: (def: KindDefinition) => void;
+  onToggleKind: (def: KindDefinition) => void;
+  onToggleFormat: (ext: string, def: KindDefinition) => void;
+}
+
+function AssetTypeItemRow({
+  def,
+  visibleFormats,
+  selectionState,
+  isExpanded,
+  selectedKinds,
+  selectedExts,
+  onToggleExpand,
+  onSelectKindAll,
+  onSelectKindNone,
+  onToggleKind,
+  onToggleFormat,
+}: ItemRowProps) {
+  const IconComp = def.icon;
+  const isActive = selectionState !== 'none';
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      onToggleKind(def);
+    }
+  };
+
+  return (
+    <div className={styles.kindSection}>
+      <div
+        id={`asset-type-item-${def.kind}`}
+        className={clsx(styles.itemRow, isActive && styles.itemRowChecked)}
+        onClick={() => onToggleKind(def)}
+        role="option"
+        aria-selected={selectionState === 'all'}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+      >
+        <ExpandButton
+          label={def.label}
+          isExpanded={isExpanded}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExpand(def.kind);
+          }}
+        />
+        <KindCheckbox selectionState={selectionState} onToggle={() => onToggleKind(def)} />
+
+        <div
+          className={styles.iconBadge}
+          style={{ color: def.color, background: `${def.color}18`, borderColor: `${def.color}35` }}
+        >
+          <IconComp size={15} />
+        </div>
+
+        <div className={styles.itemMeta}>
+          <div className={styles.itemTitleRow}>
+            <span className={styles.itemLabel}>{def.label}</span>
+            <div className={styles.kindActions} onClick={(e) => e.stopPropagation()}>
+              <button type="button" className={styles.miniBtn} onClick={() => onSelectKindAll(def)}>
+                All
+              </button>
+              <button type="button" className={styles.miniBtn} onClick={() => onSelectKindNone(def)}>
+                None
+              </button>
+              <span className={styles.itemBadge} style={{ color: def.color, borderColor: `${def.color}40` }}>
+                {def.badge}
+              </span>
+            </div>
+          </div>
+          <span className={styles.itemFormats} title={def.formats.join(', ')}>
+            {def.formats.join(', ')}
+          </span>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <FormatChipsList
+          def={def}
+          visibleFormats={visibleFormats}
+          selectedKinds={selectedKinds}
+          selectedExts={selectedExts}
+          onToggleFormat={onToggleFormat}
+        />
+      )}
+    </div>
+  );
+}
+
+function getFilteredDefs(term: string): { def: KindDefinition; visibleFormats: string[] }[] {
+  const q = term.trim().toLowerCase().replace(/^\./, '');
+  if (!q) {
+    return KIND_DEFS.map((def) => ({ def, visibleFormats: def.formats }));
+  }
+  const results: { def: KindDefinition; visibleFormats: string[] }[] = [];
+  for (const def of KIND_DEFS) {
+    const labelMatch = def.label.toLowerCase().includes(q) || def.badge.toLowerCase().includes(q);
+    const matchingFormats = def.formats.filter((f) => f.includes(q));
+    if (labelMatch || matchingFormats.length > 0) {
+      results.push({
+        def,
+        visibleFormats: matchingFormats.length > 0 ? matchingFormats : def.formats,
+      });
+    }
+  }
+  return results;
 }
 
 interface PopoverProps {
   selectedKinds: AssetKind[];
+  selectedExts: string[];
   isAllSelected: boolean;
-  onToggleKind: (kind: AssetKind) => void;
+  onToggleKind: (def: KindDefinition) => void;
+  onSelectKindAll: (def: KindDefinition) => void;
+  onSelectKindNone: (def: KindDefinition) => void;
+  onToggleFormat: (ext: string, def: KindDefinition) => void;
   onSelectAll: () => void;
+  onSelectNone: () => void;
 }
 
-function AssetTypePopover({ selectedKinds, isAllSelected, onToggleKind, onSelectAll }: PopoverProps) {
+function AssetTypePopover({
+  selectedKinds,
+  selectedExts,
+  isAllSelected,
+  onToggleKind,
+  onSelectKindAll,
+  onSelectKindNone,
+  onToggleFormat,
+  onSelectAll,
+  onSelectNone,
+}: PopoverProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedKinds, setExpandedKinds] = useState<Record<string, boolean>>({});
 
-  const filteredDefs = useMemo(
-    () => filterKindDefs(KIND_DEFS, searchTerm),
-    [searchTerm]
-  );
+  const filteredItems = useMemo(() => getFilteredDefs(searchTerm), [searchTerm]);
+  const hasSearch = searchTerm.trim().length > 0;
+
+  const toggleExpand = useCallback((kind: AssetKind) => {
+    setExpandedKinds((prev) => ({ ...prev, [kind]: !prev[kind] }));
+  }, []);
 
   return (
     <div className={styles.popover} role="dialog" aria-label="Asset type filters">
       <div className={styles.popoverHeader}>
         <span className={styles.headerTitle}>Filter by Asset Type</span>
-        <button
-          type="button"
-          id="asset-type-all-btn"
-          className={clsx(styles.allBtn, isAllSelected && styles.allBtnActive)}
-          onClick={onSelectAll}
-        >
-          All Types
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            id="asset-type-all-btn"
+            className={clsx(styles.allBtn, isAllSelected && styles.allBtnActive)}
+            onClick={onSelectAll}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            id="asset-type-none-btn"
+            className={styles.allBtn}
+            onClick={onSelectNone}
+          >
+            None
+          </button>
+        </div>
       </div>
 
       <div className={styles.searchBox}>
@@ -278,22 +470,32 @@ function AssetTypePopover({ selectedKinds, isAllSelected, onToggleKind, onSelect
       </div>
 
       <div className={styles.list} role="listbox" aria-multiselectable="true">
-        {filteredDefs.map((def) => (
+        {filteredItems.map(({ def, visibleFormats }) => (
           <AssetTypeItemRow
             key={def.kind}
             def={def}
-            isChecked={selectedKinds.includes(def.kind)}
-            onToggle={onToggleKind}
+            visibleFormats={visibleFormats}
+            selectionState={isKindSelected(def, selectedKinds, selectedExts)}
+            isExpanded={hasSearch || Boolean(expandedKinds[def.kind])}
+            selectedKinds={selectedKinds}
+            selectedExts={selectedExts}
+            onToggleExpand={toggleExpand}
+            onSelectKindAll={onSelectKindAll}
+            onSelectKindNone={onSelectKindNone}
+            onToggleKind={onToggleKind}
+            onToggleFormat={onToggleFormat}
           />
         ))}
-        {filteredDefs.length === 0 && (
+        {filteredItems.length === 0 && (
           <p className={styles.noMatches}>No asset types match &ldquo;{searchTerm}&rdquo;</p>
         )}
       </div>
 
       <div className={styles.popoverFooter}>
         <span className={styles.footerSummary}>
-          {isAllSelected ? 'Showing all formats' : `${selectedKinds.length} of ${KIND_DEFS.length} selected`}
+          {isAllSelected
+            ? 'Showing all formats'
+            : `${selectedKinds.length} group(s), ${selectedExts.length} format(s)`}
         </span>
         {!isAllSelected && (
           <button type="button" className={styles.resetBtn} onClick={onSelectAll} title="Reset to all types">
@@ -305,18 +507,17 @@ function AssetTypePopover({ selectedKinds, isAllSelected, onToggleKind, onSelect
   );
 }
 
-function getTriggerLabel(selectedKinds: AssetKind[]): string {
-  if (selectedKinds.length === 0) return 'All Types';
-  if (selectedKinds.length === 1) {
+function getTriggerInfo(selectedKinds: AssetKind[], selectedExts: string[]): { label: string; count: number } {
+  const totalSelected = selectedKinds.length + selectedExts.length;
+  if (totalSelected === 0) return { label: 'All Types', count: 0 };
+  if (selectedKinds.length === 1 && selectedExts.length === 0) {
     const match = KIND_DEFS.find((d) => d.kind === selectedKinds[0]);
-    return match ? match.label : '1 Type';
+    return { label: match ? match.label : '1 Type', count: 1 };
   }
-  return `${selectedKinds.length} Types`;
-}
-
-function toggleKindSelection(current: AssetKind[], kind: AssetKind): AssetKind[] | undefined {
-  const next = current.includes(kind) ? current.filter((k) => k !== kind) : [...current, kind];
-  return next.length > 0 ? next : undefined;
+  if (selectedKinds.length === 0 && selectedExts.length === 1) {
+    return { label: `.${selectedExts[0].toUpperCase()}`, count: 1 };
+  }
+  return { label: `${totalSelected} Selected`, count: totalSelected };
 }
 
 interface TriggerProps {
@@ -364,6 +565,104 @@ function AssetTypeTrigger({
   );
 }
 
+function computeNextFormatSelection(
+  ext: string,
+  def: KindDefinition,
+  selectedKinds: AssetKind[],
+  selectedExts: string[]
+): { kinds: AssetKind[]; exts: string[] } {
+  // Explode the toggled kind into explicit extensions so single formats can be deselected
+  const nextKinds = selectedKinds.filter((k) => k !== def.kind);
+  const activeExts = new Set(selectedExts);
+  if (selectedKinds.includes(def.kind)) {
+    def.formats.forEach((f) => activeExts.add(f));
+  }
+  if (activeExts.has(ext)) {
+    activeExts.delete(ext);
+  } else {
+    activeExts.add(ext);
+  }
+  return { kinds: nextKinds, exts: Array.from(activeExts) };
+}
+
+function useAssetTypeFilters() {
+  const kinds = useAssetStore((s) => s.query.filter.kinds);
+  const extensions = useAssetStore((s) => s.query.filter.extensions);
+  const setFilter = useAssetStore((s) => s.setFilter);
+  const search = useAssetStore((s) => s.search);
+
+  const selectedKinds = useMemo(() => kinds ?? [], [kinds]);
+  const selectedExts = useMemo(() => extensions ?? [], [extensions]);
+  const isAllSelected = selectedKinds.length === 0 && selectedExts.length === 0;
+
+  const applyFilter = useCallback(
+    (nextKinds: AssetKind[], nextExts: string[]) => {
+      setFilter({
+        kinds: nextKinds.length > 0 ? nextKinds : undefined,
+        extensions: nextExts.length > 0 ? nextExts : undefined,
+      });
+      search();
+    },
+    [setFilter, search]
+  );
+
+  const handleSelectKindAll = useCallback(
+    (def: KindDefinition) => {
+      const nextKinds = selectedKinds.includes(def.kind) ? selectedKinds : [...selectedKinds, def.kind];
+      const nextExts = selectedExts.filter((e) => !def.formats.includes(e));
+      applyFilter(nextKinds, nextExts);
+    },
+    [selectedKinds, selectedExts, applyFilter]
+  );
+
+  const handleSelectKindNone = useCallback(
+    (def: KindDefinition) => {
+      const nextKinds = selectedKinds.filter((k) => k !== def.kind);
+      const nextExts = selectedExts.filter((e) => !def.formats.includes(e));
+      applyFilter(nextKinds, nextExts);
+    },
+    [selectedKinds, selectedExts, applyFilter]
+  );
+
+  const handleToggleKind = useCallback(
+    (def: KindDefinition) => {
+      if (isKindSelected(def, selectedKinds, selectedExts) === 'all') {
+        handleSelectKindNone(def);
+      } else {
+        handleSelectKindAll(def);
+      }
+    },
+    [selectedKinds, selectedExts, handleSelectKindAll, handleSelectKindNone]
+  );
+
+  const handleToggleFormat = useCallback(
+    (ext: string, def: KindDefinition) => {
+      const next = computeNextFormatSelection(ext, def, selectedKinds, selectedExts);
+      applyFilter(next.kinds, next.exts);
+    },
+    [selectedKinds, selectedExts, applyFilter]
+  );
+
+  const handleSelectAll = useCallback(() => applyFilter([], []), [applyFilter]);
+
+  const handleSelectNone = useCallback(() => {
+    setFilter({ kinds: undefined, extensions: ['__none__'] });
+    search();
+  }, [setFilter, search]);
+
+  return {
+    selectedKinds,
+    selectedExts,
+    isAllSelected,
+    handleSelectKindAll,
+    handleSelectKindNone,
+    handleToggleKind,
+    handleToggleFormat,
+    handleSelectAll,
+    handleSelectNone,
+  };
+}
+
 export function AssetTypeDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -372,43 +671,37 @@ export function AssetTypeDropdown() {
 
   useOutsideDismiss(containerRef, isOpen, closeDropdown);
 
-  const kinds = useAssetStore((s) => s.query.filter.kinds);
-  const setFilter = useAssetStore((s) => s.setFilter);
-  const search = useAssetStore((s) => s.search);
-
-  const selectedKinds = useMemo(() => kinds ?? [], [kinds]);
-  const isAllSelected = selectedKinds.length === 0;
-
-  const handleToggleKind = useCallback(
-    (kind: AssetKind) => {
-      setFilter({ kinds: toggleKindSelection(selectedKinds, kind) });
-      search();
-    },
-    [selectedKinds, setFilter, search]
+  const filters = useAssetTypeFilters();
+  const validExts = useMemo(
+    () => filters.selectedExts.filter((e) => ALL_FORMATS.has(e)),
+    [filters.selectedExts]
   );
 
-  const handleSelectAll = useCallback(() => {
-    setFilter({ kinds: undefined });
-    search();
-  }, [setFilter, search]);
-
-  const triggerLabel = useMemo(() => getTriggerLabel(selectedKinds), [selectedKinds]);
+  const { label: triggerLabel, count: selectedCount } = useMemo(
+    () => getTriggerInfo(filters.selectedKinds, validExts),
+    [filters.selectedKinds, validExts]
+  );
 
   return (
     <div className={styles.container} ref={containerRef}>
       <AssetTypeTrigger
         isOpen={isOpen}
-        isAllSelected={isAllSelected}
-        selectedCount={selectedKinds.length}
+        isAllSelected={filters.isAllSelected}
+        selectedCount={selectedCount}
         triggerLabel={triggerLabel}
         onToggle={toggleDropdown}
       />
       {isOpen && (
         <AssetTypePopover
-          selectedKinds={selectedKinds}
-          isAllSelected={isAllSelected}
-          onToggleKind={handleToggleKind}
-          onSelectAll={handleSelectAll}
+          selectedKinds={filters.selectedKinds}
+          selectedExts={validExts}
+          isAllSelected={filters.isAllSelected}
+          onToggleKind={filters.handleToggleKind}
+          onSelectKindAll={filters.handleSelectKindAll}
+          onSelectKindNone={filters.handleSelectKindNone}
+          onToggleFormat={filters.handleToggleFormat}
+          onSelectAll={filters.handleSelectAll}
+          onSelectNone={filters.handleSelectNone}
         />
       )}
     </div>

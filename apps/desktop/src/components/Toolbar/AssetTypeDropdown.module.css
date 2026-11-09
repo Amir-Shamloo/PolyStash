@@ -200,9 +200,108 @@
 
 /* List */
 .list {
-  max-height: 320px;
+  max-height: 360px;
   overflow-y: auto;
   padding: var(--space-1);
+}
+
+.kindSection {
+  margin-bottom: 2px;
+}
+
+.expandBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast), color var(--transition-fast);
+}
+
+.expandBtn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-overlay);
+}
+
+.expandBtnRotated {
+  transform: rotate(90deg);
+}
+
+.kindActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.miniBtn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.miniBtn:hover {
+  background: var(--color-bg-overlay);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.formatsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px 6px 28px;
+}
+
+.formatChipBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.formatChipBtn:hover {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+.formatChipActive {
+  background: hsl(220 85% 50% / 0.16);
+  border-color: var(--color-brand-500);
+  color: var(--color-brand-300);
+}
+
+.checkboxPartial {
+  background: hsl(220 85% 50% / 0.25);
+  border-color: var(--color-brand-400);
+  color: var(--color-brand-300);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .itemRow {

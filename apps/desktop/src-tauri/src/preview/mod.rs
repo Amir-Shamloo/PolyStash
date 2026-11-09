@@ -25,22 +25,24 @@ pub const THUMB_SIZE: u32 = 512;
 
 /// Formats rendered live in the frontend with three.js; the backend emits
 /// no thumbnail for these and completes the job immediately.
-const MESH_EXTENSIONS: [&str; 11] = [
-    "gltf", "glb", "fbx", "obj", "stl", "dae", "ply", "usdz", "usd", "3ds", "wrl",
+///
+/// `usd` is not here: raw USDA text has no headless preview, so it is a
+/// Category D icon. `usdz` keeps its three.js `USDZLoader` preview.
+const MESH_EXTENSIONS: [&str; 10] = [
+    "gltf", "glb", "fbx", "obj", "stl", "dae", "ply", "usdz", "3ds", "wrl",
 ];
 
 /// Containers that can genuinely hold several previews; a gallery is only
 /// harvested for these, so single-image formats never pay for the extra scan.
 const GALLERY_EXTENSIONS: [&str; 1] = ["skp"];
 
-/// GPU-compressed texture formats. `dds` is decoded natively in `raster.rs`;
-/// `ktx`/`ktx2` cannot be decoded by the `image` crate and are rendered by the
-/// frontend KTX2Loader instead.
-const GPU_TEXTURE_EXTENSIONS: [&str; 3] = ["dds", "ktx", "ktx2"];
+/// GPU-compressed texture formats the frontend renders with KTX2Loader and the
+/// backend therefore skips. `dds` is *not* here: `image` decodes it natively.
+const GPU_TEXTURE_EXTENSIONS: [&str; 2] = ["ktx", "ktx2"];
 
 /// Formats the frontend shows as a plain kind icon: no backend thumbnail and
 /// no live 3D preview, so they complete immediately.
-const CATEGORY_D_EXTENSIONS: [&str; 5] = ["sbs", "mdl", "mat", "abc", "x3d"];
+const CATEGORY_D_EXTENSIONS: [&str; 6] = ["sbs", "mdl", "mat", "abc", "x3d", "usd"];
 
 pub use raster::{generate_image_thumb, is_native_image};
 
@@ -207,6 +209,29 @@ fn generate_gallery(ext: &str, source: &Path, file_stem: &str, thumb_dir: &Path)
         .collect()
 }
 
+/// Technical metadata collected alongside preview generation. Mesh statistics
+/// and bounding boxes are intentionally absent: the frontend computes those
+/// from the live three.js load, where the geometry actually exists.
+async fn collect_metadata(ext: &str, source: &Path) -> Option<serde_json::Map<String, Value>> {
+    let fields = if video::is_video(ext) {
+        video::probe_metadata(source).await
+    } else if ext == "pdf" {
+        document::pdf_metadata(source).await
+    } else if supports_image_metadata(ext) {
+        raster::image_metadata(source, ext)
+    } else {
+        None
+    };
+
+    fields?.as_object().cloned()
+}
+
+/// Formats whose header can be read by the `image` crate, including the linear
+/// float formats handled through the tone-mapped thumbnail path.
+fn supports_image_metadata(ext: &str) -> bool {
+    is_native_image(ext) || matches!(ext, "exr" | "hdr" | "hdri")
+}
+
 impl LibraryJobs<'_> {
     /// Mark a job and its asset done and notify the frontend.
     async fn complete(&self, job: &JobRef<'_>, rel_thumbs: &[String]) {
@@ -231,8 +256,15 @@ impl LibraryJobs<'_> {
             }
         }
 
+        let mut patch = serde_json::Map::new();
         if rel_thumbs.len() > 1 {
-            self.record_gallery(job, rel_thumbs).await;
+            patch.insert("polystash.thumbs".to_string(), json!(rel_thumbs));
+        }
+        if let Some(fields) = self.technical_metadata(job).await {
+            patch.extend(fields);
+        }
+        if !patch.is_empty() {
+            self.merge_metadata(job.asset_id, patch).await;
         }
 
         let absolute: Vec<String> = rel_thumbs
@@ -246,11 +278,23 @@ impl LibraryJobs<'_> {
         }));
     }
 
-    /// Store the ordered gallery on the asset so the frontend can render it,
-    /// merging into the existing metadata rather than replacing it.
-    async fn record_gallery(&self, job: &JobRef<'_>, rel_thumbs: &[String]) {
+    /// Format-specific metadata for the asset record. Extraction is best effort:
+    /// a missing external tool or an unreadable header yields no fields.
+    async fn technical_metadata(&self, job: &JobRef<'_>) -> Option<serde_json::Map<String, Value>> {
+        let source = resolve_source(self.root_path, job.file_path);
+        let ext = source
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        collect_metadata(&ext, &source).await
+    }
+
+    /// Merge `patch` into the asset's metadata, preserving unrelated keys such as
+    /// `preview_model`.
+    async fn merge_metadata(&self, asset_id: &str, patch: serde_json::Map<String, Value>) {
         let existing: Option<(String,)> = sqlx::query_as("SELECT metadata FROM assets WHERE id = ?")
-            .bind(job.asset_id)
+            .bind(asset_id)
             .fetch_optional(self.pool)
             .await
             .unwrap_or(None);
@@ -258,11 +302,11 @@ impl LibraryJobs<'_> {
         let mut metadata: serde_json::Map<String, Value> = existing
             .and_then(|(raw,)| serde_json::from_str(&raw).ok())
             .unwrap_or_default();
-        metadata.insert("polystash.thumbs".to_string(), json!(rel_thumbs));
+        metadata.extend(patch);
 
         let _ = sqlx::query("UPDATE assets SET metadata = ? WHERE id = ?")
             .bind(Value::Object(metadata).to_string())
-            .bind(job.asset_id)
+            .bind(asset_id)
             .execute(self.pool)
             .await;
     }
@@ -374,9 +418,9 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         return;
     }
 
-    // dds decodes as a native image below; ktx/ktx2 are GPU-compressed textures
-    // that only the frontend KTX2Loader can render, so complete them with no thumb.
-    if GPU_TEXTURE_EXTENSIONS.contains(&ext.as_str()) && ext.as_str() != "dds" {
+    // ktx/ktx2 are GPU-compressed textures that only the frontend KTX2Loader
+    // can render, so complete them with no thumb.
+    if GPU_TEXTURE_EXTENSIONS.contains(&ext.as_str()) {
         jobs.complete(job, &[]).await;
         return;
     }

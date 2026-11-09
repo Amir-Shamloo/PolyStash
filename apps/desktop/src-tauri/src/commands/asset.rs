@@ -27,8 +27,17 @@ fn add_path_conditions(
 ) -> Result<()> {
     if let Some(directory) = directory {
         if !directory.trim().is_empty() {
-            conditions.push("a.file_path LIKE ?".into());
-            binds.push(format!("%{}%", directory.trim().replace('\\', "/")));
+            let dir = normalize_relative_dir(directory)?;
+            if dir == "." {
+                // Exact folder only (no subfolders): at root, files have no '/' in their relative path.
+                conditions.push("a.file_path NOT LIKE '%/%'".into());
+            } else {
+                conditions.push(
+                    "(a.file_path LIKE ? ESCAPE '\\' AND a.file_path NOT LIKE ? ESCAPE '\\')".into(),
+                );
+                binds.push(format!("{}/%", escape_like_pattern(&dir)));
+                binds.push(format!("{}/%/%", escape_like_pattern(&dir)));
+            }
         }
     }
 
@@ -618,6 +627,61 @@ pub async fn get_asset(
     }
 }
 
+/// Merge a metadata patch into the asset's stored JSON metadata (not replace it).
+async fn merge_asset_metadata(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    asset_id: &str,
+    patch: &std::collections::HashMap<String, serde_json::Value>,
+) {
+    let existing: Option<(String,)> = sqlx::query_as("SELECT metadata FROM assets WHERE id = ?")
+        .bind(asset_id)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None);
+    let mut merged: serde_json::Map<String, serde_json::Value> = existing
+        .and_then(|(raw,)| serde_json::from_str(&raw).ok())
+        .unwrap_or_default();
+    for (key, value) in patch {
+        merged.insert(key.clone(), value.clone());
+    }
+    let _ = sqlx::query("UPDATE assets SET metadata = ? WHERE id = ?")
+        .bind(serde_json::Value::Object(merged).to_string())
+        .bind(asset_id)
+        .execute(pool)
+        .await;
+}
+
+/// Replace the asset's tag links with the given tag IDs, creating missing tags.
+async fn sync_asset_tags(
+    state: &AppState,
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    asset_id: &str,
+    tags: &[String],
+) {
+    let _ = sqlx::query("DELETE FROM asset_tags WHERE asset_id = ?")
+        .bind(asset_id).execute(pool).await;
+    for tag_id in tags {
+        let tag_def = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
+            "SELECT id, name, color, parent_id FROM tags WHERE id = ?"
+        )
+        .bind(tag_id)
+        .fetch_optional(&state.db.master_pool).await.unwrap_or(None);
+
+        if let Some((tid, tname, tcolor, tparent)) = tag_def {
+            let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id) VALUES (?, ?, ?, ?)")
+                .bind(&tid).bind(&tname).bind(&tcolor).bind(&tparent)
+                .execute(pool).await;
+        } else {
+            let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)")
+                .bind(tag_id).bind(tag_id)
+                .execute(pool).await;
+        }
+
+        let _ = sqlx::query("INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?, ?)")
+            .bind(asset_id).bind(tag_id).execute(pool).await;
+    }
+}
+
 #[tauri::command]
 pub async fn update_asset(
     id: String,
@@ -682,29 +746,11 @@ pub async fn update_asset(
             let _ = sqlx::query("UPDATE assets SET preview_status = ? WHERE id = ?")
                 .bind(preview_status).bind(&id).execute(pool).await;
         }
+        if let Some(ref metadata) = patch.metadata {
+            merge_asset_metadata(pool, &id, metadata).await;
+        }
         if let Some(ref tags) = patch.tags {
-            let _ = sqlx::query("DELETE FROM asset_tags WHERE asset_id = ?")
-                .bind(&id).execute(pool).await;
-            for tag_id in tags {
-                let tag_def = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
-                    "SELECT id, name, color, parent_id FROM tags WHERE id = ?"
-                )
-                .bind(tag_id)
-                .fetch_optional(&state.db.master_pool).await.unwrap_or(None);
-
-                if let Some((tid, tname, tcolor, tparent)) = tag_def {
-                    let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id) VALUES (?, ?, ?, ?)")
-                        .bind(&tid).bind(&tname).bind(&tcolor).bind(&tparent)
-                        .execute(pool).await;
-                } else {
-                    let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)")
-                        .bind(tag_id).bind(tag_id)
-                        .execute(pool).await;
-                }
-
-                let _ = sqlx::query("INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?, ?)")
-                    .bind(&id).bind(tag_id).execute(pool).await;
-            }
+            sync_asset_tags(&state, pool, &id, tags).await;
         }
     }
 
