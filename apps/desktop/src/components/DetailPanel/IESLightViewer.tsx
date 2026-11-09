@@ -1,9 +1,9 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { Suspense, useRef, useState, useCallback, useEffect } from 'react';
+import { Suspense, useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import clsx from 'clsx';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
 import { IconSun, IconRefresh, IconCameraReset } from '../Icons';
 import { ThreeErrorBoundary } from './ThreeViewer';
@@ -84,46 +84,193 @@ function IESToolbar({
   );
 }
 
+const LIGHT_POS = new THREE.Vector3(0, 4.2, -1.8);
+
+export function createPhotometricSurfaceMaterial(
+  iesTexture: THREE.Texture,
+  baseColorHex: number = 0x525866
+): THREE.MeshStandardMaterial {
+  const mat = new THREE.MeshStandardMaterial({
+    color: baseColorHex,
+    roughness: 0.75,
+    metalness: 0.08,
+  });
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uIesMap = { value: iesTexture };
+    shader.uniforms.uLightPos = { value: LIGHT_POS };
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec3 vWorldPos;'
+      )
+      .replace(
+        '#include <worldpos_vertex>',
+        '#include <worldpos_vertex>\nvWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform sampler2D uIesMap;\nuniform vec3 uLightPos;\nvarying vec3 vWorldPos;'
+      )
+      .replace(
+        '#include <dithering_fragment>',
+        `vec3 toFrag = vWorldPos - uLightPos;
+        float dist = length(toFrag);
+        vec3 dir = normalize(toFrag);
+        float cosTheta = clamp(-dir.y, -1.0, 1.0);
+        float theta = acos(cosTheta) / 3.14159265;
+        float iesProfile = texture2D(uIesMap, vec2(theta, 0.5)).r;
+        float attenuation = 22.0 / (1.0 + 0.18 * dist * dist);
+        vec3 iesGlow = vec3(1.0, 0.96, 0.88) * iesProfile * attenuation;
+        gl_FragColor.rgb += diffuseColor.rgb * iesGlow;
+        #include <dithering_fragment>`
+      );
+  };
+  mat.customProgramCacheKey = () => `ies-photometric-${baseColorHex}`;
+  return mat;
+}
+
+export function createLightConeMaterial(iesTexture: THREE.Texture): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uIesMap: { value: iesTexture },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vPos;
+      void main() {
+        vUv = uv;
+        vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uIesMap;
+      varying vec2 vUv;
+      varying vec3 vPos;
+      void main() {
+        float distFromTop = 1.0 - vUv.y;
+        float angleCoord = clamp(distFromTop * 0.55, 0.0, 1.0);
+        float iesIntensity = texture2D(uIesMap, vec2(angleCoord, 0.5)).r;
+        float verticalFade = pow(1.0 - distFromTop, 1.4);
+        float alpha = clamp(iesIntensity * verticalFade * 0.45, 0.0, 0.65);
+        gl_FragColor = vec4(1.0, 0.95, 0.84, alpha);
+      }
+    `,
+  });
+}
+
 function IESPhotometricScene({ texture }: { texture: THREE.Texture }) {
+  const { scene } = useThree();
   const spotLightRef = useRef<THREE.SpotLight>(null);
 
+  const groundMat = useMemo(() => createPhotometricSurfaceMaterial(texture, 0x525866), [texture]);
+  const wallMat = useMemo(() => createPhotometricSurfaceMaterial(texture, 0x3e4451), [texture]);
+  const coneMat = useMemo(() => createLightConeMaterial(texture), [texture]);
+
   useEffect(() => {
-    if (spotLightRef.current) {
-      const light = spotLightRef.current;
-      light.map = texture;
-      const iesLight = light as THREE.SpotLight & { iesMap?: THREE.Texture };
-      iesLight.iesMap = texture;
-      light.target.position.set(0, 0, 0);
-      light.target.updateMatrixWorld();
-    }
-  }, [texture]);
+    const light = spotLightRef.current;
+    if (!light) return;
+    light.map = texture;
+    const iesLight = light as THREE.SpotLight & { iesMap?: THREE.Texture };
+    iesLight.iesMap = texture;
+    light.target.position.set(0, 0, -1.8);
+    scene.add(light.target);
+    light.target.updateMatrixWorld();
+    return () => {
+      scene.remove(light.target);
+    };
+  }, [texture, scene]);
 
   return (
     <>
-      <ambientLight intensity={0.25} color="#ffffff" />
+      <ambientLight intensity={0.22} color="#dce4f2" />
       <spotLight
         ref={spotLightRef}
-        position={[0, 4, 1.5]}
-        angle={Math.PI / 3}
-        penumbra={0.4}
-        intensity={80}
-        distance={20}
+        position={[LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z]}
+        angle={Math.PI / 2.2}
+        penumbra={0.5}
+        intensity={45}
+        distance={24}
         castShadow
       />
-      <mesh position={[0, 4, 1.5]}>
-        <sphereGeometry args={[0.08, 16, 16]} />
-        <meshBasicMaterial color="#ffffff" />
+      <mesh position={[LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z]}>
+        <sphereGeometry args={[0.09, 20, 20]} />
+        <meshBasicMaterial color="#fffbeb" />
+      </mesh>
+      <mesh position={[LIGHT_POS.x, LIGHT_POS.y - 2.1, LIGHT_POS.z]}>
+        <coneGeometry args={[2.6, 4.2, 48, 1, true]} />
+        <primitive object={coneMat} attach="material" />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[12, 12]} />
-        <meshStandardMaterial color="#2a2e37" roughness={0.7} metalness={0.1} />
+        <planeGeometry args={[18, 18]} />
+        <primitive object={groundMat} attach="material" />
       </mesh>
-      <mesh position={[0, 3, -3]} receiveShadow>
-        <planeGeometry args={[12, 8]} />
-        <meshStandardMaterial color="#20242c" roughness={0.8} metalness={0.1} />
+      <mesh position={[0, 3.5, -3.2]} receiveShadow>
+        <planeGeometry args={[18, 9]} />
+        <primitive object={wallMat} attach="material" />
       </mesh>
     </>
   );
+}
+
+export async function resolveIesSourceUrl(filePath: string, ext: string): Promise<string> {
+  if (ext !== 'ldt') {
+    return convertFileSrc(filePath);
+  }
+  try {
+    const convertedPath = await invoke<string>('convert_ldt_to_ies', { ldtPath: filePath });
+    if (convertedPath) return convertFileSrc(convertedPath);
+  } catch {
+    try {
+      const convertedAlt = await invoke<string>('convert_ldt_to_ies', { path: filePath });
+      if (convertedAlt) return convertFileSrc(convertedAlt);
+    } catch {
+      const siblingIes = filePath.replace(/\.ldt$/i, '.ies');
+      return convertFileSrc(siblingIes);
+    }
+  }
+  return convertFileSrc(filePath.replace(/\.ldt$/i, '.ies'));
+}
+
+function useIesTexture(filePath: string, cleanExt: string) {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setTexture(null);
+    setErrorMsg(null);
+
+    const failMsg = cleanExt === 'ldt'
+      ? 'Unable to parse LDT photometric data'
+      : 'Unable to parse IES photometric data';
+
+    resolveIesSourceUrl(filePath, cleanExt).then((resolvedUrl) => {
+      if (isCancelled) return;
+      new IESLoader().load(
+        resolvedUrl,
+        (tex) => {
+          if (!isCancelled) setTexture(tex);
+        },
+        undefined,
+        () => {
+          if (!isCancelled) setErrorMsg(failMsg);
+        }
+      );
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [filePath, cleanExt]);
+
+  return { texture, errorMsg };
 }
 
 export interface IESLightViewerProps {
@@ -140,45 +287,13 @@ export function IESLightViewer({
   onToggleFullscreen,
 }: IESLightViewerProps) {
   const [autoRotate, setAutoRotate] = useState(false);
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const controlsRef = useRef<OrbitHandle | null>(null);
-
   const cleanExt = (extension || filePath.split('.').pop() || '').toLowerCase();
-  const fileUrl = convertFileSrc(filePath);
-
-  useEffect(() => {
-    let isCancelled = false;
-    setTexture(null);
-    setErrorMsg(null);
-
-    const loader = new IESLoader();
-    loader.load(
-      fileUrl,
-      (tex) => {
-        if (!isCancelled) {
-          setTexture(tex);
-        }
-      },
-      undefined,
-      () => {
-        if (!isCancelled) {
-          const msg = cleanExt === 'ldt'
-            ? 'Unable to parse LDT photometric data'
-            : 'Unable to parse IES photometric data';
-          setErrorMsg(msg);
-        }
-      }
-    );
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [fileUrl, cleanExt]);
+  const { texture, errorMsg } = useIesTexture(filePath, cleanExt);
 
   const handleResetCamera = useCallback(() => {
     if (controlsRef.current) {
-      controlsRef.current.target.set(0, 1.5, 0);
+      controlsRef.current.target.set(0, 1.6, -1.2);
       controlsRef.current.reset();
       controlsRef.current.update();
     }
@@ -206,13 +321,24 @@ export function IESLightViewer({
         onToggleFullscreen={onToggleFullscreen}
       />
 
+      <div className={styles.infoPanel} role="region" aria-label="Photometric Profile Info">
+        <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>Profile</span>
+          <span className={styles.infoValue}>{cleanExt.toUpperCase()} Photometric</span>
+        </div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>Distribution</span>
+          <span className={styles.infoValue}>IES Candela Curve</span>
+        </div>
+      </div>
+
       <ThreeErrorBoundary
         key={filePath}
         extension={cleanExt}
       >
         <Canvas
           shadows
-          camera={{ position: [0, 3, 5], fov: 50 }}
+          camera={{ position: [0, 2.8, 5.5], fov: 48 }}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 1.0,
@@ -227,7 +353,7 @@ export function IESLightViewer({
               enableDamping
               autoRotate={autoRotate}
               autoRotateSpeed={0.5}
-              target={[0, 1.5, 0]}
+              target={[0, 1.6, -1.2]}
               makeDefault
             />
           </Suspense>

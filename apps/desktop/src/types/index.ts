@@ -8,6 +8,7 @@ export type AssetKind =
   | 'video'
   | 'image'
   | 'document'
+  | 'folder'
   | 'other';
 
 const EXTENSION_KIND_MAP: Record<string, AssetKind> = {

@@ -6,65 +6,122 @@ use super::archive::{find_bmp, read_prefix};
 use super::ole::{dib_to_bmp, find_dib};
 use super::{find_png, save_thumb};
 
-/// Byte window and label for a raw-image scan of a format that cannot be
-/// parsed headlessly.
-struct ScanSpec {
-    window: u64,
-    label: &'static str,
-}
+/// Scan windows tried in order for a Rhino preview. The bitmap usually sits in
+/// the header, but files with large render data can push it further in, so the
+/// window widens until the whole preview region has been covered.
+const RHINO_SCAN_WINDOWS: [u64; 3] = [1024 * 1024, 16 * 1024 * 1024, 32 * 1024 * 1024];
 
-/// Rhino keeps its preview chunk among the file header data, usually as a
-/// Windows DIB; some exporters write PNG or JPEG instead.
-const RHINO: ScanSpec = ScanSpec {
-    window: 16 * 1024 * 1024,
-    label: "Rhino",
-};
+/// Markers written next to a stored Rhino preview chunk. Image bytes follow the
+/// marker when the bitmap is not the first image in the file.
+const RHINO_MARKERS: [&[u8]; 3] = [b"Rhino", b"BITMAPINFO", b"PREVIEW"];
+
+/// How far past a marker to look for the image signature.
+const MARKER_PROBE: usize = 1024 * 1024;
+
+/// Upper bound on marker occurrences inspected per file, keeping the scan
+/// bounded when a string repeats in user text.
+const MAX_MARKER_HITS: usize = 8;
+
+/// Upper bound on decode attempts, so a file full of accidental signatures
+/// cannot turn into an expensive decode loop.
+const MAX_CANDIDATES: usize = 16;
 
 /// Collada is XML text, so only a byte-embedded picture can serve as a preview.
-const COLLADA: ScanSpec = ScanSpec {
-    window: 4 * 1024 * 1024,
-    label: "Collada",
-};
-
-impl ScanSpec {
-    /// A miss returns `Err` so the caller can pick its own fallback.
-    fn extract(&self, source: &Path, output: &Path) -> Result<()> {
-        let head = read_prefix(source, self.window)?;
-        let img = decode_first_image(&head)
-            .ok_or_else(|| anyhow!("No embedded preview image found in {} file", self.label))?;
-        save_thumb(&img, output)
-    }
-}
+const COLLADA_WINDOW: u64 = 4 * 1024 * 1024;
 
 /// Rhino `.3dm` files do not expose a renderable preview; some carry a stored
-/// bitmap. A file without one has no headless preview at all.
+/// bitmap. The scan widens from the header outwards and returns `Err` when the
+/// file has no preview, so the caller can fall back to the frontend mesh render.
 pub(crate) fn extract_3dm_thumb(source: &Path, output: &Path) -> Result<()> {
-    RHINO.extract(source, output)
+    for window in RHINO_SCAN_WINDOWS {
+        let head = read_prefix(source, window)?;
+        if let Some(img) = find_rhino_preview(&head) {
+            return save_thumb(&img, output);
+        }
+    }
+
+    Err(anyhow!("No embedded preview image found in Rhino file"))
 }
 
 /// Most Collada files have no embedded picture, which is a normal outcome: the
 /// caller completes without a thumbnail and the frontend renders the mesh.
 pub(crate) fn extract_dae_thumb(source: &Path, output: &Path) -> Result<()> {
-    COLLADA.extract(source, output)
+    let head = read_prefix(source, COLLADA_WINDOW)?;
+    let img = decode_first_image(&head)
+        .ok_or_else(|| anyhow!("No embedded preview image found in Collada file"))?;
+    save_thumb(&img, output)
 }
 
-/// Decode the earliest embedded PNG, JPEG, BMP, or bare DIB image.
+/// Decode the earliest embedded image, preferring Rhino preview chunks.
 ///
-/// Candidates are tried in file order so a stored preview wins over a later
-/// incidental signature. A signature can match by accident, so a failed decode
-/// falls through to the next candidate instead of giving up.
-fn decode_first_image(bytes: &[u8]) -> Option<DynamicImage> {
-    let jpeg = bytes.windows(3).position(|w| w == [0xFF, 0xD8, 0xFF]);
-    let mut candidates: Vec<usize> = [find_png(bytes), jpeg, find_bmp(bytes), find_dib(bytes)]
+/// Candidates are ordered by offset so a stored header preview wins over a
+/// later incidental signature. A signature can match by accident, so a failed
+/// decode falls through to the next candidate instead of giving up.
+fn find_rhino_preview(bytes: &[u8]) -> Option<DynamicImage> {
+    let mut candidates = signature_offsets(bytes);
+    for marker in RHINO_MARKERS {
+        candidates.extend(marker_preview_offsets(bytes, marker));
+    }
+
+    candidates.sort_unstable();
+    candidates.dedup();
+
+    candidates
         .into_iter()
-        .flatten()
-        .collect();
+        .take(MAX_CANDIDATES)
+        .find_map(|index| decode_candidate(&bytes[index..]))
+}
+
+fn decode_first_image(bytes: &[u8]) -> Option<DynamicImage> {
+    let mut candidates = signature_offsets(bytes);
     candidates.sort_unstable();
     candidates.dedup();
 
     candidates
         .into_iter()
         .find_map(|index| decode_candidate(&bytes[index..]))
+}
+
+/// Offsets of every image signature understood by [`decode_candidate`].
+fn signature_offsets(bytes: &[u8]) -> Vec<usize> {
+    let jpeg = bytes.windows(3).position(|w| w == [0xFF, 0xD8, 0xFF]);
+    [find_png(bytes), jpeg, find_bmp(bytes), find_dib(bytes)]
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+/// Image offsets immediately following occurrences of `marker`.
+fn marker_preview_offsets(bytes: &[u8], marker: &[u8]) -> Vec<usize> {
+    let mut offsets = Vec::new();
+    let mut start = 0;
+
+    for _ in 0..MAX_MARKER_HITS {
+        let Some(position) = find_subslice(&bytes[start..], marker) else {
+            break;
+        };
+        let marker_end = start + position + marker.len();
+        let probe_end = bytes.len().min(marker_end + MARKER_PROBE);
+
+        if let Some(offset) = signature_offsets(&bytes[marker_end..probe_end])
+            .into_iter()
+            .min()
+        {
+            offsets.push(marker_end + offset);
+        }
+        start = marker_end;
+    }
+
+    offsets
+}
+
+fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 fn decode_candidate(tail: &[u8]) -> Option<DynamicImage> {

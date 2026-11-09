@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Result};
+use serde_json::{json, Map, Value};
 use std::path::Path;
+use std::process::Stdio;
 use tokio::process::Command;
 
 use super::placeholder::generate_placeholder;
@@ -25,7 +27,7 @@ pub(crate) async fn extract_video_thumb(source: &Path, output: &Path) -> Result<
             "-y",
         ])
         .arg(output)
-        .stdin(std::process::Stdio::null())
+        .stdin(Stdio::null())
         .output()
         .await
     {
@@ -53,4 +55,89 @@ pub fn is_video(ext: &str) -> bool {
     mime_guess::from_ext(ext)
         .first_raw()
         .is_some_and(|m| m.starts_with("video/"))
+}
+
+/// Codec, resolution, duration, frame rate, and bitrate from `ffprobe`.
+/// Returns `None` when ffprobe is not installed or cannot parse the file, which
+/// leaves the asset without video metadata instead of failing the preview.
+pub(crate) async fn probe_metadata(source: &Path) -> Option<Value> {
+    let out = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+        ])
+        .arg(source)
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+
+    let probe: Value = serde_json::from_slice(&out.stdout).ok()?;
+    let stream = probe
+        .get("streams")?
+        .as_array()?
+        .iter()
+        .find(|stream| stream.get("codec_type").and_then(Value::as_str) == Some("video"))?;
+    let format = probe.get("format");
+
+    let mut fields = Map::new();
+    insert_number(&mut fields, "width", stream.get("width"));
+    insert_number(&mut fields, "height", stream.get("height"));
+    insert_number(
+        &mut fields,
+        "duration",
+        format
+            .and_then(|format| format.get("duration"))
+            .or_else(|| stream.get("duration")),
+    );
+    insert_number(
+        &mut fields,
+        "bitRate",
+        format.and_then(|format| format.get("bit_rate")),
+    );
+    insert_float(
+        &mut fields,
+        "frameRate",
+        stream.get("r_frame_rate").and_then(frame_rate),
+    );
+    insert_number(&mut fields, "frameCount", stream.get("nb_frames"));
+
+    if let Some(codec) = stream.get("codec_name").and_then(Value::as_str) {
+        fields.insert("codec".to_string(), json!(codec));
+    }
+
+    Some(Value::Object(fields))
+}
+
+fn insert_number(fields: &mut Map<String, Value>, key: &str, value: Option<&Value>) {
+    insert_float(fields, key, numeric(value));
+}
+
+fn insert_float(fields: &mut Map<String, Value>, key: &str, value: Option<f64>) {
+    if let Some(number) = value {
+        fields.insert(key.to_string(), json!(number));
+    }
+}
+
+fn numeric(value: Option<&Value>) -> Option<f64> {
+    match value? {
+        Value::Number(number) => number.as_f64(),
+        Value::String(text) => text.parse().ok(),
+        _ => None,
+    }
+}
+
+/// ffprobe reports frame rate as a rational string such as `30000/1001`.
+fn frame_rate(value: &Value) -> Option<f64> {
+    let (numerator, denominator) = value.as_str()?.split_once('/')?;
+    let numerator: f64 = numerator.parse().ok()?;
+    let denominator: f64 = denominator.parse().ok()?;
+    (denominator > 0.0).then(|| ((numerator / denominator) * 100.0).round() / 100.0)
 }

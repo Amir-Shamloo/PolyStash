@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import clsx from 'clsx';
 import styles from './SectionSettingsPopover.module.css';
 
@@ -11,6 +11,29 @@ interface SectionSettingsPopoverProps {
   idPrefix: string;
 }
 
+const POPOVER_WIDTH = 224;
+const VIEWPORT_PADDING = 8;
+
+function computePopoverPosition(btnEl: HTMLButtonElement | null): React.CSSProperties {
+  if (!btnEl) return { right: 0 };
+  const rect = btnEl.getBoundingClientRect();
+  const style: React.CSSProperties = { right: 0, left: 'auto' };
+
+  const expectedLeft = rect.right - POPOVER_WIDTH;
+  if (expectedLeft < VIEWPORT_PADDING) {
+    const shiftRight = VIEWPORT_PADDING - expectedLeft;
+    style.right = -shiftRight;
+  }
+
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < 140 && rect.top > 140) {
+    style.top = 'auto';
+    style.bottom = 'calc(100% + 4px)';
+  }
+
+  return style;
+}
+
 export function SectionSettingsPopover({
   title,
   toggleLabel,
@@ -20,10 +43,27 @@ export function SectionSettingsPopover({
   idPrefix,
 }: SectionSettingsPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({ right: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const updatePosition = useCallback(() => {
+    setPopoverStyle(computePopoverPosition(buttonRef.current));
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setPopoverStyle(computePopoverPosition(buttonRef.current));
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
+    updatePosition();
 
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -39,21 +79,24 @@ export function SectionSettingsPopover({
 
     document.addEventListener('mousedown', handleOutsideClick);
     document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', updatePosition);
     return () => {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', updatePosition);
     };
-  }, [isOpen]);
+  }, [isOpen, updatePosition]);
 
   return (
     <div className={styles.container} ref={containerRef}>
       <button
+        ref={buttonRef}
         id={`${idPrefix}-settings-btn`}
         type="button"
         className={clsx(styles.gearBtn, isOpen && styles.gearBtnActive)}
-        onClick={() => setIsOpen((prev) => !prev)}
-        title={`${title}`}
-        aria-label={`${title}`}
+        onClick={handleToggle}
+        title={title}
+        aria-label={title}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
       >
@@ -77,6 +120,7 @@ export function SectionSettingsPopover({
         <div
           id={`${idPrefix}-settings-popover`}
           className={styles.popover}
+          style={popoverStyle}
           role="dialog"
           aria-label={title}
         >

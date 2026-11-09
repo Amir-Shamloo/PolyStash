@@ -1,6 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Asset, AssetKind } from '../../types';
 import { resolvePreview } from '../../lib/previewRouting';
+import { useAssetStore } from '../../store';
+import type { ModelStats } from './ThreeViewerUtils';
 import { ThreeViewer, DdsViewer } from './ThreeViewer';
 import { PanoramaViewer } from './PanoramaViewer';
 import { IESLightViewer } from './IESLightViewer';
@@ -82,11 +84,13 @@ function PreviewBody({
   snapshotUrl,
   imgClassName,
   onFullscreen,
+  onModelStats,
 }: {
   asset: Asset;
   snapshotUrl?: string | null;
   imgClassName?: string;
   onFullscreen: () => void;
+  onModelStats?: (stats: ModelStats) => void;
 }) {
   const preview = resolvePreview(asset, snapshotUrl);
 
@@ -94,7 +98,14 @@ function PreviewBody({
     case 'video':
       return <VideoPreviewPlayer filePath={preview.path} onToggleFullscreen={onFullscreen} />;
     case 'model':
-      return <ThreeViewer modelPath={preview.path} extension={preview.extension} onToggleFullscreen={onFullscreen} />;
+      return (
+        <ThreeViewer
+          modelPath={preview.path}
+          extension={preview.extension}
+          onToggleFullscreen={onFullscreen}
+          onStats={onModelStats}
+        />
+      );
     case 'panorama':
       return <PanoramaViewer filePath={preview.path} extension={preview.extension} onToggleFullscreen={onFullscreen} />;
     case 'ies':
@@ -132,8 +143,28 @@ export function DetailPreviewArea({
   imgClassName,
 }: DetailPreviewAreaProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const patchAsset = useAssetStore((s) => s.patchAsset);
+  const assetRef = useRef(asset);
+  assetRef.current = asset;
   const handleOpenFullscreen = useCallback(() => setIsFullscreen(true), []);
   const handleCloseFullscreen = useCallback(() => setIsFullscreen(false), []);
+
+  // One-shot: mesh stats land in technical metadata the first time a model loads.
+  const handleModelStats = useCallback(
+    (stats: ModelStats) => {
+      const current = assetRef.current;
+      if (!current || 'meshes' in (current.metadata ?? {})) return;
+      void patchAsset(current.id, {
+        metadata: {
+          ...current.metadata,
+          meshes: stats.meshCount,
+          triangles: stats.triangles,
+          vertices: stats.vertices,
+        },
+      });
+    },
+    [patchAsset]
+  );
 
   return (
     <div className={styles.container}>
@@ -142,6 +173,7 @@ export function DetailPreviewArea({
         snapshotUrl={snapshotUrl}
         imgClassName={imgClassName}
         onFullscreen={handleOpenFullscreen}
+        onModelStats={handleModelStats}
       />
       {isFullscreen && (
         <FullscreenPreviewModal

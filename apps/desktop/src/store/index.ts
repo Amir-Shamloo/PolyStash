@@ -66,8 +66,12 @@ export function folderToSearchQuery(
   if (directoryPrefix === undefined) {
     delete nextFilter.directoryPrefix;
     delete nextFilter.directory;
-  } else {
+  } else if (includeSubfolders) {
     nextFilter.directoryPrefix = directoryPrefix;
+    delete nextFilter.directory;
+  } else {
+    nextFilter.directory = directoryPrefix;
+    delete nextFilter.directoryPrefix;
   }
   return {
     libraryId: folder?.libraryId ?? undefined,
@@ -303,13 +307,43 @@ export const useAssetStore = create<AssetStore>()((set, get) => ({
   query: defaultQuery,
   assetMap: new Map(),
 
-  setQuery: (q) => set((s) => ({ query: { ...s.query, ...q }, page: 0 })),
+  setQuery: (q) =>
+    set((s) => {
+      const nextIncludeSubfolders =
+        q.includeSubfolders !== undefined
+          ? q.includeSubfolders
+          : q.filter?.includeSubfolders !== undefined
+          ? q.filter.includeSubfolders
+          : s.query.includeSubfolders ?? true;
+      const mergedFilter: FilterSpec = {
+        ...s.query.filter,
+        ...q.filter,
+        includeSubfolders: nextIncludeSubfolders,
+      };
+      return {
+        query: {
+          ...s.query,
+          ...q,
+          includeSubfolders: nextIncludeSubfolders,
+          filter: mergedFilter,
+        },
+        page: 0,
+      };
+    }),
 
   setFilter: (f) =>
-    set((s) => ({
-      query: { ...s.query, filter: { ...s.query.filter, ...f } },
-      page: 0,
-    })),
+    set((s) => {
+      const nextIncludeSubfolders =
+        f.includeSubfolders !== undefined ? f.includeSubfolders : s.query.includeSubfolders ?? true;
+      return {
+        query: {
+          ...s.query,
+          includeSubfolders: nextIncludeSubfolders,
+          filter: { ...s.query.filter, ...f, includeSubfolders: nextIncludeSubfolders },
+        },
+        page: 0,
+      };
+    }),
 
   replaceFilter: (f, collectionId) =>
     set((s) => ({

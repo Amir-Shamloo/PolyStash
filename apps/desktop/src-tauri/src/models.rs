@@ -261,4 +261,7 @@ pub struct AssetPatch {
     pub thumbnail_path: Option<String>,
     #[serde(rename = "previewStatus")]
     pub preview_status: Option<String>,
+    /// Merged into the asset's existing metadata (not replaced).
+    #[serde(default)]
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
