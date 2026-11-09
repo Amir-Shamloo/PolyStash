@@ -334,7 +334,7 @@ export const useAssetStore = create<AssetStore>()((set, get) => ({
   setFilter: (f) =>
     set((s) => {
       const nextIncludeSubfolders =
-        f.includeSubfolders !== undefined ? f.includeSubfolders : s.query.includeSubfolders ?? true;
+        f.includeSubfolders ?? s.query.includeSubfolders ?? true;
       return {
         query: {
           ...s.query,

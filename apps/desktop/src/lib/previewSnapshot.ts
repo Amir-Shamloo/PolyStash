@@ -356,7 +356,8 @@ export interface LazySnapshotState {
 }
 
 function getCachedSnapshot(assetId: string | undefined): string | null {
-  return assetId ? snapshotUrlCache.get(assetId) ?? null : null;
+  if (!assetId) return null;
+  return snapshotUrlCache.get(assetId) ?? null;
 }
 
 /**
