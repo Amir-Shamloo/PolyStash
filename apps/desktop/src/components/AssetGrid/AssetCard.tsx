@@ -125,7 +125,10 @@ function CardThumbMedia({ asset, snapshotUrl }: CardThumbMediaProps) {
     setMediaError(false);
   }, [asset.id, snapshotUrl]);
 
-  const placeholder = <CardThumbPlaceholder asset={asset} />;
+  const placeholder = useMemo(
+    () => <CardThumbPlaceholder asset={asset} />,
+    [asset]
+  );
 
   if (canRenderAnimatedGif(asset, mediaError)) {
     return (
