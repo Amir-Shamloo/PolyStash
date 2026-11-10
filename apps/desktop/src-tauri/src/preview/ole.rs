@@ -80,7 +80,7 @@ impl DibLayout {
 
     /// Bytes of row-padded pixel data.
     fn pixel_bytes(&self) -> u64 {
-        let row = (u64::from(self.width) * u64::from(self.bit_count) + 31) / 32 * 4;
+        let row = (u64::from(self.width) * u64::from(self.bit_count)).div_ceil(32) * 4;
         row * u64::from(self.height.unsigned_abs())
     }
 }

@@ -141,7 +141,7 @@ fn marker_preview_offsets(bytes: &[u8], marker: &[u8]) -> Vec<usize> {
         if marker.is_empty() {
             break;
         }
-        let Some(position) = (&bytes[start..])
+        let Some(position) = bytes[start..]
             .windows(marker.len())
             .position(|window| window == marker)
         else {

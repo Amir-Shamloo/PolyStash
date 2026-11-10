@@ -331,21 +331,6 @@ impl LibraryJobs<'_> {
             .await;
     }
 
-    /// Mark a job and its asset errored and notify the frontend.
-    async fn fail(&self, job: &JobRef<'_>) {
-        let _ = sqlx::query("UPDATE preview_jobs SET status = 'error' WHERE id = ?")
-            .bind(job.id)
-            .execute(self.pool)
-            .await;
-        let _ = sqlx::query("UPDATE assets SET preview_status = 'error' WHERE id = ?")
-            .bind(job.asset_id)
-            .execute(self.pool)
-            .await;
-        let _ = self.state.app_handle.emit("preview:error", json!({
-            "assetId": job.asset_id,
-            "jobId": job.id,
-        }));
-    }
 }
 
 /// Reset orphaned jobs left in 'processing' by a previous crash.
