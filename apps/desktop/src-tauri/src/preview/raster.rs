@@ -46,7 +46,36 @@ pub(crate) fn image_metadata(source: &Path, ext: &str) -> Option<Value> {
     fields.insert("megapixels".to_string(), json!(megapixels(width, height)));
     fields.insert("bitDepth".to_string(), json!(bits_per_channel(original)));
     fields.insert("colorSpace".to_string(), json!(color_space(original, ext)));
+    exif_metadata(source, &mut fields);
     Some(Value::Object(fields))
+}
+
+/// EXIF and other in-file tags, exposed with normalized `lower_snake` keys so
+/// the details panel can list the file's full metadata.
+fn exif_metadata(source: &Path, fields: &mut Map<String, Value>) {
+    let Ok(file) = std::fs::File::open(source) else {
+        return;
+    };
+    let mut reader = std::io::BufReader::new(file);
+    let Ok(exif) = exif::Reader::new().read_from_container(&mut reader) else {
+        return;
+    };
+
+    for field in exif.fields() {
+        let value = field.display_value().to_string();
+        if value.is_empty() {
+            continue;
+        }
+        fields.insert(normalize_tag(field.tag), json!(value));
+    }
+}
+
+fn normalize_tag(tag: exif::Tag) -> String {
+    tag.to_string()
+        .to_ascii_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("_")
 }
 
 /// Sensor-style megapixel count, rounded to two decimals.

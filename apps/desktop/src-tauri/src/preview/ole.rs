@@ -85,12 +85,12 @@ impl DibLayout {
     }
 }
 
-fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
+pub(crate) fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
     let raw: [u8; 2] = bytes.get(offset..offset + 2)?.try_into().ok()?;
     Some(u16::from_le_bytes(raw))
 }
 
-fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+pub(crate) fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
     let raw: [u8; 4] = bytes.get(offset..offset + 4)?.try_into().ok()?;
     Some(u32::from_le_bytes(raw))
 }
@@ -126,8 +126,22 @@ pub(crate) fn dib_to_bmp(dib: &[u8]) -> Result<Vec<u8>> {
     // DIB found in the middle of a large file does not drag the rest along.
     let dib_bytes = offset.saturating_sub(14) + layout.pixel_bytes();
     let needed = usize::try_from(dib_bytes).unwrap_or(dib.len()).min(dib.len());
-    let file_size = 14 + needed;
+    write_bmp(&[&dib[..needed]], offset)
+}
 
+/// Wrap an already-split DIB header, palette, and pixel bytes into a BMP file.
+/// Compressed 3dm previews deliver the three parts separately, so the palette
+/// size is known instead of being inferred from the header.
+pub(crate) fn dib_parts_to_bmp(header: &[u8], palette: &[u8], pixels: &[u8]) -> Result<Vec<u8>> {
+    let offset = 14 + header.len() + palette.len();
+    write_bmp(&[header, palette, pixels], offset as u64)
+}
+
+/// Assemble a BMP file from the DIB parts, given the absolute pixel-data offset.
+fn write_bmp(parts: &[&[u8]], offset: u64) -> Result<Vec<u8>> {
+    let file_size = 14usize
+        .checked_add(parts.iter().map(|part| part.len()).sum())
+        .ok_or_else(|| anyhow!("DIB too large"))?;
     let bf_size = u32::try_from(file_size).map_err(|_| anyhow!("DIB too large"))?;
     let bf_off_bits = u32::try_from(offset).map_err(|_| anyhow!("DIB too large"))?;
 
@@ -136,7 +150,9 @@ pub(crate) fn dib_to_bmp(dib: &[u8]) -> Result<Vec<u8>> {
     bmp.extend_from_slice(&bf_size.to_le_bytes());
     bmp.extend_from_slice(&[0u8; 4]); // reserved
     bmp.extend_from_slice(&bf_off_bits.to_le_bytes());
-    bmp.extend_from_slice(&dib[..needed]);
+    for part in parts {
+        bmp.extend_from_slice(part);
+    }
     Ok(bmp)
 }
 

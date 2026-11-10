@@ -3,7 +3,7 @@ use image::DynamicImage;
 use sevenz_rust2::{Password, SevenZReader};
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::ole::{dib_offsets, dib_to_bmp};
 use super::{find_png, save_thumb};
@@ -217,4 +217,72 @@ fn is_image_name(name: &str) -> bool {
     [".png", ".jpg", ".jpeg"]
         .into_iter()
         .any(|extension| name.ends_with(extension))
+}
+
+/// Locate the optional Substance renderer shipped next to the application.
+fn sbsar_renderer() -> Option<PathBuf> {
+    let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    ["sbsar_preview.exe", "sbsar_preview", "bin/sbsar_preview.exe", "bin/sbsar_preview"]
+        .into_iter()
+        .map(|name| dir.join(name))
+        .find(|path| path.is_file())
+}
+
+/// Map a Substance output identifier onto the frontend's PBR slot names.
+fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
+    const KEYS: [(&str, &str); 8] = [
+        ("basecolor", "baseColor"),
+        ("diffuse", "baseColor"),
+        ("normal", "normal"),
+        ("roughness", "roughness"),
+        ("metallic", "metallic"),
+        ("height", "height"),
+        ("displacement", "height"),
+        ("opacity", "opacity"),
+    ];
+    KEYS.iter()
+        .find(|(needle, _)| identifier.contains(needle))
+        .map(|(_, key)| *key)
+}
+
+/// Render PBR maps with the Substance SDK and convert them to PNG. Returns the
+/// PBR slot and library-relative path for every map the renderer produced.
+pub(crate) async fn render_sbsar_maps(
+    source: &Path,
+    file_stem: &str,
+    thumb_dir: &Path,
+) -> Option<Vec<(String, String)>> {
+    let renderer = sbsar_renderer()?.to_str()?.to_string();
+    let out_dir = thumb_dir.join(format!("{file_stem}_sbsar"));
+    tokio::fs::create_dir_all(&out_dir).await.ok()?;
+
+    let status = super::spawn_command(&renderer)
+        .arg(source)
+        .arg(&out_dir)
+        .status()
+        .await
+        .ok()?;
+    if !status.success() {
+        return None;
+    }
+
+    let mut maps = Vec::new();
+    let mut entries = tokio::fs::read_dir(&out_dir).await.ok()?;
+    while let Some(entry) = entries.next_entry().await.ok()? {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("tga") {
+            continue;
+        }
+        let identifier = path.file_stem()?.to_str()?.to_ascii_lowercase();
+        let key = sbsar_map_key(&identifier)?.to_string();
+        let png_name = format!("{file_stem}_sbsar_{key}.png");
+        let bytes = tokio::fs::read(&path).await.ok()?;
+        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Tga).ok()?;
+        image.save(thumb_dir.join(&png_name)).ok()?;
+        maps.push((key, format!(".polystash/thumbs/{png_name}")));
+    }
+
+    maps.sort_by(|a, b| a.0.cmp(&b.0));
+    maps.dedup_by(|a, b| a.0 == b.0);
+    (!maps.is_empty()).then_some(maps)
 }

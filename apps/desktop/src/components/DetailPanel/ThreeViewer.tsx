@@ -1,7 +1,8 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber';
-import { Environment, ContactShadows, OrbitControls } from '@react-three/drei';
+import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { Suspense, Component, useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
@@ -54,10 +55,7 @@ function resolveFallbackHint(extension?: string, errorMessage?: string): string 
   if (isArchiveError(errorMessage)) {
     return `Invalid archive format for ${ext}. Ensure file is a valid package.`;
   }
-  if (ext === 'GLTF' || ext === 'GLB') {
-    return `Unable to load ${ext} scene. Check external .bin/texture buffers or export as self-contained .GLB.`;
-  }
-  return `Unable to render ${ext} preview`;
+  return errorMessage ?? `Unable to render ${ext} preview`;
 }
 
 export class ThreeErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -83,10 +81,11 @@ export class ThreeErrorBoundary extends Component<ErrorBoundaryProps, ErrorBound
       return this.props.fallback;
     }
     const hint = resolveFallbackHint(this.props.extension, this.state.errorMessage);
+    const showDetail = this.state.errorMessage && this.state.errorMessage !== hint;
     return (
       <div className={styles.fallback} role="alert">
         <span className={styles.fallbackTitle}>{hint}</span>
-        {this.state.errorMessage && (
+        {showDetail && (
           <span className={styles.fallbackDetail}>{this.state.errorMessage}</span>
         )}
       </div>
@@ -201,10 +200,35 @@ function WireframeManager({ wireframe }: { wireframe: boolean }) {
   return null;
 }
 
+function LocalProceduralEnvironment() {
+  const { gl, scene } = useThree();
+
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    pmrem.compileEquirectangularShader();
+    const roomEnv = new RoomEnvironment();
+    const envRT = pmrem.fromScene(roomEnv, 0.04);
+    const prevEnv = scene.environment;
+    scene.environment = envRT.texture;
+    roomEnv.dispose();
+    pmrem.dispose();
+
+    return () => {
+      if (scene.environment === envRT.texture) {
+        scene.environment = prevEnv;
+      }
+      envRT.dispose();
+    };
+  }, [gl, scene]);
+
+  return null;
+}
+
 function StudioLighting() {
   return (
     <>
       <ambientLight intensity={0.65} color="#ffffff" />
+      <hemisphereLight args={['#f8fafc', '#1e293b', 0.45]} />
       <directionalLight
         position={[6, 9, 6]}
         intensity={1.75}
@@ -401,6 +425,7 @@ export function ThreeViewer({
         >
           <Suspense fallback={null}>
             <StudioLighting />
+            <LocalProceduralEnvironment />
             <Model
               url={modelPath}
               extension={cleanExt}
@@ -408,7 +433,6 @@ export function ThreeViewer({
               onStatsReady={handleStatsReady}
               controlsRef={controlsRef}
             />
-            <Environment preset="city" />
             <ContactShadows opacity={0.6} scale={10} blur={1.5} far={10} resolution={256} color="#000000" />
             <OrbitControls ref={controlsRef as never} enableDamping autoRotate={autoRotate} makeDefault />
             <WireframeManager wireframe={wireframe} />

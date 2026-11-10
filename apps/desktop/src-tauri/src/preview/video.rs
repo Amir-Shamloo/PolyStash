@@ -110,8 +110,46 @@ pub(crate) async fn probe_metadata(source: &Path) -> Option<Value> {
     if let Some(codec) = stream.get("codec_name").and_then(Value::as_str) {
         fields.insert("codec".to_string(), json!(codec));
     }
+    insert_string(&mut fields, "profile", stream.get("profile"));
+    insert_string(&mut fields, "pixelFormat", stream.get("pix_fmt"));
+    insert_string(&mut fields, "colorSpace", stream.get("color_space"));
+    insert_number(&mut fields, "level", stream.get("level"));
+
+    if let Some(audio) = probe
+        .get("streams")
+        .and_then(Value::as_array)
+        .and_then(|streams| streams.iter().find(|s| s.get("codec_type").and_then(Value::as_str) == Some("audio")))
+    {
+        insert_string(&mut fields, "audioCodec", audio.get("codec_name"));
+        insert_string(&mut fields, "audioSampleRate", audio.get("sample_rate"));
+        insert_number(&mut fields, "audioChannels", audio.get("channels"));
+        insert_string(&mut fields, "audioChannelLayout", audio.get("channel_layout"));
+    }
+
+    // Every container tag (title, artist, creation time, encoder, ...) is part of
+    // the file's metadata, so expose the whole set rather than a hand-picked few.
+    if let Some(tags) = format
+        .and_then(|format| format.get("tags"))
+        .and_then(Value::as_object)
+    {
+        for (key, value) in tags {
+            if let Some(text) = value.as_str() {
+                if !text.trim().is_empty() {
+                    fields.insert(key.to_ascii_lowercase(), json!(text));
+                }
+            }
+        }
+    }
 
     Some(Value::Object(fields))
+}
+
+fn insert_string(fields: &mut Map<String, Value>, key: &str, value: Option<&Value>) {
+    if let Some(text) = value.and_then(Value::as_str) {
+        if !text.is_empty() {
+            fields.insert(key.to_string(), json!(text));
+        }
+    }
 }
 
 fn insert_number(fields: &mut Map<String, Value>, key: &str, value: Option<&Value>) {
