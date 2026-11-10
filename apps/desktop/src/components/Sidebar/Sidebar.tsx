@@ -47,6 +47,7 @@ export function Sidebar() {
   const resetFilter = useAssetStore((s) => s.resetFilter);
   const clearFilter = useAssetStore((s) => s.clearFilter);
   const setQuery = useAssetStore((s) => s.setQuery);
+  const setIncludeSubfolders = useAssetStore((s) => s.setIncludeSubfolders);
   const activeTagId = useAssetStore((s) => s.query.filter.tags?.[0] ?? null);
   const search = useAssetStore((s) => s.search);
 
@@ -460,10 +461,7 @@ export function Sidebar() {
             description="Recursively include assets from nested subfolders"
             checked={query.includeSubfolders !== false}
             onChange={(val) => {
-              setQuery({
-                includeSubfolders: val,
-                filter: { ...query.filter, includeSubfolders: val },
-              });
+              setIncludeSubfolders(val);
               search();
             }}
             idPrefix="folders"

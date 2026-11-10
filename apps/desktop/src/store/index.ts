@@ -56,6 +56,24 @@ export function folderToDirectoryPrefix(folder: ActiveFolder | null): string | u
   return folder.relativePath;
 }
 
+export function normalizeDirectoryFilter(
+  filter: FilterSpec,
+  includeSubfolders: boolean
+): FilterSpec {
+  const nextFilter: FilterSpec = { ...filter, includeSubfolders };
+  const folderPath = nextFilter.directoryPrefix ?? nextFilter.directory;
+  if (folderPath !== undefined) {
+    if (includeSubfolders) {
+      nextFilter.directoryPrefix = folderPath;
+      delete nextFilter.directory;
+    } else {
+      nextFilter.directory = folderPath;
+      delete nextFilter.directoryPrefix;
+    }
+  }
+  return nextFilter;
+}
+
 export function folderToSearchQuery(
   folder: ActiveFolder | null,
   currentFilter: FilterSpec = {},
@@ -63,15 +81,14 @@ export function folderToSearchQuery(
 ): Partial<SearchQuery> {
   const directoryPrefix = folderToDirectoryPrefix(folder);
   const nextFilter: FilterSpec = { ...currentFilter, includeSubfolders };
-  if (directoryPrefix === undefined) {
-    delete nextFilter.directoryPrefix;
-    delete nextFilter.directory;
-  } else if (includeSubfolders) {
-    nextFilter.directoryPrefix = directoryPrefix;
-    delete nextFilter.directory;
-  } else {
-    nextFilter.directory = directoryPrefix;
-    delete nextFilter.directoryPrefix;
+  delete nextFilter.directoryPrefix;
+  delete nextFilter.directory;
+  if (directoryPrefix !== undefined) {
+    if (includeSubfolders) {
+      nextFilter.directoryPrefix = directoryPrefix;
+    } else {
+      nextFilter.directory = directoryPrefix;
+    }
   }
   return {
     libraryId: folder?.libraryId ?? undefined,
@@ -275,6 +292,7 @@ interface AssetStore {
 
   setQuery: (q: Partial<SearchQuery>) => void;
   setFilter: (f: Partial<FilterSpec>) => void;
+  setIncludeSubfolders: (val: boolean) => void;
   replaceFilter: (f: FilterSpec, collectionId?: string) => void;
   resetFilter: () => void;
   clearFilter: (key: keyof FilterSpec) => void;
@@ -335,15 +353,31 @@ export const useAssetStore = create<AssetStore>()((set, get) => ({
     set((s) => {
       const nextIncludeSubfolders =
         f.includeSubfolders ?? s.query.includeSubfolders ?? true;
+      const merged: FilterSpec = { ...s.query.filter, ...f };
+      if ('directoryPrefix' in f && !('directory' in f)) {
+        delete merged.directory;
+      } else if ('directory' in f && !('directoryPrefix' in f)) {
+        delete merged.directoryPrefix;
+      }
       return {
         query: {
           ...s.query,
           includeSubfolders: nextIncludeSubfolders,
-          filter: { ...s.query.filter, ...f, includeSubfolders: nextIncludeSubfolders },
+          filter: normalizeDirectoryFilter(merged, nextIncludeSubfolders),
         },
         page: 0,
       };
     }),
+
+  setIncludeSubfolders: (val) =>
+    set((s) => ({
+      query: {
+        ...s.query,
+        includeSubfolders: val,
+        filter: normalizeDirectoryFilter(s.query.filter, val),
+      },
+      page: 0,
+    })),
 
   replaceFilter: (f, collectionId) =>
     set((s) => ({
