@@ -5,7 +5,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
-import { USDZLoader } from 'three/examples/jsm/loaders/USDZLoader.js';
+import { USDLoader } from '@openusd-wasm/three-loader';
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
@@ -140,7 +140,7 @@ const LOADER_DISPATCH: Record<string, LoaderFn> = {
   stl: ({ url }) => loadMeshGeometry(new STLLoader(), url),
   ply: ({ url }) => loadMeshGeometry(new PLYLoader(), url),
   dae: async ({ url }) => (await new ColladaLoader().loadAsync(url)).scene,
-  usdz: ({ url }) => new USDZLoader().loadAsync(url),
+  usdz: async ({ url }) => (await new USDLoader().loadAsync(url)).scene,
   wrl: ({ url }) => new VRMLLoader().loadAsync(url),
   gltf: ({ url, renderer }) => loadGltfResolvingUris(url, renderer),
   glb: async ({ url, renderer }) => (await createGltfLoader(renderer).loadAsync(url)).scene,

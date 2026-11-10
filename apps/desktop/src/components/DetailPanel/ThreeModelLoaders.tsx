@@ -11,7 +11,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
-import { USDZLoader } from 'three/examples/jsm/loaders/USDZLoader.js';
+import { USDLoader } from '@openusd-wasm/three-loader';
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import {
@@ -279,8 +279,27 @@ export function PlyModel({ url, onLoaded }: ModelLoadProps) {
 
 export function UsdzModel({ url, onLoaded }: ModelLoadProps) {
   const safeUrl = ensureConvertedModelUrl(url);
-  const group = useLoader(USDZLoader, safeUrl);
-  return <ModelObjectWrapper object={group} extension="usdz" onLoaded={onLoaded} />;
+  const [scene, setScene] = useState<THREE.Object3D | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // The OpenUSD loader parses USDA and binary USDC, keeping USDZ materials.
+    new USDLoader()
+      .loadAsync(safeUrl)
+      .then((model) => {
+        if (!cancelled) setScene(model.scene);
+      })
+      .catch((err) => {
+        console.warn('USDZ load failed:', err);
+        if (!cancelled) setScene(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [safeUrl]);
+
+  if (!scene) return null;
+  return <ModelObjectWrapper object={scene} extension="usdz" onLoaded={onLoaded} />;
 }
 
 export function TdsModel({ url, onLoaded }: ModelLoadProps) {
