@@ -25,7 +25,10 @@ import {
   isZUpFormat,
   sanitizeModelMaterialsAndNormals,
 } from '../components/DetailPanel/ThreeViewerUtils';
-import { resolveIesSourceUrl } from '../components/DetailPanel/IESLightViewer';
+import {
+  resolveIesSourceUrl,
+  convertIesTextureToGrayscaleRgba,
+} from '../components/DetailPanel/IESLightViewer';
 
 const snapshotUrlCache = new Map<string, string>();
 const failedSnapshotAssets = new Set<string>();
@@ -56,31 +59,58 @@ interface SnapshotJobSpec {
 
 async function createIesSnapshotGroup(job: { rawPath: string; ext: string }): Promise<THREE.Object3D> {
   const resolvedUrl = await resolveIesSourceUrl(job.rawPath, job.ext);
-  const texture = await new IESLoader().loadAsync(resolvedUrl);
+  const rawTexture = await new IESLoader().loadAsync(resolvedUrl);
+  const texture = convertIesTextureToGrayscaleRgba(rawTexture as THREE.DataTexture);
   const group = new THREE.Group();
-  const material = new THREE.MeshPhongMaterial({ color: 0x999999 });
 
-  const spotLight = new THREE.SpotLight(0xffffff, 500);
-  spotLight.position.set(6.5, 3, 6.5);
-  spotLight.angle = Math.PI / 8;
-  spotLight.penumbra = 0.7;
-  spotLight.distance = 20;
+  const spotLight = new THREE.SpotLight(0xffffff, 220);
+  spotLight.position.set(0, 4.2, 0);
+  spotLight.angle = Math.PI / 2.05;
+  spotLight.penumbra = 0.85;
+  spotLight.distance = 28;
+  spotLight.decay = 2;
   spotLight.castShadow = true;
   spotLight.map = texture;
-  spotLight.target.position.set(3.25, 0, 3.25);
+  const iesLight = spotLight as THREE.SpotLight & { iesMap?: THREE.Texture };
+  iesLight.iesMap = texture;
+  spotLight.target.position.set(0, 0, 0);
   group.add(spotLight);
   group.add(spotLight.target);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), material);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x565b66, roughness: 0.72, metalness: 0.05 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), groundMat);
   ground.rotation.x = -Math.PI * 0.5;
   ground.receiveShadow = true;
   group.add(ground);
 
-  const box = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), material);
-  box.position.y = 1;
-  box.castShadow = true;
-  box.receiveShadow = true;
-  group.add(box);
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x484d57, roughness: 0.78, metalness: 0.04 });
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(28, 9), wallMat);
+  wall.position.set(0, 4.5, -3.6);
+  wall.receiveShadow = true;
+  group.add(wall);
+
+  const pedMat = new THREE.MeshStandardMaterial({ color: 0x6e7380, roughness: 0.48, metalness: 0.08 });
+  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.9, 32), pedMat);
+  pedestal.position.set(0, 0.45, -0.8);
+  pedestal.castShadow = true;
+  pedestal.receiveShadow = true;
+  group.add(pedestal);
+
+  const emitterGroup = new THREE.Group();
+  emitterGroup.position.set(0, 4.2, 0);
+  const housing = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.28, 0.36, 32),
+    new THREE.MeshStandardMaterial({ color: 0x1f232b, roughness: 0.4, metalness: 0.65 })
+  );
+  emitterGroup.add(housing);
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(0.2, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })
+  );
+  disc.rotation.x = Math.PI / 2;
+  disc.position.y = -0.181;
+  emitterGroup.add(disc);
+  group.add(emitterGroup);
 
   return group;
 }
@@ -167,9 +197,9 @@ function prepareSnapshotSceneObject(params: {
 }): void {
   const { modelObj, cleanExt, camera, explicitFlipYZ } = params;
   if (cleanExt === 'ies' || cleanExt === 'ldt') {
-    camera.fov = 35;
-    camera.position.set(16, 4, 1);
-    camera.lookAt(0, 1, 0);
+    camera.fov = 40;
+    camera.position.set(5.5, 3.2, 6.8);
+    camera.lookAt(0, 1.5, 0);
     camera.updateProjectionMatrix();
     return;
   }

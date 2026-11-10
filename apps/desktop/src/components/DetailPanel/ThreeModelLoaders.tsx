@@ -42,12 +42,19 @@ export function ensureConvertedModelUrl(rawUrl: string): string {
 let sharedDracoLoader: DRACOLoader | null = null;
 let sharedKtx2Loader: KTX2Loader | null = null;
 
+function resolvePublicSubpath(subpath: string): string {
+  const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/';
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const cleanSub = subpath.replace(/^\/+/, '');
+  return `${normalizedBase}${cleanSub}`;
+}
+
 export function createGltfLoader(renderer?: THREE.WebGLRenderer): GLTFLoader {
   if (!sharedDracoLoader) {
-    sharedDracoLoader = new DRACOLoader().setDecoderPath('/draco/gltf/');
+    sharedDracoLoader = new DRACOLoader().setDecoderPath(resolvePublicSubpath('draco/gltf/'));
   }
   if (!sharedKtx2Loader) {
-    sharedKtx2Loader = new KTX2Loader().setTranscoderPath('/basis/');
+    sharedKtx2Loader = new KTX2Loader().setTranscoderPath(resolvePublicSubpath('basis/'));
   }
   if (renderer) {
     sharedKtx2Loader.detectSupport(renderer);
@@ -151,8 +158,7 @@ function resolveCleanedUri(clean: string, baseDirPath: string): string | null {
   if (/^([a-zA-Z]:\/|\/)/.test(clean)) {
     return convertFileSrc(normalizePathSegments(clean));
   }
-  const isDotPath = clean.includes('..') || clean.startsWith('./');
-  if (baseDirPath && isDotPath) {
+  if (baseDirPath) {
     return convertFileSrc(normalizePathSegments(`${baseDirPath}${clean}`));
   }
   return null;
@@ -215,22 +221,28 @@ export function GltfModel({ url, extension, onLoaded }: ModelLoadProps) {
   const safeUrl = ensureConvertedModelUrl(url);
   const ext = (extension || 'gltf').toLowerCase();
   const [scene, setScene] = useState<THREE.Object3D | null>(null);
+  const [loadError, setLoadError] = useState<Error | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setScene(null);
+    setLoadError(null);
     loadGltfOrGlb(safeUrl, ext, gl)
       .then((obj) => {
         if (!cancelled) setScene(obj);
       })
       .catch((err) => {
         console.warn('GLTF/GLB load failed:', err);
-        if (!cancelled) setScene(null);
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err : new Error(String(err)));
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [safeUrl, ext, gl]);
 
+  if (loadError) throw loadError;
   if (!scene) return null;
   return <ModelObjectWrapper object={scene} extension={ext} onLoaded={onLoaded} />;
 }
