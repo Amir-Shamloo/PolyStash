@@ -2,21 +2,20 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::process::Stdio;
-use tokio::process::Command;
 
-use super::placeholder::generate_placeholder;
+use super::{aspect_ratio, round_two};
 
 /// Extract a video frame with ffmpeg and write it to `output`.
 ///
 /// ffmpeg is an external tool that may simply not be installed on a user
-/// machine, so a missing binary degrades to the neutral placeholder and lets
-/// the job complete — only a renderer that ran and failed is worth retrying.
+/// machine; either way the caller completes the job without a thumbnail and
+/// the frontend shows the video's kind icon.
 pub(crate) async fn extract_video_thumb(source: &Path, output: &Path) -> Result<()> {
     if let Some(parent) = output.parent() {
         let _ = tokio::fs::create_dir_all(parent).await;
     }
 
-    let out = match Command::new("ffmpeg")
+    let out = super::spawn_command("ffmpeg")
         .args(["-ss", "00:00:01", "-i"])
         .arg(source)
         .args([
@@ -30,22 +29,14 @@ pub(crate) async fn extract_video_thumb(source: &Path, output: &Path) -> Result<
         .stdin(Stdio::null())
         .output()
         .await
-    {
-        Ok(out) => out,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            tracing::warn!("ffmpeg is not installed; using a placeholder video thumbnail");
-            return generate_placeholder(output);
-        }
-        Err(e) => return Err(anyhow!("Could not run ffmpeg: {e}")),
-    };
+        .map_err(|e| anyhow!("Could not run ffmpeg: {e}"))?;
 
     if !out.status.success() {
-        tracing::warn!(
-            "ffmpeg failed for {}: {}; using a placeholder thumbnail",
+        return Err(anyhow!(
+            "ffmpeg failed for {}: {}",
             source.display(),
             String::from_utf8_lossy(&out.stderr)
-        );
-        return generate_placeholder(output);
+        ));
     }
 
     Ok(())
@@ -61,7 +52,7 @@ pub fn is_video(ext: &str) -> bool {
 /// Returns `None` when ffprobe is not installed or cannot parse the file, which
 /// leaves the asset without video metadata instead of failing the preview.
 pub(crate) async fn probe_metadata(source: &Path) -> Option<Value> {
-    let out = Command::new("ffprobe")
+    let out = super::spawn_command("ffprobe")
         .args([
             "-v",
             "error",
@@ -88,8 +79,15 @@ pub(crate) async fn probe_metadata(source: &Path) -> Option<Value> {
     let format = probe.get("format");
 
     let mut fields = Map::new();
-    insert_number(&mut fields, "width", stream.get("width"));
-    insert_number(&mut fields, "height", stream.get("height"));
+    let width = numeric(stream.get("width"));
+    let height = numeric(stream.get("height"));
+    insert_float(&mut fields, "width", width);
+    insert_float(&mut fields, "height", height);
+    insert_float(
+        &mut fields,
+        "aspectRatio",
+        width.zip(height).and_then(|(w, h)| aspect_ratio(w, h)),
+    );
     insert_number(
         &mut fields,
         "duration",
@@ -139,5 +137,5 @@ fn frame_rate(value: &Value) -> Option<f64> {
     let (numerator, denominator) = value.as_str()?.split_once('/')?;
     let numerator: f64 = numerator.parse().ok()?;
     let denominator: f64 = denominator.parse().ok()?;
-    (denominator > 0.0).then(|| ((numerator / denominator) * 100.0).round() / 100.0)
+    (denominator > 0.0).then(|| round_two(numerator / denominator))
 }

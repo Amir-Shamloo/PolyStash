@@ -14,8 +14,8 @@ const C4D_HEADER_WINDOW: u64 = 8 * 1024 * 1024;
 const BLEND_PREVIEW_WINDOW: u64 = 8 * 1024 * 1024;
 
 /// Byte-scan for the embedded preview PNG. This is a heuristic, not a format
-/// parser: no usable preview means the caller falls back to the neutral
-/// placeholder (and the frontend renders the model live).
+/// parser: no usable preview means the caller completes without a thumbnail
+/// and the frontend renders the model live.
 pub(crate) fn extract_preview_png_thumb(source: &Path, output: &Path) -> Result<()> {
     let head = read_prefix(source, BLEND_PREVIEW_WINDOW)?;
     let index = super::find_png(&head)
@@ -27,7 +27,7 @@ pub(crate) fn extract_preview_png_thumb(source: &Path, output: &Path) -> Result<
 /// Cinema 4D (`.c4d`) thumbnail extraction. The file is an IFF container whose
 /// `MC4D`/`FORM` header carries a `THMB` preview chunk encoded as JPEG or PNG.
 /// This is a best-effort byte scan of the header window, not a chunk parser: a
-/// miss returns `Err` so the caller can fall back to the neutral placeholder.
+/// miss returns `Err` so the caller can complete without a thumbnail.
 pub(crate) fn extract_c4d_thumb(source: &Path, output: &Path) -> Result<()> {
     let head = read_prefix(source, C4D_HEADER_WINDOW)?;
 

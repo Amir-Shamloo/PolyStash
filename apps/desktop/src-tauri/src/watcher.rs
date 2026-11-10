@@ -130,7 +130,7 @@ struct PendingAsset {
 /// formats absent from this list are never queued for preview generation.
 ///
 /// AVIF, KTX/KTX2, and raw USD are intentionally absent: the frontend decodes
-/// or placeholders them itself, so a backend job would only write a neutral tile.
+/// or renders them itself, so a backend job would add nothing.
 const PREVIEW_EXTENSIONS: &[&str] = &[
     // Mesh and CAD
     "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "ply", "usdz",

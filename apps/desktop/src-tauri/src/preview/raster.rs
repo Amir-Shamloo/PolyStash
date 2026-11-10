@@ -3,7 +3,7 @@ use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageReader, Rgb, Rgb
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
-use super::save_thumb;
+use super::{aspect_ratio, round_two, save_thumb};
 
 /// Checks if an extension is a standard raster image that Rust can decode directly.
 ///
@@ -28,8 +28,9 @@ pub fn generate_image_thumb(source: &Path, output: &Path) -> Result<()> {
 
 /// Header-only technical metadata for a raster image: no pixel decode.
 ///
-/// Returns `width`, `height`, `bitDepth`, and `colorSpace`. A decoder that does
-/// not expose the header yields `None` instead of failing the preview job.
+/// Returns `width`, `height`, `aspectRatio`, `megapixels`, `bitDepth`, and
+/// `colorSpace`. A decoder that does not expose the header yields `None`
+/// instead of failing the preview job.
 pub(crate) fn image_metadata(source: &Path, ext: &str) -> Option<Value> {
     let reader = ImageReader::open(source).ok()?.with_guessed_format().ok()?;
     let decoder = reader.into_decoder().ok()?;
@@ -39,9 +40,18 @@ pub(crate) fn image_metadata(source: &Path, ext: &str) -> Option<Value> {
     let mut fields = Map::new();
     fields.insert("width".to_string(), json!(width));
     fields.insert("height".to_string(), json!(height));
+    if let Some(ratio) = aspect_ratio(f64::from(width), f64::from(height)) {
+        fields.insert("aspectRatio".to_string(), json!(ratio));
+    }
+    fields.insert("megapixels".to_string(), json!(megapixels(width, height)));
     fields.insert("bitDepth".to_string(), json!(bits_per_channel(original)));
     fields.insert("colorSpace".to_string(), json!(color_space(original, ext)));
     Some(Value::Object(fields))
+}
+
+/// Sensor-style megapixel count, rounded to two decimals.
+fn megapixels(width: u32, height: u32) -> f64 {
+    round_two(f64::from(width) * f64::from(height) / 1_000_000.0)
 }
 
 fn bits_per_channel(color: ExtendedColorType) -> u16 {
