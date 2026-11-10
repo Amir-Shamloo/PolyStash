@@ -64,6 +64,11 @@ const LIGHTING_KEYS = new Set([
   'distribution', 'watt', 'beamangle', 'beam_angle', 'fieldangle', 'multiplier',
 ]);
 
+function fileNameOf(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/');
+  return normalized.slice(normalized.lastIndexOf('/') + 1) || filePath;
+}
+
 interface FilePropsSectionProps {
   extension: string;
   sizeBytes: number;
@@ -94,6 +99,11 @@ function FilePropertiesSection({
       </div>
 
       <div className={styles.infoGrid}>
+        <span className={styles.infoLabel}>Name</span>
+        <span className={clsx(styles.infoValue, styles.mono)} title={fileNameOf(filePath)}>
+          {fileNameOf(filePath)}
+        </span>
+
         <span className={styles.infoLabel}>Format</span>
         <span className={styles.infoValue}>
           <span className={styles.formatChip}>.{extension.toUpperCase()}</span>
@@ -200,6 +210,11 @@ function partitionMetadata(entries: [string, unknown][]): CategorizedMetadata {
     }
   }
 
+  // One stable ordering everywhere: alphabetical inside each group.
+  for (const group of [result.geometry, result.dimensions, result.render, result.lighting, result.general]) {
+    group.sort(([a], [b]) => a.localeCompare(b));
+  }
+
   return result;
 }
 
@@ -211,26 +226,23 @@ function TechnicalMetadataSection({ metadata }: TechnicalMetadataProps) {
   const entries = useMemo(() => Object.entries(metadata || {}), [metadata]);
   const categorized = useMemo(() => partitionMetadata(entries), [entries]);
 
+  // Assets without metadata show no section at all, not an empty placeholder.
+  if (entries.length === 0) return null;
+
   return (
     <div className={styles.infoSection}>
       <div className={styles.infoSectionHeader}>
         <span className={styles.infoSectionTitle}>Technical Metadata</span>
-        {entries.length > 0 && (
-          <span className={styles.metaCountBadge}>{entries.length} fields</span>
-        )}
+        <span className={styles.metaCountBadge}>{entries.length} fields</span>
       </div>
 
-      {entries.length === 0 ? (
-        <p className={styles.noMetadataText}>No format-specific metadata extracted.</p>
-      ) : (
-        <div className={styles.metaGroupsContainer}>
-          <MetaSubGroup title="Geometry & Meshes" entries={categorized.geometry} />
-          <MetaSubGroup title="Dimensions & Resolution" entries={categorized.dimensions} />
-          <MetaSubGroup title="Lighting & Photometry" entries={categorized.lighting} />
-          <MetaSubGroup title="Renderer & Engine" entries={categorized.render} />
-          <MetaSubGroup title="Additional Properties" entries={categorized.general} />
-        </div>
-      )}
+      <div className={styles.metaGroupsContainer}>
+        <MetaSubGroup title="Geometry & Meshes" entries={categorized.geometry} />
+        <MetaSubGroup title="Dimensions & Resolution" entries={categorized.dimensions} />
+        <MetaSubGroup title="Lighting & Photometry" entries={categorized.lighting} />
+        <MetaSubGroup title="Renderer & Engine" entries={categorized.render} />
+        <MetaSubGroup title="Additional Properties" entries={categorized.general} />
+      </div>
     </div>
   );
 }

@@ -450,7 +450,7 @@ async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &P
     let thumb_dest = jobs.thumb_dir.join(&thumb_name);
 
     if archive::extract_sbsar_thumb(source, &thumb_dest).is_err() {
-        if let Some(maps) = archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
+        if let Some(maps) = archive::render_sbsar_maps(source, file_stem, jobs.thumb_dir).await {
             if maps.iter().any(|(key, _)| key == "baseColor") {
                 let _ = std::fs::copy(
                     jobs.thumb_dir.join(format!("{file_stem}_sbsar_baseColor.png")),
