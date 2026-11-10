@@ -204,7 +204,7 @@ fn find_compressed_preview(bytes: &[u8]) -> Option<DynamicImage> {
         if decompressed.is_err() {
             continue;
         }
-        if let Some(img) = find_rhino_preview(&decompressed) {
+        if let Some(img) = find_rhino_preview(&decoded) {
             return Some(img);
         }
     }

@@ -43,7 +43,7 @@ export function convertIesTextureToGrayscaleRgba(tex: THREE.DataTexture): THREE.
   const height = image.height || 1;
   const count = src.length;
 
-  let dst: Uint16Array | Float32Array | Uint8Array;
+  let dst: Uint16Array<ArrayBuffer> | Float32Array<ArrayBuffer> | Uint8Array<ArrayBuffer>;
   let oneAlpha: number;
 
   if (src instanceof Uint16Array) {
