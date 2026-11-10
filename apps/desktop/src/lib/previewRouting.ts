@@ -1,5 +1,6 @@
 import type { Asset, AssetKind } from '../types';
 import { getModelPath, MESH_EXTENSIONS } from '../components/DetailPanel/ThreeViewer';
+import { extractSbsarTextures, type SbsarTextures } from '../components/DetailPanel/ThreeModelLoaders';
 import { getAssetThumbnailUrls } from '../components/AssetGrid/ThumbnailCarousel';
 
 export const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v']);
@@ -11,7 +12,7 @@ export const NO_PREVIEW_EXTENSIONS = new Set(['abc', 'x3d', 'avif']);
 
 export type PreviewView =
   | { type: 'video'; path: string }
-  | { type: 'model'; path: string; extension: string }
+  | { type: 'model'; path: string; extension: string; sbsarTextures?: SbsarTextures }
   | { type: 'panorama'; path: string; extension: string }
   | { type: 'ies'; path: string; extension: string }
   | { type: 'dds'; path: string }
@@ -54,12 +55,13 @@ function resolveNoPreview(asset: Asset, snapshotUrl?: string | null): PreviewVie
 
 function resolveModel(asset: Asset): PreviewView | null {
   const ext = asset.extension.toLowerCase();
+  const sbsarTextures = ext === 'sbsar' ? extractSbsarTextures(asset.metadata) : undefined;
   const directPath = getModelPath(asset);
   if (directPath) {
-    return { type: 'model', path: directPath, extension: ext };
+    return { type: 'model', path: directPath, extension: ext, sbsarTextures };
   }
   if (MESH_EXTENSIONS.has(ext) || ext === 'sbsar') {
-    return { type: 'model', path: asset.filePath, extension: ext };
+    return { type: 'model', path: asset.filePath, extension: ext, sbsarTextures };
   }
   return null;
 }

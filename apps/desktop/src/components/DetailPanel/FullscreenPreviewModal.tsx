@@ -52,6 +52,7 @@ function FullscreenContent({
         <ThreeViewer
           modelPath={preview.path}
           extension={preview.extension}
+          sbsarTextures={preview.sbsarTextures}
           isFullscreen
           onToggleFullscreen={onClose}
         />

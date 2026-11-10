@@ -6,8 +6,8 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { IconGrid, IconRefresh, IconCameraReset, IconInfo } from '../Icons';
-import { computeModelStats, frameCameraAuto, type ModelStats } from './ThreeViewerUtils';
-import { MODEL_RENDERERS, ensureConvertedModelUrl } from './ThreeModelLoaders';
+import { computeModelStats, frameCameraAuto, isZUpFormat, type ModelStats } from './ThreeViewerUtils';
+import { MODEL_RENDERERS, ensureConvertedModelUrl, type SbsarTextures } from './ThreeModelLoaders';
 import styles from './ThreeViewer.module.css';
 
 interface ErrorBoundaryProps {
@@ -131,11 +131,13 @@ interface OrbitHandle {
 export function Model({
   url,
   extension,
+  sbsarTextures,
   onStatsReady,
   controlsRef,
 }: {
   url: string;
   extension?: string;
+  sbsarTextures?: SbsarTextures;
   onStatsReady?: (stats: ModelStats) => void;
   controlsRef?: React.RefObject<OrbitHandle | null>;
 }) {
@@ -147,7 +149,7 @@ export function Model({
   const handleLoaded = useCallback(
     (obj: THREE.Object3D) => {
       if (camera instanceof THREE.PerspectiveCamera) {
-        frameCameraAuto(camera, obj);
+        frameCameraAuto(camera, obj, isZUpFormat(ext));
       }
       if (controlsRef?.current) {
         controlsRef.current.target.set(0, 0, 0);
@@ -158,10 +160,19 @@ export function Model({
         onStatsReady(computeModelStats(obj));
       }
     },
-    [camera, controlsRef, onStatsReady]
+    [camera, controlsRef, ext, onStatsReady]
   );
 
-  return <>{render({ url: fileUrl, extension: ext, onLoaded: handleLoaded })}</>;
+  return (
+    <>
+      {render({
+        url: fileUrl,
+        extension: ext,
+        sbsarTextures,
+        onLoaded: handleLoaded,
+      })}
+    </>
+  );
 }
 
 function WireframeManager({ wireframe }: { wireframe: boolean }) {
@@ -302,6 +313,7 @@ function ViewerToolbar({
 export interface ThreeViewerProps {
   modelPath: string;
   extension?: string;
+  sbsarTextures?: SbsarTextures;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   /** Called once the model geometry is parsed; stats mirror the info panel. */
@@ -311,6 +323,7 @@ export interface ThreeViewerProps {
 export function ThreeViewer({
   modelPath,
   extension,
+  sbsarTextures,
   isFullscreen,
   onToggleFullscreen,
   onStats,
@@ -391,6 +404,7 @@ export function ThreeViewer({
             <Model
               url={modelPath}
               extension={cleanExt}
+              sbsarTextures={sbsarTextures}
               onStatsReady={handleStatsReady}
               controlsRef={controlsRef}
             />

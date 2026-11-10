@@ -273,7 +273,12 @@ function QuickLookPreviewContent({ asset, snapshotUrl, onFullscreen }: ContentPr
     case 'model':
       return (
         <div className={styles.threeWrapper}>
-          <ThreeViewer modelPath={preview.path} extension={preview.extension} onToggleFullscreen={onFullscreen} />
+          <ThreeViewer
+            modelPath={preview.path}
+            extension={preview.extension}
+            sbsarTextures={preview.sbsarTextures}
+            onToggleFullscreen={onFullscreen}
+          />
         </div>
       );
     case 'panorama':

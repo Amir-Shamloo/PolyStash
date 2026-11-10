@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
@@ -12,13 +11,18 @@ import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
 import { useState, useEffect, useRef } from 'react';
 import type { Asset } from '../types';
-import { loadGltfResolvingUris } from '../components/DetailPanel/ThreeModelLoaders';
 import {
-  centerObject,
+  createGltfLoader,
+  createSbsarShaderBallObject,
+  extractSbsarTextures,
+  loadGltfResolvingUris,
+  type SbsarTextures,
+} from '../components/DetailPanel/ThreeModelLoaders';
+import {
   createDefaultClayMaterial,
   ensureGeometryNormals,
   frameCameraAuto,
-  isLikelyZUp,
+  isZUpFormat,
   sanitizeModelMaterialsAndNormals,
 } from '../components/DetailPanel/ThreeViewerUtils';
 import { resolveIesSourceUrl } from '../components/DetailPanel/IESLightViewer';
@@ -40,22 +44,14 @@ const NATIVE_LOADER_EXTENSIONS = new Set([
 export interface SnapshotOptions {
   flipYZ?: boolean;
   resolution?: number;
+  sbsarTextures?: SbsarTextures;
 }
 
 interface SnapshotJobSpec {
   assetId: string;
   targetPath: string;
   extension: string;
-}
-
-function createPbrShaderBall(): THREE.Object3D {
-  const geometry = new THREE.SphereGeometry(1, 64, 32);
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x8899aa,
-    roughness: 0.35,
-    metalness: 0.15,
-  });
-  return new THREE.Mesh(geometry, material);
+  sbsarTextures?: SbsarTextures;
 }
 
 async function createIesSnapshotGroup(job: { rawPath: string; ext: string }): Promise<THREE.Object3D> {
@@ -95,10 +91,17 @@ async function loadMeshGeometry(loader: STLLoader | PLYLoader, url: string): Pro
   return new THREE.Mesh(geom, createDefaultClayMaterial());
 }
 
-type LoaderFn = (ctx: { url: string; rawPath: string }) => Promise<THREE.Object3D>;
+interface LoaderContext {
+  url: string;
+  rawPath: string;
+  renderer: THREE.WebGLRenderer;
+  sbsarTextures?: SbsarTextures;
+}
+
+type LoaderFn = (ctx: LoaderContext) => Promise<THREE.Object3D>;
 
 const LOADER_DISPATCH: Record<string, LoaderFn> = {
-  sbsar: async () => createPbrShaderBall(),
+  sbsar: ({ sbsarTextures }) => createSbsarShaderBallObject(sbsarTextures),
   ies: ({ rawPath }) => createIesSnapshotGroup({ rawPath, ext: 'ies' }),
   ldt: ({ rawPath }) => createIesSnapshotGroup({ rawPath, ext: 'ldt' }),
   '3ds': ({ url }) => new TDSLoader().loadAsync(url),
@@ -109,8 +112,8 @@ const LOADER_DISPATCH: Record<string, LoaderFn> = {
   dae: async ({ url }) => (await new ColladaLoader().loadAsync(url)).scene,
   usdz: ({ url }) => new USDZLoader().loadAsync(url),
   wrl: ({ url }) => new VRMLLoader().loadAsync(url),
-  gltf: ({ url }) => loadGltfResolvingUris(url),
-  glb: async ({ url }) => (await new GLTFLoader().loadAsync(url)).scene,
+  gltf: ({ url, renderer }) => loadGltfResolvingUris(url, renderer),
+  glb: async ({ url, renderer }) => (await createGltfLoader(renderer).loadAsync(url)).scene,
 };
 
 function disposeSceneHierarchy(scene: THREE.Scene, renderer: THREE.WebGLRenderer): void {
@@ -172,8 +175,7 @@ function prepareSnapshotSceneObject(params: {
   }
 
   sanitizeModelMaterialsAndNormals(modelObj, cleanExt);
-  const initialBox = centerObject(modelObj);
-  const shouldFlip = explicitFlipYZ ?? isLikelyZUp(initialBox);
+  const shouldFlip = explicitFlipYZ ?? isZUpFormat(cleanExt);
   frameCameraAuto(camera, modelObj, shouldFlip);
 }
 
@@ -202,7 +204,12 @@ export async function captureModelSnapshot(
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     const fileUrl = /^(http|asset:|blob:)/.test(url) ? url : convertFileSrc(url);
     const loader = LOADER_DISPATCH[cleanExt] ?? LOADER_DISPATCH.gltf;
-    const modelObj = await loader({ url: fileUrl, rawPath: url });
+    const modelObj = await loader({
+      url: fileUrl,
+      rawPath: url,
+      renderer,
+      sbsarTextures: options?.sbsarTextures,
+    });
 
     scene.add(modelObj);
     prepareSnapshotSceneObject({
@@ -237,22 +244,32 @@ function hasConvertedGlbModel(asset: Asset): boolean {
 }
 
 export function isEligibleForSnapshot(asset: Asset | null | undefined): boolean {
-  if (!asset || hasRasterThumbnail(asset)) return false;
+  if (!asset) return false;
   const ext = asset.extension.toLowerCase();
+  if (ext === 'sbsar' && extractSbsarTextures(asset.metadata)) {
+    return true;
+  }
+  if (hasRasterThumbnail(asset)) return false;
   if (!SNAPSHOT_ELIGIBLE_EXTENSIONS.has(ext)) return false;
   return NATIVE_LOADER_EXTENSIONS.has(ext) || hasConvertedGlbModel(asset);
 }
 
 function buildSnapshotJobSpec(asset: Asset): SnapshotJobSpec {
+  const sbsarTextures = extractSbsarTextures(asset.metadata);
   const previewModel = asset.metadata?.preview_model as string | undefined;
   if (previewModel) {
     const pExt = previewModel.split('.').pop()?.toLowerCase() || 'glb';
-    return { assetId: asset.id, targetPath: previewModel, extension: pExt };
+    return { assetId: asset.id, targetPath: previewModel, extension: pExt, sbsarTextures };
   }
   if (asset.thumbnailPath?.endsWith('.glb')) {
-    return { assetId: asset.id, targetPath: asset.thumbnailPath, extension: 'glb' };
+    return { assetId: asset.id, targetPath: asset.thumbnailPath, extension: 'glb', sbsarTextures };
   }
-  return { assetId: asset.id, targetPath: asset.filePath, extension: asset.extension.toLowerCase() };
+  return {
+    assetId: asset.id,
+    targetPath: asset.filePath,
+    extension: asset.extension.toLowerCase(),
+    sbsarTextures,
+  };
 }
 
 function canRunSnapshotJob(asset: Asset | null | undefined): asset is Asset {
@@ -304,7 +321,9 @@ function executeSnapshotJob(
       return;
     }
     release = rel;
-    captureModelSnapshot(job.targetPath, job.extension).then((blob) => {
+    captureModelSnapshot(job.targetPath, job.extension, {
+      sbsarTextures: job.sbsarTextures,
+    }).then((blob) => {
       releaseOnce();
       if (!isMounted) return;
       if (blob) {
