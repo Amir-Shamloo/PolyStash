@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type { Asset, AssetKind } from '../../types';
 import { resolvePreview } from '../../lib/previewRouting';
 import { usePdfPageThumbnail } from '../../lib/pdfThumbnail';
@@ -96,6 +96,10 @@ function PreviewBody({
   onModelStats?: (stats: ModelStats) => void;
 }) {
   const preview = resolvePreview(asset, snapshotUrl);
+  const thumbnailFallback = useMemo(
+    () => <PlaceholderView kind={asset.kind} ext={asset.extension.toLowerCase()} />,
+    [asset.kind, asset.extension]
+  );
 
   switch (preview.type) {
     case 'video':
@@ -105,6 +109,7 @@ function PreviewBody({
         <ThreeViewer
           modelPath={preview.path}
           extension={preview.extension}
+          sbsarTextures={preview.sbsarTextures}
           onToggleFullscreen={onFullscreen}
           onStats={onModelStats}
         />
@@ -123,7 +128,7 @@ function PreviewBody({
             snapshotUrl={snapshotUrl}
             imgClassName={imgClassName}
             alt={asset.fileName}
-            fallback={<PlaceholderView kind={asset.kind} ext={asset.extension.toLowerCase()} />}
+            fallback={thumbnailFallback}
           />
           <button
             type="button"
