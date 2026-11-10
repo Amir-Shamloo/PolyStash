@@ -15,6 +15,7 @@
   "dependencies": {
     "@headless-tree/core": "^1.8.0",
     "@headless-tree/react": "^1.8.0",
+    "@ies-tools/core": "^3.1.0",
     "@react-three/drei": "^9.113.0",
     "@react-three/fiber": "^8.17.6",
     "@tauri-apps/api": "^2.5.0",
@@ -22,6 +23,7 @@
     "@tauri-apps/plugin-fs": "^2.4.0",
     "@tauri-apps/plugin-shell": "^2.2.1",
     "clsx": "^2.1.1",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-virtual": "^2.10.4",
