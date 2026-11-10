@@ -2,13 +2,11 @@ import { memo, useCallback, useMemo, useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset, AssetKind } from '../../types';
-import { useTagStore, useCollectionStore, useAssetStore } from '../../store';
+import { useAssetStore } from '../../store';
 import {
   IconModel3D,
   IconImage,
   IconVideo,
-  IconStar,
-  IconCollection,
   IconHeart,
   IconHeartFilled,
   IconFileText,
@@ -16,6 +14,7 @@ import {
 } from '../Icons';
 import { ThumbnailCarousel, getAssetThumbnailUrls } from './ThumbnailCarousel';
 import { useLazyModelSnapshot } from '../../lib/previewSnapshot';
+import { usePdfPageThumbnail } from '../../lib/pdfThumbnail';
 import styles from './AssetCard.module.css';
 
 export interface AssetCardProps {
@@ -49,13 +48,6 @@ const KIND_COLOR: Record<AssetKind, string> = {
   folder: 'hsl( 38 92% 56%)',
   other: 'hsl(220  8% 50%)',
 };
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)}GB`;
-}
 
 function getKindIcon(kind: AssetKind): React.FC<{ size?: number }> {
   return KIND_ICON[kind] ?? IconImage;
@@ -203,9 +195,6 @@ function CardThumbArea({
   isGenerating,
   onToggleFavorite,
 }: CardThumbAreaProps) {
-  const KindIcon = getKindIcon(asset.kind);
-  const kindColor = getKindColor(asset.kind);
-
   return (
     <div className={styles.thumb}>
       <CardThumbMedia asset={asset} snapshotUrl={snapshotUrl} />
@@ -228,123 +217,16 @@ function CardThumbArea({
           style={{ background: `var(--swatch-${asset.colorLabel})` }}
         />
       )}
-
-      <div className={styles.kindChip} style={{ color: kindColor }}>
-        <KindIcon size={10} />
-        <span>{asset.extension.toUpperCase()}</span>
-      </div>
     </div>
   );
 }
 
-interface ChipItem {
-  id: string;
-  name: string;
-  type: 'collection' | 'tag';
-  color?: string;
-}
-
-function buildCollectionChips(colIds: string[] | undefined, collections: { id: string; name: string }[]): ChipItem[] {
-  if (!colIds) return [];
-  const map = new Map(collections.map((c) => [c.id, c.name]));
-  return colIds
-    .map((id) => ({ id: `col-${id}`, name: map.get(id) ?? '', type: 'collection' as const }))
-    .filter((item) => item.name.length > 0);
-}
-
-function buildTagChips(tagIds: string[] | undefined, tagMap: Map<string, { name: string; color?: string }>): ChipItem[] {
-  if (!tagIds) return [];
-  return tagIds.map((id) => {
-    const tag = tagMap.get(id);
-    return {
-      id: `tag-${id}`,
-      name: tag?.name ?? id,
-      type: 'tag' as const,
-      color: tag?.color,
-    };
-  });
-}
-
-function useAssetChips(asset: Asset): ChipItem[] {
-  const tagMap = useTagStore((s) => s.tagMap);
-  const collections = useCollectionStore((s) => s.collections);
-
-  return useMemo(() => [
-    ...buildCollectionChips(asset.collections, collections),
-    ...buildTagChips(asset.tags, tagMap),
-  ], [asset.collections, asset.tags, collections, tagMap]);
-}
-
-function CardChipBadge({ chip }: { chip: ChipItem }) {
-  const isCollection = chip.type === 'collection';
-  const dotBg = chip.color ? `var(--swatch-${chip.color})` : 'hsl(220 85% 60%)';
-
-  return (
-    <span
-      className={clsx(styles.chip, isCollection ? styles.collectionChip : styles.tagChip)}
-      title={isCollection ? `Collection: ${chip.name}` : `Tag: ${chip.name}`}
-    >
-      {isCollection ? (
-        <IconCollection size={9} className={styles.chipIcon} />
-      ) : (
-        <span className={styles.chipDot} style={{ background: dotBg }} />
-      )}
-      <span className={styles.chipText}>{chip.name}</span>
-    </span>
-  );
-}
-
-interface CardBodyProps {
-  asset: Asset;
-  chips: ChipItem[];
-}
-
-function CardBody({ asset, chips }: CardBodyProps) {
+function CardBody({ asset }: { asset: Asset }) {
   return (
     <div className={styles.body}>
       <p className={clsx(styles.name, 'truncate')} title={asset.fileName}>
         {asset.fileName}
       </p>
-
-      <div className={styles.meta}>
-        {asset.rating > 0 && (
-          <div className={styles.stars}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <IconStar
-                key={i}
-                size={10}
-                className={clsx(styles.star, i < asset.rating && styles.starFilled)}
-              />
-            ))}
-          </div>
-        )}
-        <span className={styles.size}>{formatSize(asset.sizeBytes)}</span>
-      </div>
-
-      {Object.keys(asset.metadata).length > 0 && (
-        <div className={styles.technicalMeta}>
-          {Object.entries(asset.metadata).slice(0, 4).map(([key, value]) => (
-            <div key={key} className={styles.metaRow}>
-              <span className={styles.metaKey}>{key}</span>
-              <span className={styles.metaValue}>{String(value)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-
-      {chips.length > 0 && (
-        <div
-          className={styles.chipsScroll}
-          onWheel={(e) => {
-            if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
-          }}
-        >
-          {chips.map((chip) => (
-            <CardChipBadge key={chip.id} chip={chip} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -356,7 +238,8 @@ export const AssetCard = memo(function AssetCard({
 }: AssetCardProps) {
   const patchAsset = useAssetStore((s) => s.patchAsset);
   const { ref: cardRef, snapshotUrl, isGenerating } = useLazyModelSnapshot(asset);
-  const chips = useAssetChips(asset);
+  const pdfThumbUrl = usePdfPageThumbnail(asset);
+  const effectiveSnapshotUrl = snapshotUrl ?? pdfThumbUrl;
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -398,11 +281,11 @@ export const AssetCard = memo(function AssetCard({
     >
       <CardThumbArea
         asset={asset}
-        snapshotUrl={snapshotUrl}
+        snapshotUrl={effectiveSnapshotUrl}
         isGenerating={isGenerating}
         onToggleFavorite={handleToggleFavorite}
       />
-      <CardBody asset={asset} chips={chips} />
+      <CardBody asset={asset} />
     </div>
   );
 });

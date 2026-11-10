@@ -3,15 +3,13 @@ mod cad;
 mod cineware;
 mod document;
 mod embedded;
-pub mod ldt;
 mod material;
 mod ole;
-mod placeholder;
 mod psd;
 mod raster;
 mod video;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use image::DynamicImage;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -45,6 +43,31 @@ const GPU_TEXTURE_EXTENSIONS: [&str; 2] = ["ktx", "ktx2"];
 const CATEGORY_D_EXTENSIONS: [&str; 6] = ["sbs", "mdl", "mat", "abc", "x3d", "usd"];
 
 pub use raster::{generate_image_thumb, is_native_image};
+
+/// Build a subprocess command that never opens a console window on Windows.
+pub(crate) fn spawn_command(program: &str) -> tokio::process::Command {
+    #[cfg(windows)]
+    {
+        // tokio's Command exposes `creation_flags` natively on Windows.
+        let mut cmd = tokio::process::Command::new(program);
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        cmd
+    }
+    #[cfg(not(windows))]
+    {
+        tokio::process::Command::new(program)
+    }
+}
+
+/// Round a metadata float to the two decimals the frontend displays.
+pub(crate) fn round_two(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+/// Width/height ratio, absent when the height is zero.
+pub(crate) fn aspect_ratio(width: f64, height: f64) -> Option<f64> {
+    (height > 0.0).then(|| round_two(width / height))
+}
 
 /// Resize and write a decoded image to `output` as JPEG (when the output path
 /// ends in .jpg/.jpeg) or PNG otherwise.
@@ -155,10 +178,6 @@ async fn generate_thumbnail(ext: &str, full_source: &Path, file_stem: &str, thum
         let thumb_file_name = format!("{}_thumb.png", file_stem);
         ole::extract_ole_thumb(full_source, &thumb_dir.join(&thumb_file_name))?;
         Ok(format!(".polystash/thumbs/{}", thumb_file_name))
-    } else if ext == "pdf" {
-        let thumb_file_name = format!("{}_thumb.png", file_stem);
-        document::extract_pdf_thumb(full_source, &thumb_dir.join(&thumb_file_name)).await?;
-        Ok(format!(".polystash/thumbs/{}", thumb_file_name))
     } else {
         generate_embedded_thumbnail(ext, full_source, file_stem, thumb_dir)
     }
@@ -181,8 +200,9 @@ fn generate_embedded_thumbnail(ext: &str, source: &Path, file_stem: &str, thumb_
         "psd" | "psb" => psd::extract_psd_thumb(source, &thumb_dest)?,
         "exr" | "hdr" | "hdri" => raster::extract_hdr_thumb(source, &thumb_dest)?,
         "vrmat" => material::extract_vrmat_thumb(source, &thumb_dest)?,
-        // Deferred formats (ai) and anything unknown: neutral tile.
-        _ => placeholder::generate_placeholder(&thumb_dest)?,
+        // No extractor for this format: let the caller complete without a
+        // thumbnail so the frontend shows its kind icon or live preview.
+        _ => return Err(anyhow!("No embedded thumbnail extractor for .{}", ext)),
     }
 
     Ok(rel_thumb)
@@ -311,21 +331,6 @@ impl LibraryJobs<'_> {
             .await;
     }
 
-    /// Mark a job and its asset errored and notify the frontend.
-    async fn fail(&self, job: &JobRef<'_>) {
-        let _ = sqlx::query("UPDATE preview_jobs SET status = 'error' WHERE id = ?")
-            .bind(job.id)
-            .execute(self.pool)
-            .await;
-        let _ = sqlx::query("UPDATE assets SET preview_status = 'error' WHERE id = ?")
-            .bind(job.asset_id)
-            .execute(self.pool)
-            .await;
-        let _ = self.state.app_handle.emit("preview:error", json!({
-            "assetId": job.asset_id,
-            "jobId": job.id,
-        }));
-    }
 }
 
 /// Reset orphaned jobs left in 'processing' by a previous crash.
@@ -345,22 +350,6 @@ async fn fetch_queued_jobs(pool: &sqlx::Pool<sqlx::Sqlite>) -> Vec<(String, Stri
     .fetch_all(pool)
     .await
     .unwrap_or_default()
-}
-
-/// Complete a job with a neutral placeholder when extraction is impossible, so
-/// an unsupported or corrupt file never leaves the asset stuck generating.
-async fn complete_with_placeholder(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, file_stem: &str) {
-    let thumb_file_name = format!("{}_thumb.png", file_stem);
-    match placeholder::generate_placeholder(&jobs.thumb_dir.join(&thumb_file_name)) {
-        Ok(()) => {
-            let rel = format!(".polystash/thumbs/{}", thumb_file_name);
-            jobs.complete(job, &[rel]).await;
-        }
-        Err(e) => {
-            tracing::error!("Job {} failed: {}", job.id, e);
-            jobs.fail(job).await;
-        }
-    }
 }
 
 /// Complete a Collada job. A format with an embedded picture gets it as the
@@ -402,6 +391,13 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         let mut gallery = vec![rel_thumb];
         gallery.extend(existing_thumb_set(jobs.thumb_dir, file_stem).into_iter().skip(1));
         jobs.complete(job, &gallery).await;
+        return;
+    }
+
+    // PDFs render page 1 in the frontend with PDF.js, so no backend rasterizer
+    // (and no external `pdftoppm`/`mutool`) is needed.
+    if ext == "pdf" {
+        jobs.complete(job, &[]).await;
         return;
     }
 
@@ -451,13 +447,10 @@ async fn complete_with_extraction(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, sour
         }
         Err(e) => {
             // An extractor that cannot handle a file is a normal outcome, not a
-            // failure: complete with a neutral tile so the asset never stalls.
-            tracing::warn!(
-                "Extraction failed for {}: {}. Falling back to placeholder.",
-                source.display(),
-                e
-            );
-            complete_with_placeholder(jobs, job, file_stem).await;
+            // failure: complete without a thumbnail so the asset never stalls
+            // and the frontend can show its kind icon or live preview.
+            tracing::warn!("No thumbnail extracted for {}: {}", source.display(), e);
+            jobs.complete(job, &[]).await;
         }
     }
 }

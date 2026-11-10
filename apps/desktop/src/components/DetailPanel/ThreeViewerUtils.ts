@@ -12,8 +12,10 @@ export const DEFAULT_CLAY_ROUGHNESS = 0.52;
 export const DEFAULT_CLAY_METALNESS = 0.08;
 
 export const NON_MATERIAL_EXTENSIONS = new Set([
-  'obj', 'stl', 'dxf', 'dae', 'ply', '3ds', 'wrl', 'usdz', 'fbx',
+  'obj', 'stl', 'dxf', 'dae', 'ply', '3ds', 'wrl', 'fbx',
 ]);
+
+export const Z_UP_EXTENSIONS = new Set(['3ds']);
 
 /**
  * Centering helper:
@@ -37,13 +39,12 @@ export function centerObject(obj: THREE.Object3D): THREE.Box3 {
 }
 
 /**
- * Heuristic detection for Z-up coordinate system (e.g., 3ds Max, Blender):
- * If bounding box Z extent > Y extent * 1.5, model is likely Z-up.
+ * Explicit per-format up-axis rule: only 3ds is Z-up (rotate -PI/2 about X);
+ * gltf, glb, fbx, obj, dae, ply, usdz, wrl are Y-up (no rotation).
  */
-export function isLikelyZUp(box: THREE.Box3): boolean {
-  if (box.isEmpty()) return false;
-  const size = box.getSize(new THREE.Vector3());
-  return size.z > size.y * 1.5;
+export function isZUpFormat(extension?: string): boolean {
+  if (!extension) return false;
+  return Z_UP_EXTENSIONS.has(extension.toLowerCase().replace(/^\./, ''));
 }
 
 /**
@@ -53,11 +54,10 @@ export function isLikelyZUp(box: THREE.Box3): boolean {
 export function frameCameraAuto(
   camera: THREE.PerspectiveCamera,
   object: THREE.Object3D,
-  flipYZ?: boolean
+  flipYZ?: boolean | string
 ): THREE.Box3 {
-  if (flipYZ) {
-    object.rotation.x = -Math.PI / 2;
-  }
+  const shouldRotate = typeof flipYZ === 'string' ? isZUpFormat(flipYZ) : Boolean(flipYZ);
+  object.rotation.x = shouldRotate ? -Math.PI / 2 : 0;
   const box = centerObject(object);
   const size = box.getSize(new THREE.Vector3());
 

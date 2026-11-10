@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
@@ -12,20 +11,21 @@ import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
 import { useState, useEffect, useRef } from 'react';
 import type { Asset } from '../types';
-import { loadGltfResolvingUris } from '../components/DetailPanel/ThreeModelLoaders';
 import {
-  centerObject,
+  createGltfLoader,
+  createSbsarShaderBallObject,
+  extractSbsarTextures,
+  loadGltfResolvingUris,
+  type SbsarTextures,
+} from '../components/DetailPanel/ThreeModelLoaders';
+import {
   createDefaultClayMaterial,
   ensureGeometryNormals,
   frameCameraAuto,
-  isLikelyZUp,
+  isZUpFormat,
   sanitizeModelMaterialsAndNormals,
 } from '../components/DetailPanel/ThreeViewerUtils';
-import {
-  createLightConeMaterial,
-  createPhotometricSurfaceMaterial,
-  resolveIesSourceUrl,
-} from '../components/DetailPanel/IESLightViewer';
+import { resolveIesSourceUrl } from '../components/DetailPanel/IESLightViewer';
 
 const snapshotUrlCache = new Map<string, string>();
 const failedSnapshotAssets = new Set<string>();
@@ -33,7 +33,7 @@ const failedSnapshotAssets = new Set<string>();
 export const SNAPSHOT_ELIGIBLE_EXTENSIONS = new Set([
   'sbsar', '3ds', 'obj', 'fbx', 'stl', 'ply', 'dae',
   'usdz', 'gltf', 'glb', 'wrl', 'ies', 'ldt',
-  'c4d', 'max', 'rvt', 'rfa', 'skp', '3dm',
+  'max', 'rvt', 'rfa', 'skp', '3dm',
 ]);
 
 const NATIVE_LOADER_EXTENSIONS = new Set([
@@ -44,49 +44,43 @@ const NATIVE_LOADER_EXTENSIONS = new Set([
 export interface SnapshotOptions {
   flipYZ?: boolean;
   resolution?: number;
+  sbsarTextures?: SbsarTextures;
 }
 
 interface SnapshotJobSpec {
   assetId: string;
   targetPath: string;
   extension: string;
-}
-
-function createPbrShaderBall(): THREE.Object3D {
-  const geometry = new THREE.SphereGeometry(1, 64, 32);
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x8899aa,
-    roughness: 0.35,
-    metalness: 0.15,
-  });
-  return new THREE.Mesh(geometry, material);
+  sbsarTextures?: SbsarTextures;
 }
 
 async function createIesSnapshotGroup(job: { rawPath: string; ext: string }): Promise<THREE.Object3D> {
   const resolvedUrl = await resolveIesSourceUrl(job.rawPath, job.ext);
   const texture = await new IESLoader().loadAsync(resolvedUrl);
   const group = new THREE.Group();
+  const material = new THREE.MeshPhongMaterial({ color: 0x999999 });
 
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(14, 14),
-    createPhotometricSurfaceMaterial(texture, 0x525866)
-  );
-  ground.rotation.x = -Math.PI / 2;
+  const spotLight = new THREE.SpotLight(0xffffff, 500);
+  spotLight.position.set(6.5, 3, 6.5);
+  spotLight.angle = Math.PI / 8;
+  spotLight.penumbra = 0.7;
+  spotLight.distance = 20;
+  spotLight.castShadow = true;
+  spotLight.map = texture;
+  spotLight.target.position.set(3.25, 0, 3.25);
+  group.add(spotLight);
+  group.add(spotLight.target);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), material);
+  ground.rotation.x = -Math.PI * 0.5;
+  ground.receiveShadow = true;
   group.add(ground);
 
-  const wall = new THREE.Mesh(
-    new THREE.PlaneGeometry(14, 8),
-    createPhotometricSurfaceMaterial(texture, 0x3e4451)
-  );
-  wall.position.set(0, 3.2, -3.0);
-  group.add(wall);
-
-  const cone = new THREE.Mesh(
-    new THREE.ConeGeometry(2.4, 4.0, 48, 1, true),
-    createLightConeMaterial(texture)
-  );
-  cone.position.set(0, 2.1, -1.8);
-  group.add(cone);
+  const box = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), material);
+  box.position.y = 1;
+  box.castShadow = true;
+  box.receiveShadow = true;
+  group.add(box);
 
   return group;
 }
@@ -97,10 +91,17 @@ async function loadMeshGeometry(loader: STLLoader | PLYLoader, url: string): Pro
   return new THREE.Mesh(geom, createDefaultClayMaterial());
 }
 
-type LoaderFn = (ctx: { url: string; rawPath: string }) => Promise<THREE.Object3D>;
+interface LoaderContext {
+  url: string;
+  rawPath: string;
+  renderer: THREE.WebGLRenderer;
+  sbsarTextures?: SbsarTextures;
+}
+
+type LoaderFn = (ctx: LoaderContext) => Promise<THREE.Object3D>;
 
 const LOADER_DISPATCH: Record<string, LoaderFn> = {
-  sbsar: async () => createPbrShaderBall(),
+  sbsar: ({ sbsarTextures }) => createSbsarShaderBallObject(sbsarTextures),
   ies: ({ rawPath }) => createIesSnapshotGroup({ rawPath, ext: 'ies' }),
   ldt: ({ rawPath }) => createIesSnapshotGroup({ rawPath, ext: 'ldt' }),
   '3ds': ({ url }) => new TDSLoader().loadAsync(url),
@@ -111,8 +112,8 @@ const LOADER_DISPATCH: Record<string, LoaderFn> = {
   dae: async ({ url }) => (await new ColladaLoader().loadAsync(url)).scene,
   usdz: ({ url }) => new USDZLoader().loadAsync(url),
   wrl: ({ url }) => new VRMLLoader().loadAsync(url),
-  gltf: ({ url }) => loadGltfResolvingUris(url),
-  glb: async ({ url }) => (await new GLTFLoader().loadAsync(url)).scene,
+  gltf: ({ url, renderer }) => loadGltfResolvingUris(url, renderer),
+  glb: async ({ url, renderer }) => (await createGltfLoader(renderer).loadAsync(url)).scene,
 };
 
 function disposeSceneHierarchy(scene: THREE.Scene, renderer: THREE.WebGLRenderer): void {
@@ -135,12 +136,17 @@ function createSnapshotRenderer(canvas: HTMLCanvasElement, size: { width: number
     antialias: true,
   });
   renderer.setSize(size.width, size.height);
+  renderer.shadowMap.enabled = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   return renderer;
 }
 
-function setupSnapshotSceneLights(scene: THREE.Scene): void {
+function setupSnapshotSceneLights(scene: THREE.Scene, cleanExt: string): void {
+  if (cleanExt === 'ies' || cleanExt === 'ldt') {
+    scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+    return;
+  }
   scene.add(new THREE.AmbientLight(0xffffff, 0.7));
   const dirLight = new THREE.DirectionalLight(0xfff6ed, 1.65);
   dirLight.position.set(5, 8, 6);
@@ -161,15 +167,15 @@ function prepareSnapshotSceneObject(params: {
 }): void {
   const { modelObj, cleanExt, camera, explicitFlipYZ } = params;
   if (cleanExt === 'ies' || cleanExt === 'ldt') {
-    camera.position.set(0, 2.8, 5.2);
-    camera.lookAt(0, 1.4, -1.5);
+    camera.fov = 35;
+    camera.position.set(16, 4, 1);
+    camera.lookAt(0, 1, 0);
     camera.updateProjectionMatrix();
     return;
   }
 
   sanitizeModelMaterialsAndNormals(modelObj, cleanExt);
-  const initialBox = centerObject(modelObj);
-  const shouldFlip = explicitFlipYZ ?? isLikelyZUp(initialBox);
+  const shouldFlip = explicitFlipYZ ?? isZUpFormat(cleanExt);
   frameCameraAuto(camera, modelObj, shouldFlip);
 }
 
@@ -193,12 +199,17 @@ export async function captureModelSnapshot(
     canvas.height = resolution;
 
     renderer = createSnapshotRenderer(canvas, { width: resolution, height: resolution });
-    setupSnapshotSceneLights(scene);
+    setupSnapshotSceneLights(scene, cleanExt);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     const fileUrl = /^(http|asset:|blob:)/.test(url) ? url : convertFileSrc(url);
     const loader = LOADER_DISPATCH[cleanExt] ?? LOADER_DISPATCH.gltf;
-    const modelObj = await loader({ url: fileUrl, rawPath: url });
+    const modelObj = await loader({
+      url: fileUrl,
+      rawPath: url,
+      renderer,
+      sbsarTextures: options?.sbsarTextures,
+    });
 
     scene.add(modelObj);
     prepareSnapshotSceneObject({
@@ -233,22 +244,32 @@ function hasConvertedGlbModel(asset: Asset): boolean {
 }
 
 export function isEligibleForSnapshot(asset: Asset | null | undefined): boolean {
-  if (!asset || hasRasterThumbnail(asset)) return false;
+  if (!asset) return false;
   const ext = asset.extension.toLowerCase();
+  if (ext === 'sbsar' && extractSbsarTextures(asset.metadata)) {
+    return true;
+  }
+  if (hasRasterThumbnail(asset)) return false;
   if (!SNAPSHOT_ELIGIBLE_EXTENSIONS.has(ext)) return false;
   return NATIVE_LOADER_EXTENSIONS.has(ext) || hasConvertedGlbModel(asset);
 }
 
 function buildSnapshotJobSpec(asset: Asset): SnapshotJobSpec {
+  const sbsarTextures = extractSbsarTextures(asset.metadata);
   const previewModel = asset.metadata?.preview_model as string | undefined;
   if (previewModel) {
     const pExt = previewModel.split('.').pop()?.toLowerCase() || 'glb';
-    return { assetId: asset.id, targetPath: previewModel, extension: pExt };
+    return { assetId: asset.id, targetPath: previewModel, extension: pExt, sbsarTextures };
   }
   if (asset.thumbnailPath?.endsWith('.glb')) {
-    return { assetId: asset.id, targetPath: asset.thumbnailPath, extension: 'glb' };
+    return { assetId: asset.id, targetPath: asset.thumbnailPath, extension: 'glb', sbsarTextures };
   }
-  return { assetId: asset.id, targetPath: asset.filePath, extension: asset.extension.toLowerCase() };
+  return {
+    assetId: asset.id,
+    targetPath: asset.filePath,
+    extension: asset.extension.toLowerCase(),
+    sbsarTextures,
+  };
 }
 
 function canRunSnapshotJob(asset: Asset | null | undefined): asset is Asset {
@@ -300,7 +321,9 @@ function executeSnapshotJob(
       return;
     }
     release = rel;
-    captureModelSnapshot(job.targetPath, job.extension).then((blob) => {
+    captureModelSnapshot(job.targetPath, job.extension, {
+      sbsarTextures: job.sbsarTextures,
+    }).then((blob) => {
       releaseOnce();
       if (!isMounted) return;
       if (blob) {
@@ -340,7 +363,7 @@ function useViewportEntry(
           observer.disconnect();
         }
       },
-      { rootMargin: '100px' }
+      { rootMargin: '0px', threshold: 0 }
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -361,7 +384,7 @@ function getCachedSnapshot(assetId: string | undefined): string | null {
 }
 
 /**
- * Viewport-based lazy 3JS thumbnail hook using IntersectionObserver (rootMargin: "100px").
+ * Viewport-based lazy 3JS thumbnail hook using IntersectionObserver (rootMargin: "0px").
  * Generates snapshot ONLY when card enters viewport.
  */
 export function useLazyModelSnapshot(asset: Asset | null | undefined): LazySnapshotState {

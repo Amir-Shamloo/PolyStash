@@ -93,9 +93,17 @@ function getNativeImageUrl(asset: Asset): string | null {
   return convertFileSrc(asset.filePath);
 }
 
+function hasSbsarTextureSnapshot(asset: Asset, snapshotUrl?: string | null): boolean {
+  if (!snapshotUrl) return false;
+  return asset.extension.toLowerCase() === 'sbsar' && Boolean(asset.metadata?.sbsar_textures);
+}
+
 function getSingleThumb(asset: Asset, snapshotUrl?: string | null): string | null {
   if (asset.extension.toLowerCase() === 'gif' && asset.filePath) {
     return convertFileSrc(asset.filePath);
+  }
+  if (hasSbsarTextureSnapshot(asset, snapshotUrl)) {
+    return snapshotUrl || null;
   }
   const rasterThumb = getValidRasterThumbPath(asset);
   if (rasterThumb) return convertFileSrc(rasterThumb);

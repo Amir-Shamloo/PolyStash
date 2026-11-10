@@ -1,11 +1,15 @@
 use anyhow::{anyhow, Result};
 use image::DynamicImage;
+use sevenz_rust2::{Password, SevenZReader};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use super::ole::{dib_to_bmp, find_dib};
+use super::ole::{dib_offsets, dib_to_bmp};
 use super::{find_png, save_thumb};
+
+/// Upper bound on embedded-DIB candidates decoded before giving up.
+const MAX_DIB_CANDIDATES: usize = 8;
 
 /// Read at most `limit` bytes from the start of a file.
 pub(crate) fn read_prefix(path: &Path, limit: u64) -> Result<Vec<u8>> {
@@ -52,8 +56,13 @@ fn decode_at(bytes: &[u8], finder: fn(&[u8]) -> Option<usize>) -> Option<Dynamic
 }
 
 fn decode_dib_at(bytes: &[u8]) -> Option<DynamicImage> {
-    let index = find_dib(bytes)?;
-    let bmp = dib_to_bmp(&bytes[index..]).ok()?;
+    dib_offsets(bytes)
+        .take(MAX_DIB_CANDIDATES)
+        .find_map(|index| decode_dib(&bytes[index..]))
+}
+
+fn decode_dib(dib: &[u8]) -> Option<DynamicImage> {
+    let bmp = dib_to_bmp(dib).ok()?;
     image::load_from_memory(&bmp).ok()
 }
 
@@ -137,38 +146,75 @@ fn is_thumbnail_name(name: &str) -> bool {
     lower.contains("thumb") && (lower.ends_with(".png") || lower.ends_with(".jpg") || lower.ends_with(".jpeg"))
 }
 
-/// Substance archives are ZIP containers holding a rendered `preview.png`.
+/// Entry-name rank for the Substance preview: exact `preview.png` first.
+const SBSAR_PREFERRED: u8 = 0;
+
+/// Substance archives are 7z containers holding a rendered preview image.
 /// Falling back is fine: the frontend renders a PBR shader ball when no
 /// backend thumbnail exists.
 pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
     let img = sbsar_preview(source)
-        .ok_or_else(|| anyhow!("No preview.png inside Substance archive"))?;
+        .ok_or_else(|| anyhow!("No preview image inside Substance archive"))?;
     save_thumb(&img, output)
 }
 
 fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
-    let file = File::open(source).ok()?;
-    let mut archive = zip::ZipArchive::new(file).ok()?;
-    let names: Vec<String> = archive
-        .file_names()
-        .filter_map(|n| n.ok().map(|s| s.into_owned()))
-        .collect();
-    let name = sbsar_preview_entry(&names)?;
+    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
+    let mut best: Option<(u8, Vec<u8>)> = None;
+    let mut found_preferred = false;
 
-    let mut entry = archive.by_name(&name).ok()?;
-    let mut bytes = Vec::new();
-    entry.read_to_end(&mut bytes).ok()?;
+    // Sevenz entries must be read in order, so every entry is drained and only
+    // the best-ranked image is retained.
+    let _ = archive.for_each_entries(|entry, input| {
+        let priority = sbsar_entry_priority(entry.name());
+        found_preferred |= priority == Some(SBSAR_PREFERRED);
+
+        let bytes = read_entry(input, priority.is_some())?;
+        if let Some(priority) = priority {
+            if best.as_ref().is_none_or(|(seen, _)| priority < *seen) {
+                best = Some((priority, bytes));
+            }
+        }
+        Ok(!found_preferred)
+    });
+
+    let (_, bytes) = best?;
     image::load_from_memory(&bytes).ok()
 }
 
-fn sbsar_preview_entry(names: &[String]) -> Option<String> {
-    names
-        .iter()
-        .find(|name| name.eq_ignore_ascii_case("preview.png"))
-        .or_else(|| {
-            names
-                .iter()
-                .find(|name| name.to_ascii_lowercase().ends_with(".png"))
-        })
-        .cloned()
+/// Read a candidate entry into memory; drain every other entry so a solid
+/// archive stays sequential without keeping unrelated data around.
+fn read_entry(
+    input: &mut dyn Read,
+    keep: bool,
+) -> std::result::Result<Vec<u8>, sevenz_rust2::Error> {
+    let mut bytes = Vec::new();
+    if keep {
+        input.read_to_end(&mut bytes)?;
+    } else {
+        std::io::copy(input, &mut std::io::sink())?;
+    }
+    Ok(bytes)
+}
+
+fn sbsar_entry_priority(name: &str) -> Option<u8> {
+    let lower = name.to_ascii_lowercase();
+    if !is_image_name(&lower) {
+        return None;
+    }
+
+    let file_name = lower.rsplit(['/', '\\']).next().unwrap_or_default();
+    if file_name == "preview.png" {
+        Some(SBSAR_PREFERRED)
+    } else if lower.contains("preview") || lower.contains("thumb") {
+        Some(1)
+    } else {
+        Some(2)
+    }
+}
+
+fn is_image_name(name: &str) -> bool {
+    [".png", ".jpg", ".jpeg"]
+        .into_iter()
+        .any(|extension| name.ends_with(extension))
 }

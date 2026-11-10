@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type { Asset, AssetKind } from '../../types';
 import { resolvePreview } from '../../lib/previewRouting';
+import { usePdfPageThumbnail } from '../../lib/pdfThumbnail';
 import { useAssetStore } from '../../store';
 import type { ModelStats } from './ThreeViewerUtils';
 import { ThreeViewer, DdsViewer } from './ThreeViewer';
@@ -95,6 +96,10 @@ function PreviewBody({
   onModelStats?: (stats: ModelStats) => void;
 }) {
   const preview = resolvePreview(asset, snapshotUrl);
+  const thumbnailFallback = useMemo(
+    () => <PlaceholderView kind={asset.kind} ext={asset.extension.toLowerCase()} />,
+    [asset.kind, asset.extension]
+  );
 
   switch (preview.type) {
     case 'video':
@@ -104,6 +109,7 @@ function PreviewBody({
         <ThreeViewer
           modelPath={preview.path}
           extension={preview.extension}
+          sbsarTextures={preview.sbsarTextures}
           onToggleFullscreen={onFullscreen}
           onStats={onModelStats}
         />
@@ -122,6 +128,7 @@ function PreviewBody({
             snapshotUrl={snapshotUrl}
             imgClassName={imgClassName}
             alt={asset.fileName}
+            fallback={thumbnailFallback}
           />
           <button
             type="button"
@@ -146,6 +153,8 @@ export function DetailPreviewArea({
 }: DetailPreviewAreaProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const patchAsset = useAssetStore((s) => s.patchAsset);
+  const pdfThumbUrl = usePdfPageThumbnail(asset);
+  const effectiveSnapshotUrl = snapshotUrl ?? pdfThumbUrl;
   const assetRef = useRef(asset);
   assetRef.current = asset;
   const handleOpenFullscreen = useCallback(() => setIsFullscreen(true), []);
@@ -172,7 +181,7 @@ export function DetailPreviewArea({
     <div className={styles.container}>
       <PreviewBody
         asset={asset}
-        snapshotUrl={snapshotUrl}
+        snapshotUrl={effectiveSnapshotUrl}
         imgClassName={imgClassName}
         onFullscreen={handleOpenFullscreen}
         onModelStats={handleModelStats}
@@ -181,7 +190,7 @@ export function DetailPreviewArea({
         <FullscreenPreviewModal
           asset={asset}
           onClose={handleCloseFullscreen}
-          snapshotUrl={snapshotUrl}
+          snapshotUrl={effectiveSnapshotUrl}
         />
       )}
     </div>
