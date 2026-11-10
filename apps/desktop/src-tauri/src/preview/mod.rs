@@ -408,6 +408,13 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         return;
     }
 
+    // Substance archives render PBR maps through the optional SDK tool; the
+    // embedded archive preview stays the fast path when one is present.
+    if ext == "sbsar" {
+        complete_sbsar_job(jobs, job, &full_source).await;
+        return;
+    }
+
     // Mesh formats render live in the frontend; no backend thumbnail.
     if MESH_EXTENSIONS.contains(&ext.as_str()) {
         jobs.complete(job, &[]).await;
@@ -433,6 +440,40 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
     }
 
     complete_with_extraction(jobs, job, &full_source, &ext).await;
+}
+
+/// Substance job: the embedded archive preview first, otherwise PBR maps
+/// rendered with the optional Substance SDK tool.
+async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
+    let file_stem = thumb_stem(source);
+    let thumb_name = format!("{file_stem}_thumb.png");
+    let thumb_dest = jobs.thumb_dir.join(&thumb_name);
+
+    if archive::extract_sbsar_thumb(source, &thumb_dest).is_err() {
+        if let Some(maps) = archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
+            if maps.iter().any(|(key, _)| key == "baseColor") {
+                let _ = std::fs::copy(
+                    jobs.thumb_dir.join(format!("{file_stem}_sbsar_baseColor.png")),
+                    &thumb_dest,
+                );
+            }
+
+            let textures: serde_json::Map<String, Value> = maps
+                .iter()
+                .map(|(key, rel)| (key.clone(), Value::String(resolve_path(jobs.root_path, rel))))
+                .collect();
+            let mut patch = serde_json::Map::new();
+            patch.insert("sbsar_textures".to_string(), Value::Object(textures));
+            jobs.merge_metadata(job.asset_id, patch).await;
+        }
+    }
+
+    let rel = thumb_dest
+        .exists()
+        .then(|| format!(".polystash/thumbs/{thumb_name}"))
+        .into_iter()
+        .collect::<Vec<_>>();
+    jobs.complete(job, &rel).await;
 }
 
 /// Run the format-specific extractor (plus any gallery) and record the result.
