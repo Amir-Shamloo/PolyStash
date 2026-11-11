@@ -4,6 +4,7 @@ use sevenz_rust2::{Password, SevenZReader};
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use super::ole::{dib_offsets, dib_to_bmp};
 use super::{find_png, save_thumb};
@@ -219,13 +220,34 @@ fn is_image_name(name: &str) -> bool {
         .any(|extension| name.ends_with(extension))
 }
 
-/// Locate the optional Substance renderer shipped next to the application.
-fn sbsar_renderer() -> Option<PathBuf> {
-    let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    ["sbsar_preview.exe", "sbsar_preview", "bin/sbsar_preview.exe", "bin/sbsar_preview"]
-        .into_iter()
-        .map(|name| dir.join(name))
-        .find(|path| path.is_file())
+/// The Adobe Substance SDK's prebuilt renderer (tutorial_00_basic) renders every
+/// graph output to DDS in its working directory. It is embedded so the release
+/// always ships a working SBSAR renderer without an SDK install.
+const SBSAR_RENDERER_EXE: &[u8] = include_bytes!("../../bin/sbsar/sbsar_preview.exe");
+const SBSAR_LINKER_DLL: &[u8] = include_bytes!("../../bin/sbsar/substance_linker.dll");
+const SBSAR_SSE2_DLL: &[u8] = include_bytes!("../../bin/sbsar/substance_sse2_blend.dll");
+
+static SBSAR_RENDERER: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+/// Extract the embedded renderer once and return the executable path.
+fn sbsar_renderer_exe() -> Option<PathBuf> {
+    SBSAR_RENDERER
+        .get_or_init(|| {
+            let dir = std::env::temp_dir().join("polystash_sbsar");
+            let exe = dir.join("sbsar_preview.exe");
+            let ready = exe.is_file()
+                && dir.join("substance_linker.dll").is_file()
+                && dir.join("substance_sse2_blend.dll").is_file();
+            if ready {
+                return Some(exe);
+            }
+            std::fs::create_dir_all(&dir).ok()?;
+            std::fs::write(&exe, SBSAR_RENDERER_EXE).ok()?;
+            std::fs::write(dir.join("substance_linker.dll"), SBSAR_LINKER_DLL).ok()?;
+            std::fs::write(dir.join("substance_sse2_blend.dll"), SBSAR_SSE2_DLL).ok()?;
+            Some(exe)
+        })
+        .clone()
 }
 
 /// Map a Substance output identifier onto the frontend's PBR slot names.
@@ -252,13 +274,14 @@ pub(crate) async fn render_sbsar_maps(
     file_stem: &str,
     thumb_dir: &Path,
 ) -> Option<Vec<(String, String)>> {
-    let renderer = sbsar_renderer()?.to_str()?.to_string();
+    let renderer = sbsar_renderer_exe()?.to_str()?.to_string();
     let out_dir = thumb_dir.join(format!("{file_stem}_sbsar"));
     tokio::fs::create_dir_all(&out_dir).await.ok()?;
 
+    // The renderer writes `output_<graph>_<output>[<uid>].dds` into its working directory.
     let status = super::spawn_command(&renderer)
         .arg(source)
-        .arg(&out_dir)
+        .current_dir(&out_dir)
         .status()
         .await
         .ok()?;
@@ -270,14 +293,14 @@ pub(crate) async fn render_sbsar_maps(
     let mut entries = tokio::fs::read_dir(&out_dir).await.ok()?;
     while let Some(entry) = entries.next_entry().await.ok()? {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("tga") {
+        if path.extension().and_then(|e| e.to_str()) != Some("dds") {
             continue;
         }
-        let identifier = path.file_stem()?.to_str()?.to_ascii_lowercase();
-        let key = sbsar_map_key(&identifier)?.to_string();
+        let name = path.file_name()?.to_str()?.to_ascii_lowercase();
+        let key = sbsar_map_key(&name)?.to_string();
         let png_name = format!("{file_stem}_sbsar_{key}.png");
         let bytes = tokio::fs::read(&path).await.ok()?;
-        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Tga).ok()?;
+        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Dds).ok()?;
         image.save(thumb_dir.join(&png_name)).ok()?;
         maps.push((key, format!(".polystash/thumbs/{png_name}")));
     }
