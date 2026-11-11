@@ -17,7 +17,7 @@
     "@headless-tree/react": "^1.8.0",
     "@ies-tools/core": "^3.1.0",
     "@openusd-wasm/pxr": "^0.0.17",
-    "@openusd-wasm/three-loader": "^0.0.17",
+    "@openusd-wasm/utils": "^0.0.17",
     "@react-three/drei": "^9.113.0",
     "@react-three/fiber": "^8.17.6",
     "@tauri-apps/api": "^2.5.0",

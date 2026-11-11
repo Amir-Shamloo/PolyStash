@@ -9,6 +9,7 @@ import { ThumbnailCarousel } from '../AssetGrid/ThumbnailCarousel';
 import { FullscreenPreviewModal } from '../DetailPanel/FullscreenPreviewModal';
 import { useModelSnapshot } from '../../lib/previewSnapshot';
 import { resolvePreview } from '../../lib/previewRouting';
+import { UsdConvertView } from '../DetailPanel/UsdConvertView';
 import { IconStar, IconModel3D, IconImage, IconVideo, IconFileText } from '../Icons';
 import styles from './QuickLookModal.module.css';
 
@@ -309,6 +310,13 @@ function QuickLookPreviewContent({ asset, snapshotUrl, onFullscreen }: ContentPr
             alt={asset.fileName}
           />
         </div>
+      );
+    case 'usd-convert':
+      return (
+        <UsdConvertView
+          asset={preview.asset}
+          fallback={<PlaceholderIcon kind={asset.kind} ext={asset.extension.toLowerCase()} />}
+        />
       );
     case 'placeholder':
       return <PlaceholderIcon kind={preview.kind} ext={preview.extension} message={preview.message} />;

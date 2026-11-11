@@ -38,10 +38,6 @@ function IconMinimize({ size = 13 }: { size?: number }) {
   );
 }
 
-function isCrateOrUsdcError(msg: string): boolean {
-  return msg.includes('Crate') || msg.includes('.usdc');
-}
-
 function isArchiveError(msg: string): boolean {
   return msg.includes('zip') || msg.includes('fflate');
 }
@@ -49,9 +45,6 @@ function isArchiveError(msg: string): boolean {
 function resolveFallbackHint(extension?: string, errorMessage?: string): string {
   const ext = extension?.toUpperCase() || '3D';
   if (!errorMessage) return `Unable to render ${ext} preview`;
-  if (isCrateOrUsdcError(errorMessage)) {
-    return 'Binary USD (USDC crate) is not supported. Use .USDZ archive.';
-  }
   if (isArchiveError(errorMessage)) {
     return `Invalid archive format for ${ext}. Ensure file is a valid package.`;
   }
@@ -101,7 +94,7 @@ export function getExtension(path: string): string {
 
 export const MESH_EXTENSIONS = new Set([
   'gltf', 'glb', 'fbx', 'obj', 'stl', 'dae',
-  '3ds', 'ply', 'usdz', 'wrl',
+  '3ds', 'ply', 'wrl',
 ]);
 
 export function getModelPath(asset: {

@@ -5,7 +5,6 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
-import { USDLoader } from '@openusd-wasm/three-loader';
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
@@ -37,13 +36,13 @@ const failedSnapshotAssets = new Set<string>();
 
 export const SNAPSHOT_ELIGIBLE_EXTENSIONS = new Set([
   'sbsar', '3ds', 'obj', 'fbx', 'stl', 'ply', 'dae',
-  'usdz', 'gltf', 'glb', 'wrl', 'ies', 'ldt',
-  'max', 'rvt', 'rfa', 'skp', '3dm',
+  'usd', 'usda', 'usdc', 'usdz', 'gltf', 'glb', 'wrl', 'ies', 'ldt',
+  'max', 'rvt', 'rfa', 'skp', '3dm', 'c4d',
 ]);
 
 const NATIVE_LOADER_EXTENSIONS = new Set([
   'sbsar', '3ds', 'obj', 'fbx', 'stl', 'ply', 'dae',
-  'usdz', 'gltf', 'glb', 'wrl', 'ies', 'ldt',
+  'gltf', 'glb', 'wrl', 'ies', 'ldt',
 ]);
 
 export interface SnapshotOptions {
@@ -140,7 +139,6 @@ const LOADER_DISPATCH: Record<string, LoaderFn> = {
   stl: ({ url }) => loadMeshGeometry(new STLLoader(), url),
   ply: ({ url }) => loadMeshGeometry(new PLYLoader(), url),
   dae: async ({ url }) => (await new ColladaLoader().loadAsync(url)).scene,
-  usdz: async ({ url }) => (await new USDLoader().loadAsync(url)).scene,
   wrl: ({ url }) => new VRMLLoader().loadAsync(url),
   gltf: ({ url, renderer }) => loadGltfResolvingUris(url, renderer),
   glb: async ({ url, renderer }) => (await createGltfLoader(renderer).loadAsync(url)).scene,
