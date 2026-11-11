@@ -222,6 +222,8 @@ void emit_polygon(PolygonObject* object, const Matrix& transform)
 // World matrices are accumulated from GetMl() instead of calling GetMg():
 // cache objects are virtual and not attached to a document, which makes GetMg()
 // invalid for them.
+void walk_object(BaseObject* object, const Matrix& parent_world);
+
 void emit_cache_polygons(BaseObject* cache, const Matrix& world)
 {
 	for (BaseObject* node = cache; node; node = node->GetNext())

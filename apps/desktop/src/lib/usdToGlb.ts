@@ -318,7 +318,7 @@ function openStage(pxr: Pxr, filePath: string, extension: string) {
 interface SceneState {
   pxr: Pxr;
   ctx: ConversionContext;
-  time: unknown;
+  time: UsdTimeCode;
   materialInfos: Map<string, MaterialInfo>;
   objects: Map<string, THREE.Object3D>;
   root: THREE.Group;
