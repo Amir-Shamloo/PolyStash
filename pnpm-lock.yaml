@@ -35,9 +35,9 @@ importers:
       '@openusd-wasm/pxr':
         specifier: ^0.0.17
         version: 0.0.17
-      '@openusd-wasm/three-loader':
+      '@openusd-wasm/utils':
         specifier: ^0.0.17
-        version: 0.0.17(three@0.167.1)
+        version: 0.0.17
       '@react-three/drei':
         specifier: ^9.113.0
         version: 9.122.0(@react-three/fiber@8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.167.1))(@types/react@18.3.31)(@types/three@0.167.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.167.1)(use-sync-external-store@1.6.0(react@18.3.1))
@@ -549,11 +549,6 @@ packages:
 
   '@openusd-wasm/pxr@0.0.17':
     resolution: {integrity: sha512-fjToitexL/s/4Y9EO07wjFBs62FRUdKpTOxCo3pmJWOQIOJo3aszQquNOAY/tpJMnI7oXbaAHIHmU04DI0Pmxg==}
-
-  '@openusd-wasm/three-loader@0.0.17':
-    resolution: {integrity: sha512-8CPQ8e3sEmYxf1TVtrlNU7Xs5/aKMIWrTOUUG56qZsVMLdi98AP8w3OLf1TX57lZfaLT8kikn0WLfP+RkJL5dw==}
-    peerDependencies:
-      three: '>=0.160 <1'
 
   '@openusd-wasm/utils@0.0.17':
     resolution: {integrity: sha512-rGPVyt9SvGpgjoD25QM4aoS7/jtj2JM0TSx3uD0BGWlvChyS974F8Kq9bSvhTQDvdzYUV0mEC9sGwrbOkrH+zA==}
@@ -2037,12 +2032,6 @@ snapshots:
   '@openusd-wasm/pxr@0.0.17':
     dependencies:
       '@openusd-wasm/core': 0.0.17
-
-  '@openusd-wasm/three-loader@0.0.17(three@0.167.1)':
-    dependencies:
-      '@openusd-wasm/pxr': 0.0.17
-      '@openusd-wasm/utils': 0.0.17
-      three: 0.167.1
 
   '@openusd-wasm/utils@0.0.17':
     dependencies:
