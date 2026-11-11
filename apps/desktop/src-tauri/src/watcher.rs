@@ -76,7 +76,7 @@ const SUPPORTED_EXTENSIONS: &[&str] = &[
     // 3D & CAD
     "fbx", "obj", "3ds", "dae", "gltf", "glb", "skp", "blend",
     "c4d", "3dm", "rfa", "rvt", "dwg", "dxf", "stl", "usd", "usdz", "max",
-    "abc", "ply", "x3d", "wrl",
+    "abc", "ply", "x3d", "wrl", "ztl", "zpr", "zbr",
     // Materials
     "mat", "vrmat", "sbsar", "sbs", "mdl",
     // Textures
