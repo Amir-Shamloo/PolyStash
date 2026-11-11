@@ -28,6 +28,8 @@ import {
 import {
   resolveIesSourceUrl,
   convertIesTextureToGrayscaleRgba,
+  buildIesGoboTexture,
+  IES_SPOT_ANGLE,
 } from '../components/DetailPanel/IESLightViewer';
 
 const snapshotUrlCache = new Map<string, string>();
@@ -65,14 +67,12 @@ async function createIesSnapshotGroup(job: { rawPath: string; ext: string }): Pr
 
   const spotLight = new THREE.SpotLight(0xffffff, 220);
   spotLight.position.set(0, 4.2, 0);
-  spotLight.angle = Math.PI / 2.05;
-  spotLight.penumbra = 0.85;
+  spotLight.angle = IES_SPOT_ANGLE;
+  spotLight.penumbra = 0.3;
   spotLight.distance = 28;
   spotLight.decay = 2;
   spotLight.castShadow = true;
-  spotLight.map = texture;
-  const iesLight = spotLight as THREE.SpotLight & { iesMap?: THREE.Texture };
-  iesLight.iesMap = texture;
+  spotLight.map = buildIesGoboTexture(texture);
   spotLight.target.position.set(0, 0, 0);
   group.add(spotLight);
   group.add(spotLight.target);
@@ -428,10 +428,8 @@ export function useLazyModelSnapshot(asset: Asset | null | undefined): LazySnaps
 
   useEffect(() => {
     const cached = getCachedSnapshot(assetId);
-    if (cached) {
-      setSnapshotUrl(cached);
-      return;
-    }
+    setSnapshotUrl(cached);
+    if (cached) return;
     if (!isVisible || !canRunSnapshotJob(asset)) return;
 
     setIsGenerating(true);
@@ -455,10 +453,8 @@ export function useModelSnapshot(asset: Asset | null | undefined): string | null
 
   useEffect(() => {
     const cached = getCachedSnapshot(assetId);
-    if (cached) {
-      setSnapshotUrl(cached);
-      return;
-    }
+    setSnapshotUrl(cached);
+    if (cached) return;
     if (!canRunSnapshotJob(asset)) return;
 
     return executeSnapshotJob(buildSnapshotJobSpec(asset), {

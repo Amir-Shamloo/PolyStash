@@ -76,6 +76,50 @@ export function convertIesTextureToGrayscaleRgba(tex: THREE.DataTexture): THREE.
   return rgbaTex;
 }
 
+export const IES_SPOT_ANGLE = Math.PI / 2.4;
+const GOBO_SIZE = 256;
+
+function readIesSample(data: Uint16Array | Float32Array | Uint8Array, index: number): number {
+  const v = data[index * 4];
+  if (data instanceof Uint16Array) return THREE.DataUtils.fromHalfFloat(v);
+  if (data instanceof Uint8Array) return v / 255;
+  return v;
+}
+
+/**
+ * three's WebGL SpotLight has no IES support: `iesMap` is ignored and `map` is a
+ * perspective-projected gobo, so a 180x1 vertical-angle strip used as `map` is sampled
+ * at the wrong uv and blacks the scene out. Bake the strip into a radial 2D gobo that
+ * matches the spot cone's projection (r = tan(theta) / tan(angle)).
+ */
+export function buildIesGoboTexture(tex: THREE.DataTexture, spotAngle = IES_SPOT_ANGLE): THREE.DataTexture {
+  const image = tex.image as { data: Uint16Array | Float32Array | Uint8Array; width: number };
+  const { data, width } = image;
+  let peak = 0;
+  for (let i = 0; i < width; i++) peak = Math.max(peak, readIesSample(data, i));
+  const norm = peak > 0 ? 1 / peak : 1;
+  const tanAngle = Math.tan(spotAngle);
+  const out = new Uint8Array(GOBO_SIZE * GOBO_SIZE * 4);
+  for (let y = 0; y < GOBO_SIZE; y++) {
+    for (let x = 0; x < GOBO_SIZE; x++) {
+      const dx = ((x + 0.5) / GOBO_SIZE) * 2 - 1;
+      const dy = ((y + 0.5) / GOBO_SIZE) * 2 - 1;
+      const theta = Math.atan(Math.hypot(dx, dy) * tanAngle);
+      const idx = Math.min(width - 1, Math.round((theta * 180) / Math.PI));
+      const value = Math.round(Math.min(1, readIesSample(data, idx) * norm) * 255);
+      const o = (y * GOBO_SIZE + x) * 4;
+      out[o] = out[o + 1] = out[o + 2] = value;
+      out[o + 3] = 255;
+    }
+  }
+  const gobo = new THREE.DataTexture(out, GOBO_SIZE, GOBO_SIZE, THREE.RGBAFormat);
+  gobo.colorSpace = THREE.NoColorSpace;
+  gobo.minFilter = THREE.LinearFilter;
+  gobo.magFilter = THREE.LinearFilter;
+  gobo.needsUpdate = true;
+  return gobo;
+}
+
 interface OrbitHandle {
   target: THREE.Vector3;
   reset: () => void;
@@ -161,14 +205,15 @@ function IESPhotometricScene({ texture }: { texture: THREE.Texture }) {
   useEffect(() => {
     const light = spotLightRef.current;
     if (!light) return;
-    light.map = texture;
-    const iesLight = light as THREE.SpotLight & { iesMap?: THREE.Texture };
-    iesLight.iesMap = texture;
+    const gobo = buildIesGoboTexture(texture as THREE.DataTexture);
+    light.map = gobo;
     light.target.position.set(0, 0, 0);
     scene.add(light.target);
     light.target.updateMatrixWorld();
     return () => {
       scene.remove(light.target);
+      light.map = null;
+      gobo.dispose();
     };
   }, [texture, scene]);
 
@@ -198,8 +243,8 @@ function IESPhotometricScene({ texture }: { texture: THREE.Texture }) {
         color="#FFFFFF"
         intensity={220}
         position={[LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z]}
-        angle={Math.PI / 2.05}
-        penumbra={0.85}
+        angle={IES_SPOT_ANGLE}
+        penumbra={0.3}
         distance={28}
         decay={2}
         castShadow

@@ -8,7 +8,8 @@ export const PANORAMA_EXTENSIONS = new Set(['hdr', 'exr', 'hdri']);
 export const LIGHT_EXTENSIONS = new Set(['ies', 'ldt']);
 export const GPU_TEXTURE_EXTENSIONS = new Set(['dds', 'ktx', 'ktx2']);
 export const CATEGORY_D_EXTENSIONS = new Set(['sbs', 'mdl', 'mat', 'abc']);
-export const NO_PREVIEW_EXTENSIONS = new Set(['abc', 'x3d', 'avif']);
+export const NO_PREVIEW_EXTENSIONS = new Set(['abc', 'x3d', 'avif', 'ztl', 'zpr', 'zbr']);
+const MODEL_NO_PREVIEW_EXTENSIONS = new Set(['abc', 'x3d', 'ztl', 'zpr', 'zbr']);
 
 export type PreviewView =
   | { type: 'video'; path: string }
@@ -30,7 +31,7 @@ function resolveVideo(asset: Asset): PreviewView | null {
 
 function resolveNoPreview(asset: Asset, snapshotUrl?: string | null): PreviewView | null {
   const ext = asset.extension.toLowerCase();
-  if (ext === 'abc' || ext === 'x3d') {
+  if (MODEL_NO_PREVIEW_EXTENSIONS.has(ext)) {
     return {
       type: 'placeholder',
       kind: asset.kind,
