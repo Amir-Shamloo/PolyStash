@@ -7,6 +7,7 @@ mod material;
 mod ole;
 mod psd;
 mod raster;
+mod structural;
 mod video;
 
 use anyhow::{anyhow, Result};
@@ -234,7 +235,7 @@ fn generate_gallery(ext: &str, source: &Path, file_stem: &str, thumb_dir: &Path)
 /// from the live three.js load, where the geometry actually exists.
 async fn collect_metadata(ext: &str, source: &Path) -> Option<serde_json::Map<String, Value>> {
     let fields = if video::is_video(ext) {
-        video::probe_metadata(source).await
+        video::metadata(source).await
     } else if ext == "pdf" {
         document::pdf_metadata(source).await
     } else if supports_image_metadata(ext) {
