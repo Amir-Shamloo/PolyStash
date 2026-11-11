@@ -112,6 +112,7 @@ fn compile_helper(source: &Path, exe: &Path, cineware: &Path, jpeg: &Path) -> Re
         .arg(jpeg)
         .arg("ws2_32.lib")
         .arg("winmm.lib")
+        .arg("ole32.lib")
         .output()
         .map_err(|error| format!("failed to run cl.exe: {error}"))?;
 
