@@ -10,20 +10,25 @@
 // sweeps can only be exported when the .c4d file was saved with "Save Polygons
 // for Cineware". Plain polygon objects always export.
 
-#include "c4d.h"
-#include "default_alien_overloads.h"
-#include "parameter_ids/material/mmaterial.h"
-
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+// The Cineware headers disable C++ exceptions for their own code, which breaks
+// every MSVC STL header included after them. Restore the setting once parsed.
+#pragma push_macro("_HAS_EXCEPTIONS")
+#include "c4d.h"
+#include "default_alien_overloads.h"
+#include "parameter_ids/material/mmaterial.h"
+#pragma pop_macro("_HAS_EXCEPTIONS")
 
 using namespace cineware;
 

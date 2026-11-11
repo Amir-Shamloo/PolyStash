@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PXR, type Pxr } from '@openusd-wasm/pxr';
+import { PXR, type Pxr, type UsdTimeCode } from '@openusd-wasm/pxr';
 import { extractPackageEntries, findPackageRootLayer } from '@openusd-wasm/utils';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -286,7 +286,7 @@ function computeGeometry(pxr: Pxr, prim: any, typeName: string, time: unknown): 
   }
 }
 
-function localMatrix(pxr: Pxr, prim: any, time: unknown): THREE.Matrix4 | null {
+function localMatrix(pxr: Pxr, prim: any, time: UsdTimeCode): THREE.Matrix4 | null {
   if (!prim.IsA('Xformable')) return null;
   const xf = new pxr.UsdGeom.Xformable(prim);
   try {
