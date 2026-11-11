@@ -28,7 +28,8 @@ const C4D_HEADER_WINDOW: u64 = 8 * 1024 * 1024;
 /// 4. The helper embedded at build time, extracted to
 ///    `%TEMP%\polystash_c4d\c4d_preview.exe` on first use.
 fn helper_next_to_exe() -> Option<PathBuf> {
-    let dir = std::env::current_exe().ok()?.parent()?;
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
     [dir.join(C4D_PREVIEW_HELPER), dir.join("c4d_preview").join(C4D_PREVIEW_HELPER)]
         .into_iter()
         .find(|path| path.is_file())

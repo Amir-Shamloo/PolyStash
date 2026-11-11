@@ -693,8 +693,8 @@ fn parse_ftyp(data: &[u8], fields: &mut Map<String, Value>) {
     let compatible: Vec<String> = data
         .get(8..)
         .unwrap_or_default()
-        .array_chunks::<4>()
-        .map(fourcc)
+        .chunks(4)
+        .filter_map(fourcc_brand)
         .collect();
 
     insert_file_type(&major, fields);
@@ -706,6 +706,10 @@ fn parse_ftyp(data: &[u8], fields: &mut Map<String, Value>) {
 fn fourcc(bytes: &[u8]) -> String {
     let text: String = bytes.iter().map(|&byte| char::from(byte)).collect();
     text.trim_end_matches([' ', '\0']).to_string()
+}
+
+fn fourcc_brand(chunk: &[u8]) -> Option<String> {
+    (chunk.len() == 4).then_some(fourcc(chunk))
 }
 
 /// MediaInfo-style identification derived from the `ftyp` major brand.
