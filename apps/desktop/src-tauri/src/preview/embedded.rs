@@ -28,9 +28,6 @@ const MAX_MARKER_HITS: usize = 8;
 /// cannot turn into an expensive decode loop.
 const MAX_CANDIDATES: usize = 16;
 
-/// Collada is XML text, so only a byte-embedded picture can serve as a preview.
-const COLLADA_WINDOW: u64 = 4 * 1024 * 1024;
-
 /// Upper bound on zlib streams attempted per scan window.
 const MAX_ZLIB_CANDIDATES: usize = 8;
 
@@ -212,15 +209,6 @@ fn find_compressed_preview(bytes: &[u8]) -> Option<DynamicImage> {
     None
 }
 
-/// Most Collada files have no embedded picture, which is a normal outcome: the
-/// caller completes without a thumbnail and the frontend renders the mesh.
-pub(crate) fn extract_dae_thumb(source: &Path, output: &Path) -> Result<()> {
-    let head = read_prefix(source, COLLADA_WINDOW)?;
-    let img = decode_first_image(&head)
-        .ok_or_else(|| anyhow!("No embedded preview image found in Collada file"))?;
-    save_thumb(&img, output)
-}
-
 /// Decode the earliest embedded image, preferring Rhino preview chunks.
 ///
 /// Candidates are ordered by offset so a stored header preview wins over a
@@ -238,16 +226,6 @@ fn find_rhino_preview(bytes: &[u8]) -> Option<DynamicImage> {
     candidates
         .into_iter()
         .take(MAX_CANDIDATES)
-        .find_map(|index| decode_candidate(&bytes[index..]))
-}
-
-fn decode_first_image(bytes: &[u8]) -> Option<DynamicImage> {
-    let mut candidates = signature_offsets(bytes);
-    candidates.sort_unstable();
-    candidates.dedup();
-
-    candidates
-        .into_iter()
         .find_map(|index| decode_candidate(&bytes[index..]))
 }
 

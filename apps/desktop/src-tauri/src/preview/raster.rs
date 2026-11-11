@@ -36,7 +36,7 @@ pub(crate) fn image_metadata(source: &Path, ext: &str) -> Option<Value> {
     let mut fields = decoded_metadata(source, ext).unwrap_or_default();
     fields.extend(structural::extract(source));
     exif_metadata(source, &mut fields);
-    (!fields.is_empty()).then(|| Value::Object(fields))
+    (!fields.is_empty()).then_some(Value::Object(fields))
 }
 
 /// Fields the `image` decoder derives from the file header.

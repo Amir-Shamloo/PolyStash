@@ -59,7 +59,7 @@ pub(crate) async fn metadata(source: &Path) -> Option<Value> {
         .and_then(|probe| probe.as_object().cloned())
         .unwrap_or_default();
     fields.extend(structural::extract(source));
-    (!fields.is_empty()).then(|| Value::Object(fields))
+    (!fields.is_empty()).then_some(Value::Object(fields))
 }
 
 /// Codec, resolution, duration, frame rate, and bitrate from `ffprobe`.

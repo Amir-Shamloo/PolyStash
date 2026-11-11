@@ -299,6 +299,37 @@ impl LibraryJobs<'_> {
         }));
     }
 
+    /// Complete a job whose preview is a converted GLB: the asset's model
+    /// preview points at the GLB and the frontend renders the thumbnail from it,
+    /// exactly like the direct GLB path.
+    async fn complete_model(&self, job: &JobRef<'_>, rel_glb: &str) {
+        let _ = sqlx::query("UPDATE preview_jobs SET status = 'done' WHERE id = ?")
+            .bind(job.id)
+            .execute(self.pool)
+            .await;
+
+        let _ = sqlx::query("UPDATE assets SET preview_status = 'done', thumbnail_path = ? WHERE id = ?")
+            .bind(rel_glb)
+            .bind(job.asset_id)
+            .execute(self.pool)
+            .await;
+
+        let mut patch = serde_json::Map::new();
+        patch.insert("preview_model".to_string(), Value::String(rel_glb.to_string()));
+        if let Some(fields) = self.technical_metadata(job).await {
+            patch.extend(fields);
+        }
+        self.merge_metadata(job.asset_id, patch).await;
+
+        let absolute = resolve_path(self.root_path, rel_glb);
+        let _ = self.state.app_handle.emit("preview:done", json!({
+            "assetId": job.asset_id,
+            "thumbnailPath": absolute.clone(),
+            "thumbnailPaths": [absolute.clone()],
+            "previewModel": absolute,
+        }));
+    }
+
     /// Format-specific metadata for the asset record. Extraction is best effort:
     /// a missing external tool or an unreadable header yields no fields.
     async fn technical_metadata(&self, job: &JobRef<'_>) -> Option<serde_json::Map<String, Value>> {
@@ -353,20 +384,38 @@ async fn fetch_queued_jobs(pool: &sqlx::Pool<sqlx::Sqlite>) -> Vec<(String, Stri
     .unwrap_or_default()
 }
 
-/// Complete a Collada job. A format with an embedded picture gets it as the
-/// thumbnail; without one the job completes with no thumb so the frontend
-/// renders the mesh with three.js.
-async fn complete_dae_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
-    let file_stem = thumb_stem(source);
-    let thumb_file_name = format!("{}_thumb.png", file_stem);
-    let thumb_dest = jobs.thumb_dir.join(&thumb_file_name);
+/// Complete a Collada job. Collada has no reliable embedded preview, so the job
+/// completes without a thumbnail and the frontend renders the mesh with
+/// three.js — the same loader and camera the detail panel uses.
+async fn complete_dae_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, _source: &Path) {
+    jobs.complete(job, &[]).await;
+}
 
-    match embedded::extract_dae_thumb(source, &thumb_dest) {
-        Ok(()) => {
-            let rel = format!(".polystash/thumbs/{}", thumb_file_name);
-            jobs.complete(job, &[rel]).await;
+/// Complete a Cinema 4D job. A Cineware GLB conversion is the primary path: the
+/// GLB becomes both the model preview and the source of the frontend thumbnail.
+/// If the helper is unavailable or the scene has no exportable geometry, fall
+/// back to the embedded `THMB` preview image.
+async fn complete_c4d_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
+    let file_stem = thumb_stem(source);
+    let glb_name = format!("{}_preview.glb", file_stem);
+    let glb_rel = format!(".polystash/thumbs/{}", glb_name);
+    let glb_dest = jobs.thumb_dir.join(&glb_name);
+
+    if glb_dest.is_file() {
+        jobs.complete_model(job, &glb_rel).await;
+        return;
+    }
+
+    match cineware::export_c4d_glb(source, &glb_dest).await {
+        Ok(()) => jobs.complete_model(job, &glb_rel).await,
+        Err(error) => {
+            tracing::warn!(
+                "Cineware GLB export failed for {}: {}. Falling back to the embedded preview.",
+                source.display(),
+                error
+            );
+            complete_with_extraction(jobs, job, source, "c4d").await;
         }
-        Err(_) => jobs.complete(job, &[]).await,
     }
 }
 
@@ -387,6 +436,14 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         .unwrap_or("")
         .to_lowercase();
 
+    // Cinema 4D gets a real mesh preview through the Cineware helper; the
+    // embedded THMB image is only the fallback. Run before the stale-thumbnail
+    // shortcut so an older PNG does not hide the converted GLB.
+    if ext == "c4d" {
+        complete_c4d_job(jobs, job, &full_source).await;
+        return;
+    }
+
     if let Some(rel_thumb) = existing_thumb(jobs.thumb_dir, file_stem) {
         tracing::info!("Thumbnail already exists for {}, skipping generation", file_stem);
         let mut gallery = vec![rel_thumb];
@@ -402,8 +459,7 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         return;
     }
 
-    // Collada is a mesh format, but some exports carry a preview image; prefer
-    // it over the live frontend render when it exists.
+    // Collada is a mesh format; the frontend renders it with three.js.
     if ext == "dae" {
         complete_dae_job(jobs, job, &full_source).await;
         return;
@@ -416,21 +472,8 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         return;
     }
 
-    // Mesh formats render live in the frontend; no backend thumbnail.
-    if MESH_EXTENSIONS.contains(&ext.as_str()) {
-        jobs.complete(job, &[]).await;
-        return;
-    }
-
-    // ktx/ktx2 are GPU-compressed textures that only the frontend KTX2Loader
-    // can render, so complete them with no thumb.
-    if GPU_TEXTURE_EXTENSIONS.contains(&ext.as_str()) {
-        jobs.complete(job, &[]).await;
-        return;
-    }
-
-    // No backend thumbnail and no live 3D preview: done, kind icon on frontend.
-    if CATEGORY_D_EXTENSIONS.contains(&ext.as_str()) {
+    // Formats the frontend renders itself need no backend thumbnail.
+    if frontend_only(&ext) {
         jobs.complete(job, &[]).await;
         return;
     }
@@ -441,6 +484,14 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
     }
 
     complete_with_extraction(jobs, job, &full_source, &ext).await;
+}
+
+/// True for formats the frontend decodes or renders on its own, so the backend
+/// only records the job as done.
+fn frontend_only(ext: &str) -> bool {
+    MESH_EXTENSIONS.contains(&ext)
+        || GPU_TEXTURE_EXTENSIONS.contains(&ext)
+        || CATEGORY_D_EXTENSIONS.contains(&ext)
 }
 
 /// Substance job: the embedded archive preview first, otherwise PBR maps

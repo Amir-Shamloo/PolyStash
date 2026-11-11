@@ -18,6 +18,9 @@ gen/
 *.rs.bk
 Cargo.lock
 
+# C4D preview helper (built by CI, embedded into the app by build.rs)
+apps/desktop/src-tauri/bin/c4d/
+
 # ── Python & Preview Worker ────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
