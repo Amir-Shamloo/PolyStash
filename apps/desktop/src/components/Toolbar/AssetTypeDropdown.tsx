@@ -19,7 +19,7 @@ const KIND_DEFS: KindDefinition[] = [
     kind: '3d_model',
     label: '3D Models',
     badge: '3D',
-    formats: ['max', '3dm', 'rvt', 'rfa', 'blend', 'fbx', 'obj', 'gltf', 'glb', 'c4d', 'skp', 'usd', 'usdz', 'stl', 'ply', '3ds', 'dae', 'dwg', 'dxf', 'wrl', 'x3d', 'ztl', 'zpr', 'zbr'],
+    formats: ['max', '3dm', 'rvt', 'rfa', 'blend', 'fbx', 'obj', 'gltf', 'glb', 'c4d', 'skp', 'usd', 'usda', 'usdc', 'usdz', 'stl', 'ply', '3ds', 'dae', 'dwg', 'dxf', 'wrl', 'x3d', 'ztl', 'zpr', 'zbr'],
     color: '#3b82f6',
     icon: ({ size = 16 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>

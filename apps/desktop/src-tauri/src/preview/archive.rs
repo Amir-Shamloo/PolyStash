@@ -267,13 +267,36 @@ fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
         .map(|(_, key)| *key)
 }
 
-/// Render PBR maps with the Substance SDK and convert them to PNG. Returns the
-/// PBR slot and library-relative path for every map the renderer produced.
+/// Maps already rendered for `file_stem`, read back from the thumbnail folder.
+pub(crate) fn existing_sbsar_maps(thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
+    let prefix = format!("{file_stem}_sbsar_");
+    let Ok(entries) = std::fs::read_dir(thumb_dir) else {
+        return Vec::new();
+    };
+
+    let mut maps: Vec<(String, String)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_str()?.to_string();
+            let key = name.strip_prefix(&prefix)?.strip_suffix(".png")?;
+            Some((key.to_string(), format!(".polystash/thumbs/{name}")))
+        })
+        .collect();
+    maps.sort_by(|a, b| a.0.cmp(&b.0));
+    maps
+}
+
+/// Render the PBR maps for an SBSAR, or return the ones already on disk.
 pub(crate) async fn render_sbsar_maps(
     source: &Path,
     file_stem: &str,
     thumb_dir: &Path,
 ) -> Option<Vec<(String, String)>> {
+    let existing = existing_sbsar_maps(thumb_dir, file_stem);
+    if !existing.is_empty() {
+        return Some(existing);
+    }
+
     let renderer = sbsar_renderer_exe()?.to_str()?.to_string();
     let out_dir = thumb_dir.join(format!("{file_stem}_sbsar"));
     tokio::fs::create_dir_all(&out_dir).await.ok()?;
@@ -300,7 +323,7 @@ pub(crate) async fn render_sbsar_maps(
         let key = sbsar_map_key(&name)?.to_string();
         let png_name = format!("{file_stem}_sbsar_{key}.png");
         let bytes = tokio::fs::read(&path).await.ok()?;
-        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Dds).ok()?;
+        let image = super::dds::decode(&bytes)?;
         image.save(thumb_dir.join(&png_name)).ok()?;
         maps.push((key, format!(".polystash/thumbs/{png_name}")));
     }

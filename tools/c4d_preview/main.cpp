@@ -464,7 +464,7 @@ void append_scene_indices(std::ostringstream& json, size_t count)
 
 void append_nodes_json(std::ostringstream& json, const GlbModel& model)
 {
-	json << "],\"nodes\":[";
+	json << "]}],\"nodes\":[";
 	for (size_t i = 0; i < model.infos.size(); ++i)
 	{
 		if (i)
