@@ -1,0 +1,257 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		396271FE0C2A9F6000ADDD97 /* C4DImportExport.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 396271FB0C2A9F6000ADDD97 /* C4DImportExport.cpp */; };
+		B4DDF68D1920C0D7009845C8 /* libcinewarelib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B4DDF68C1920C0D7009845C8 /* libcinewarelib.a */; };
+		B4DDF68F1920C22C009845C8 /* libjpeglib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B4DDF68E1920C22C009845C8 /* libjpeglib.a */; };
+		B4DDF6BC1920C88E009845C8 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4DDF6BB1920C88E009845C8 /* AppKit.framework */; };
+		B4DDF6BE1920C895009845C8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4DDF6BD1920C895009845C8 /* CoreFoundation.framework */; };
+		B4DDF6C01920C899009845C8 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4DDF6BF1920C899009845C8 /* CoreAudio.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		396271FA0C2A9F6000ADDD97 /* alien_def.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = alien_def.h; path = source/alien_def.h; sourceTree = "<group>"; };
+		396271FB0C2A9F6000ADDD97 /* C4DImportExport.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = C4DImportExport.cpp; path = source/C4DImportExport.cpp; sourceTree = "<group>"; };
+		396271FC0C2A9F6000ADDD97 /* C4DImportExport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = C4DImportExport.h; path = source/C4DImportExport.h; sourceTree = "<group>"; };
+		8DD76FB20486AB0100D96B5E /* commandline */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = commandline; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4DDF68C1920C0D7009845C8 /* libcinewarelib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcinewarelib.a; path = ../../libraries/osx/debug/libcinewarelib.a; sourceTree = "<group>"; };
+		B4DDF68E1920C22C009845C8 /* libjpeglib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeglib.a; path = ../../libraries/osx/release/libjpeglib.a; sourceTree = "<group>"; };
+		B4DDF6BB1920C88E009845C8 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		B4DDF6BD1920C895009845C8 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		B4DDF6BF1920C899009845C8 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8DD76FAD0486AB0100D96B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4DDF68D1920C0D7009845C8 /* libcinewarelib.a in Frameworks */,
+				B4DDF6C01920C899009845C8 /* CoreAudio.framework in Frameworks */,
+				B4DDF6BE1920C895009845C8 /* CoreFoundation.framework in Frameworks */,
+				B4DDF68F1920C22C009845C8 /* libjpeglib.a in Frameworks */,
+				B4DDF6BC1920C88E009845C8 /* AppKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* commandline */ = {
+			isa = PBXGroup;
+			children = (
+				B4DDF6B21920C818009845C8 /* Frameworks */,
+				B4DDF6B11920C7ED009845C8 /* libs */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = commandline;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				396271FA0C2A9F6000ADDD97 /* alien_def.h */,
+				396271FB0C2A9F6000ADDD97 /* C4DImportExport.cpp */,
+				396271FC0C2A9F6000ADDD97 /* C4DImportExport.h */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8DD76FB20486AB0100D96B5E /* commandline */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B4DDF6B11920C7ED009845C8 /* libs */ = {
+			isa = PBXGroup;
+			children = (
+				B4DDF68E1920C22C009845C8 /* libjpeglib.a */,
+				B4DDF68C1920C0D7009845C8 /* libcinewarelib.a */,
+			);
+			name = libs;
+			sourceTree = "<group>";
+		};
+		B4DDF6B21920C818009845C8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B4DDF6BF1920C899009845C8 /* CoreAudio.framework */,
+				B4DDF6BD1920C895009845C8 /* CoreFoundation.framework */,
+				B4DDF6BB1920C88E009845C8 /* AppKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8DD76FA90486AB0100D96B5E /* commandline */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "commandline" */;
+			buildPhases = (
+				8DD76FAB0486AB0100D96B5E /* Sources */,
+				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = commandline;
+			productName = commandline;
+			productReference = 8DD76FB20486AB0100D96B5E /* commandline */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0640;
+			};
+			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "commandline" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* commandline */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8DD76FA90486AB0100D96B5E /* commandline */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DD76FAB0486AB0100D96B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396271FE0C2A9F6000ADDD97 /* C4DImportExport.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB928608733DD80010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ./;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/../../libraries/osx/debug\"",
+					"\"$(SRCROOT)/../../libraries/osx/release\"",
+				);
+				PRODUCT_NAME = "$(PROJECT_NAME)_$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+			};
+			name = Debug;
+		};
+		1DEB928708733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ./;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/../../libraries/osx/debug\"",
+					"\"$(SRCROOT)/../../libraries/osx/release\"",
+				);
+				PRODUCT_NAME = "$(PROJECT_NAME)_$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+			};
+			name = Release;
+		};
+		1DEB928A08733DD80010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				DEAD_CODE_STRIPPING = YES;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					_DEBUG,
+					__MAC,
+					__64BIT,
+					MAXON_TARGET_DEBUG,
+					MAXON_TARGET_OSX,
+					MAXON_TARGET_64BIT,
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				HEADER_SEARCH_PATHS = ../../includes;
+				LIBRARY_SEARCH_PATHS = ../../libraries/osx/debug;
+				ONLY_ACTIVE_ARCH = YES;
+				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				VALID_ARCHS = x86_64;
+			};
+			name = Debug;
+		};
+		1DEB928B08733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				DEAD_CODE_STRIPPING = YES;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					__MAC,
+					__64BIT,
+					MAXON_TARGET_RELEASE,
+					MAXON_TARGET_OSX,
+					MAXON_TARGET_64BIT,
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				HEADER_SEARCH_PATHS = ../../includes;
+				LIBRARY_SEARCH_PATHS = ../../libraries/osx/release;
+				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
+				VALID_ARCHS = x86_64;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "commandline" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928608733DD80010E9CD /* Debug */,
+				1DEB928708733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "commandline" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928A08733DD80010E9CD /* Debug */,
+				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

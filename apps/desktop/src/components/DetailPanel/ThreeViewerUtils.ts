@@ -57,7 +57,7 @@ export function frameCameraAuto(
   flipYZ?: boolean | string
 ): THREE.Box3 {
   const shouldRotate = typeof flipYZ === 'string' ? isZUpFormat(flipYZ) : Boolean(flipYZ);
-  object.rotation.x = shouldRotate ? -Math.PI / 2 : 0;
+  if (shouldRotate) object.rotation.x = -Math.PI / 2;
   const box = centerObject(object);
   const size = box.getSize(new THREE.Vector3());
 

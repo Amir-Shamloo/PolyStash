@@ -3,7 +3,7 @@ use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageReader, Rgb, Rgb
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
-use super::{aspect_ratio, round_two, save_thumb};
+use super::{aspect_ratio, round_two, save_thumb, structural};
 
 /// Checks if an extension is a standard raster image that Rust can decode directly.
 ///
@@ -26,12 +26,21 @@ pub fn generate_image_thumb(source: &Path, output: &Path) -> Result<()> {
     save_thumb(&img, output)
 }
 
-/// Header-only technical metadata for a raster image: no pixel decode.
+/// Technical metadata for a raster image: no pixel decode.
 ///
-/// Returns `width`, `height`, `aspectRatio`, `megapixels`, `bitDepth`, and
-/// `colorSpace`. A decoder that does not expose the header yields `None`
-/// instead of failing the preview job.
+/// Merges the decoded description (`width`, `height`, `aspectRatio`,
+/// `megapixels`, `bitDepth`, `colorSpace`), the file's own structural headers
+/// (JPEG markers, PNG chunks), and its EXIF tags. A decoder that cannot read
+/// the file still leaves the structural and EXIF fields in place.
 pub(crate) fn image_metadata(source: &Path, ext: &str) -> Option<Value> {
+    let mut fields = decoded_metadata(source, ext).unwrap_or_default();
+    fields.extend(structural::extract(source));
+    exif_metadata(source, &mut fields);
+    (!fields.is_empty()).then_some(Value::Object(fields))
+}
+
+/// Fields the `image` decoder derives from the file header.
+fn decoded_metadata(source: &Path, ext: &str) -> Option<Map<String, Value>> {
     let reader = ImageReader::open(source).ok()?.with_guessed_format().ok()?;
     let decoder = reader.into_decoder().ok()?;
     let (width, height) = decoder.dimensions();
@@ -46,8 +55,7 @@ pub(crate) fn image_metadata(source: &Path, ext: &str) -> Option<Value> {
     fields.insert("megapixels".to_string(), json!(megapixels(width, height)));
     fields.insert("bitDepth".to_string(), json!(bits_per_channel(original)));
     fields.insert("colorSpace".to_string(), json!(color_space(original, ext)));
-    exif_metadata(source, &mut fields);
-    Some(Value::Object(fields))
+    Some(fields)
 }
 
 /// EXIF and other in-file tags, exposed with normalized `lower_snake` keys so

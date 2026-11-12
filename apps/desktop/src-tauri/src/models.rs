@@ -32,7 +32,7 @@ impl AssetKind {
         match ext.to_lowercase().as_str() {
             "fbx" | "obj" | "3ds" | "dae" | "gltf" | "glb" | "skp" | "blend"
             | "c4d" | "3dm" | "rfa" | "rvt" | "dwg" | "dxf" | "stl" | "usd" | "usdz" | "max"
-            | "abc" | "ply" | "x3d" | "wrl" => AssetKind::Model3d,
+            | "abc" | "ply" | "x3d" | "wrl" | "ztl" | "zpr" | "zbr" => AssetKind::Model3d,
 
             "mat" | "vrmat" | "sbsar" | "sbs" | "mdl" => AssetKind::Material,
 

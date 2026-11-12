@@ -17,7 +17,8 @@ const EXTENSION_KIND_MAP: Record<string, AssetKind> = {
   gltf: '3d_model', glb: '3d_model', skp: '3d_model', blend: '3d_model',
   c4d: '3d_model', '3dm': '3d_model', rfa: '3d_model', rvt: '3d_model',
   dwg: '3d_model', dxf: '3d_model', stl: '3d_model', usd: '3d_model',
-  usdz: '3d_model', max: '3d_model', ply: '3d_model', x3d: '3d_model', wrl: '3d_model',
+  usda: '3d_model', usdc: '3d_model', usdz: '3d_model', max: '3d_model', ply: '3d_model', x3d: '3d_model', wrl: '3d_model',
+  ztl: '3d_model', zpr: '3d_model', zbr: '3d_model',
   // Materials & Shaders
   mat: 'material', vrmat: 'material', sbsar: 'material', sbs: 'material', mdl: 'material',
   // Textures & Surface Maps

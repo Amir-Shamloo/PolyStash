@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="16096" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="16096"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="NSApplication"/>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject">
+            <connections>
+                <outlet property="delegate" destination="515" id="516"/>
+            </connections>
+        </customObject>
+        <menu title="AMainMenu" systemMenu="main" id="29" userLabel="MainMenu">
+            <items>
+                <menuItem title="RenderConnection" id="56">
+                    <menu key="submenu" title="RenderConnection" systemMenu="apple" id="57">
+                        <items>
+                            <menuItem title="About RenderConnection" id="58">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="aboutRenderConnection:" target="498" id="513"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="236">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Services" id="131">
+                                <menu key="submenu" title="Services" systemMenu="services" id="130"/>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="144">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Hide RenderConnection" keyEquivalent="h" id="134">
+                                <connections>
+                                    <action selector="hide:" target="-1" id="367"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Hide Others" keyEquivalent="h" id="145">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="hideOtherApplications:" target="-1" id="368"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Show All" id="150">
+                                <connections>
+                                    <action selector="unhideAllApplications:" target="-1" id="370"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="149">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Quit RenderConnection" keyEquivalent="q" id="136">
+                                <connections>
+                                    <action selector="terminate:" target="-3" id="449"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="File" id="83">
+                    <menu key="submenu" title="File" id="81">
+                        <items>
+                            <menuItem title="Generate New Cineware Project and Render" keyEquivalent="n" id="82">
+                                <connections>
+                                    <action selector="newDocument:" target="498" id="503"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Load Cineware Project and Render…" keyEquivalent="o" id="72">
+                                <connections>
+                                    <action selector="openDocument:" target="498" id="502"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Stop Rendering" keyEquivalent="." id="491">
+                                <connections>
+                                    <action selector="stopRendering:" target="498" id="501"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="521">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Import Material…" keyEquivalent="." id="517" userLabel="Import Material...">
+                                <connections>
+                                    <action selector="importMaterial:" target="498" id="522"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Import IES Light…" keyEquivalent="." id="519" userLabel="Import IES Light...">
+                                <connections>
+                                    <action selector="importIesLight:" target="498" id="523"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="s1v-Wb-ueX">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Open License Manager..." keyEquivalent="." id="heb-Fb-Gcx" userLabel="Import IES Light...">
+                                <connections>
+                                    <action selector="openLicenseManager:" target="498" id="D0J-q1-0ip"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Sign-Out" keyEquivalent="." id="oX4-hk-ye4" userLabel="Import IES Light...">
+                                <connections>
+                                    <action selector="signOut:" target="498" id="0Y8-qG-nFY"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="79">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Locate and start Render Server..." keyEquivalent="r" id="75">
+                                <connections>
+                                    <action selector="locateAndStartRenderServer:" target="498" id="510"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Shut down Render Server" keyEquivalent="e" id="80">
+                                <connections>
+                                    <action selector="shutDownRenderServer:" target="498" id="511"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Window" id="19">
+                    <menu key="submenu" title="Window" systemMenu="window" id="24">
+                        <items>
+                            <menuItem title="Minimize" keyEquivalent="m" id="23">
+                                <connections>
+                                    <action selector="performMiniaturize:" target="-1" id="37"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Zoom" id="239">
+                                <connections>
+                                    <action selector="performZoom:" target="-1" id="240"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="92">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Bring All to Front" id="5">
+                                <connections>
+                                    <action selector="arrangeInFront:" target="-1" id="39"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+            </items>
+            <point key="canvasLocation" x="140" y="154"/>
+        </menu>
+        <window title="Render Connection" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" animationBehavior="default" id="371" userLabel="Window (Window)">
+            <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
+            <windowPositionMask key="initialPositionMask" leftStrut="YES" bottomStrut="YES"/>
+            <rect key="contentRect" x="335" y="270" width="640" height="480"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
+            <view key="contentView" id="372">
+                <rect key="frame" x="0.0" y="0.0" width="640" height="480"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="452" customClass="RenderView">
+                        <rect key="frame" x="0.0" y="0.0" width="640" height="480"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                    </customView>
+                </subviews>
+            </view>
+            <point key="canvasLocation" x="216" y="392"/>
+        </window>
+        <customObject id="498" userLabel="MenuHandler" customClass="MenuHandler"/>
+        <customObject id="515" userLabel="RenderConnectionApp" customClass="RenderConnectionApp"/>
+    </objects>
+</document>

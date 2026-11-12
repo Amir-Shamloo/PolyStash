@@ -38,10 +38,6 @@ function IconMinimize({ size = 13 }: { size?: number }) {
   );
 }
 
-function isCrateOrUsdcError(msg: string): boolean {
-  return msg.includes('Crate') || msg.includes('.usdc');
-}
-
 function isArchiveError(msg: string): boolean {
   return msg.includes('zip') || msg.includes('fflate');
 }
@@ -49,13 +45,10 @@ function isArchiveError(msg: string): boolean {
 function resolveFallbackHint(extension?: string, errorMessage?: string): string {
   const ext = extension?.toUpperCase() || '3D';
   if (!errorMessage) return `Unable to render ${ext} preview`;
-  if (isCrateOrUsdcError(errorMessage)) {
-    return 'Binary USD (USDC crate) is not supported. Use .USDZ archive.';
-  }
   if (isArchiveError(errorMessage)) {
     return `Invalid archive format for ${ext}. Ensure file is a valid package.`;
   }
-  return errorMessage ?? `Unable to render ${ext} preview`;
+  return errorMessage;
 }
 
 export class ThreeErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -101,7 +94,7 @@ export function getExtension(path: string): string {
 
 export const MESH_EXTENSIONS = new Set([
   'gltf', 'glb', 'fbx', 'obj', 'stl', 'dae',
-  '3ds', 'ply', 'usdz', 'wrl',
+  '3ds', 'ply', 'wrl',
 ]);
 
 export function getModelPath(asset: {
@@ -133,10 +126,12 @@ export function Model({
   sbsarTextures,
   onStatsReady,
   controlsRef,
+  onGroundYChange,
 }: {
   url: string;
   extension?: string;
   sbsarTextures?: SbsarTextures;
+  onGroundYChange?: (minY: number) => void;
   onStatsReady?: (stats: ModelStats) => void;
   controlsRef?: React.RefObject<OrbitHandle | null>;
 }) {
@@ -148,7 +143,8 @@ export function Model({
   const handleLoaded = useCallback(
     (obj: THREE.Object3D) => {
       if (camera instanceof THREE.PerspectiveCamera) {
-        frameCameraAuto(camera, obj, isZUpFormat(ext));
+        const box = frameCameraAuto(camera, obj, isZUpFormat(ext));
+        if (!box.isEmpty()) onGroundYChange?.(box.min.y);
       }
       if (controlsRef?.current) {
         controlsRef.current.target.set(0, 0, 0);
@@ -159,7 +155,7 @@ export function Model({
         onStatsReady(computeModelStats(obj));
       }
     },
-    [camera, controlsRef, ext, onStatsReady]
+    [camera, controlsRef, ext, onStatsReady, onGroundYChange]
   );
 
   return (
@@ -356,6 +352,7 @@ export function ThreeViewer({
   const [autoRotate, setAutoRotate] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [modelStats, setModelStats] = useState<ModelStats | null>(null);
+  const [groundY, setGroundY] = useState(0);
   const controlsRef = useRef<OrbitHandle | null>(null);
 
   const cleanExt = (extension || getExtension(modelPath)).toLowerCase();
@@ -432,8 +429,9 @@ export function ThreeViewer({
               sbsarTextures={sbsarTextures}
               onStatsReady={handleStatsReady}
               controlsRef={controlsRef}
+              onGroundYChange={setGroundY}
             />
-            <ContactShadows opacity={0.6} scale={10} blur={1.5} far={10} resolution={256} color="#000000" />
+            <ContactShadows position={[0, groundY, 0]} opacity={0.6} scale={10} blur={1.5} far={10} resolution={256} color="#000000" />
             <OrbitControls ref={controlsRef as never} enableDamping autoRotate={autoRotate} makeDefault />
             <WireframeManager wireframe={wireframe} />
           </Suspense>

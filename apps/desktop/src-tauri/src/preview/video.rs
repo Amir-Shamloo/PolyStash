@@ -3,7 +3,7 @@ use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::process::Stdio;
 
-use super::{aspect_ratio, round_two};
+use super::{aspect_ratio, round_two, structural};
 
 /// Extract a video frame with ffmpeg and write it to `output`.
 ///
@@ -46,6 +46,20 @@ pub fn is_video(ext: &str) -> bool {
     mime_guess::from_ext(ext)
         .first_raw()
         .is_some_and(|m| m.starts_with("video/"))
+}
+
+/// Everything the details panel shows for a video: the `ffprobe` stream fields
+/// plus the container headers read from the file itself.
+///
+/// ffprobe is optional, so the structural parse still returns metadata when it
+/// is missing. `None` means neither source produced a field.
+pub(crate) async fn metadata(source: &Path) -> Option<Value> {
+    let mut fields = probe_metadata(source)
+        .await
+        .and_then(|probe| probe.as_object().cloned())
+        .unwrap_or_default();
+    fields.extend(structural::extract(source));
+    (!fields.is_empty()).then_some(Value::Object(fields))
 }
 
 /// Codec, resolution, duration, frame rate, and bitrate from `ffprobe`.

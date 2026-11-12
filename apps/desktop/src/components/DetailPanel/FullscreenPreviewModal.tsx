@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset } from '../../types';
 import { resolvePreview } from '../../lib/previewRouting';
+import { UsdConvertView } from './UsdConvertView';
 import { IconX } from '../Icons';
 import { ThreeViewer, DdsViewer } from './ThreeViewer';
 import { PanoramaViewer } from './PanoramaViewer';
@@ -95,6 +96,8 @@ function FullscreenContent({
       );
     case 'thumbnail':
       return <TextureFullscreenViewer asset={asset} fallbackUrl={preview.urls[0]} />;
+    case 'usd-convert':
+      return <UsdConvertView asset={preview.asset} fallback={null} />;
     case 'placeholder':
       return null;
   }

@@ -30,6 +30,17 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build C4D preview helper
+        if: ${{ hashFiles('apps/desktop/src-tauri/third_party/cineware/lib/cinewarelib_release.lib') != '' }}
+        shell: cmd
+        working-directory: apps/desktop/src-tauri
+        run: |
+          if not exist bin\c4d mkdir bin\c4d
+          cl /nologo /std:c++17 /EHsc /MT /O2 /DNDEBUG /D_CRT_SECURE_NO_WARNINGS /Ithird_party\cineware\includes /Fo%TEMP%\c4d_preview.obj /Fe:bin\c4d\c4d_preview.exe ..\..\..\tools\c4d_preview\main.cpp /link /LIBPATH:third_party\cineware\lib cinewarelib_release.lib jpeglib_release.lib ws2_32.lib winmm.lib ole32.lib
+          if not exist bin\c4d\c4d_preview.exe (echo Missing c4d_preview.exe & exit /b 1)
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'apps/desktop/src-tauri -> target'

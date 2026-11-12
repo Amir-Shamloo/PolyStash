@@ -28,6 +28,8 @@ export const api = {
   searchAssets: (payload: SearchPayload) =>
     invoke<SearchResult>('search_assets', { payload }),
   getAsset: (id: string) => invoke<Asset>('get_asset', { id }),
+  saveConvertedUsdGlb: (assetId: string, fileName: string, base64Bytes: string) =>
+    invoke<string>('save_converted_usd_glb', { assetId, fileName, base64Bytes }),
   updateAsset: (id: string, patch: Partial<Asset>) =>
     invoke<Asset>('update_asset', { id, patch }),
   deleteAsset: (id: string, deleteFile?: boolean) =>

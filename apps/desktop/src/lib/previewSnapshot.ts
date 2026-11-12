@@ -5,7 +5,6 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
-import { USDLoader } from '@openusd-wasm/three-loader';
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
@@ -28,6 +27,8 @@ import {
 import {
   resolveIesSourceUrl,
   convertIesTextureToGrayscaleRgba,
+  buildIesGoboTexture,
+  IES_SPOT_ANGLE,
 } from '../components/DetailPanel/IESLightViewer';
 
 const snapshotUrlCache = new Map<string, string>();
@@ -35,13 +36,13 @@ const failedSnapshotAssets = new Set<string>();
 
 export const SNAPSHOT_ELIGIBLE_EXTENSIONS = new Set([
   'sbsar', '3ds', 'obj', 'fbx', 'stl', 'ply', 'dae',
-  'usdz', 'gltf', 'glb', 'wrl', 'ies', 'ldt',
-  'max', 'rvt', 'rfa', 'skp', '3dm',
+  'usd', 'usda', 'usdc', 'usdz', 'gltf', 'glb', 'wrl', 'ies', 'ldt',
+  'max', 'rvt', 'rfa', 'skp', '3dm', 'c4d',
 ]);
 
 const NATIVE_LOADER_EXTENSIONS = new Set([
   'sbsar', '3ds', 'obj', 'fbx', 'stl', 'ply', 'dae',
-  'usdz', 'gltf', 'glb', 'wrl', 'ies', 'ldt',
+  'gltf', 'glb', 'wrl', 'ies', 'ldt',
 ]);
 
 export interface SnapshotOptions {
@@ -65,14 +66,12 @@ async function createIesSnapshotGroup(job: { rawPath: string; ext: string }): Pr
 
   const spotLight = new THREE.SpotLight(0xffffff, 220);
   spotLight.position.set(0, 4.2, 0);
-  spotLight.angle = Math.PI / 2.05;
-  spotLight.penumbra = 0.85;
+  spotLight.angle = IES_SPOT_ANGLE;
+  spotLight.penumbra = 0.3;
   spotLight.distance = 28;
   spotLight.decay = 2;
   spotLight.castShadow = true;
-  spotLight.map = texture;
-  const iesLight = spotLight as THREE.SpotLight & { iesMap?: THREE.Texture };
-  iesLight.iesMap = texture;
+  spotLight.map = buildIesGoboTexture(texture);
   spotLight.target.position.set(0, 0, 0);
   group.add(spotLight);
   group.add(spotLight.target);
@@ -140,7 +139,6 @@ const LOADER_DISPATCH: Record<string, LoaderFn> = {
   stl: ({ url }) => loadMeshGeometry(new STLLoader(), url),
   ply: ({ url }) => loadMeshGeometry(new PLYLoader(), url),
   dae: async ({ url }) => (await new ColladaLoader().loadAsync(url)).scene,
-  usdz: async ({ url }) => (await new USDLoader().loadAsync(url)).scene,
   wrl: ({ url }) => new VRMLLoader().loadAsync(url),
   gltf: ({ url, renderer }) => loadGltfResolvingUris(url, renderer),
   glb: async ({ url, renderer }) => (await createGltfLoader(renderer).loadAsync(url)).scene,
@@ -428,10 +426,8 @@ export function useLazyModelSnapshot(asset: Asset | null | undefined): LazySnaps
 
   useEffect(() => {
     const cached = getCachedSnapshot(assetId);
-    if (cached) {
-      setSnapshotUrl(cached);
-      return;
-    }
+    setSnapshotUrl(cached);
+    if (cached) return;
     if (!isVisible || !canRunSnapshotJob(asset)) return;
 
     setIsGenerating(true);
@@ -455,10 +451,8 @@ export function useModelSnapshot(asset: Asset | null | undefined): string | null
 
   useEffect(() => {
     const cached = getCachedSnapshot(assetId);
-    if (cached) {
-      setSnapshotUrl(cached);
-      return;
-    }
+    setSnapshotUrl(cached);
+    if (cached) return;
     if (!canRunSnapshotJob(asset)) return;
 
     return executeSnapshotJob(buildSnapshotJobSpec(asset), {

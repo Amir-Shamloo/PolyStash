@@ -6,6 +6,7 @@ import { useAssetStore } from '../../store';
 import type { ModelStats } from './ThreeViewerUtils';
 import { ThreeViewer, DdsViewer } from './ThreeViewer';
 import { PanoramaViewer } from './PanoramaViewer';
+import { UsdConvertView } from './UsdConvertView';
 import { IESLightViewer } from './IESLightViewer';
 import { VideoPreviewPlayer } from './VideoPreviewPlayer';
 import { ThumbnailCarousel } from '../AssetGrid/ThumbnailCarousel';
@@ -141,6 +142,8 @@ function PreviewBody({
           </button>
         </>
       );
+    case 'usd-convert':
+      return <UsdConvertView asset={preview.asset} fallback={thumbnailFallback} />;
     case 'placeholder':
       return <PlaceholderView kind={preview.kind} ext={preview.extension} message={preview.message} />;
   }
