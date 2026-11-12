@@ -308,7 +308,7 @@ async fn convert_sbsar_outputs(out_dir: &Path, thumb_dir: &Path, file_stem: &str
         let Ok(bytes) = tokio::fs::read(&path).await else {
             continue;
         };
-        let Ok(image) = super::dds::decode(&bytes) else {
+        let Some(image) = super::dds::decode(&bytes) else {
             continue;
         };
         if image.save(thumb_dir.join(&png_name)).is_ok() {
@@ -339,7 +339,7 @@ pub(crate) async fn render_sbsar_maps(
     tokio::fs::create_dir_all(&out_dir).await.ok()?;
 
     // The renderer writes `output_<graph>_<output>[<uid>].dds` into its working directory.
-    let child = super::spawn_command(&renderer)
+    let mut child = super::spawn_command(&renderer)
         .arg(source)
         .current_dir(&out_dir)
         .kill_on_drop(true)

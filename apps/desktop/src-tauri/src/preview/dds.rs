@@ -65,7 +65,7 @@ fn channel(value: u32, mask: u32) -> u8 {
 fn sample(data: &[u8], index: usize, bytes_per_pixel: usize) -> Option<u32> {
     let start = index * bytes_per_pixel;
     match bytes_per_pixel {
-        1 => data.get(start).map(u32::from),
+        1 => data.get(start).map(|byte| u32::from(*byte)),
         2 => le_u16(data, start).map(u32::from),
         4 => le_u32(data, start),
         _ => None,
@@ -75,7 +75,7 @@ fn sample(data: &[u8], index: usize, bytes_per_pixel: usize) -> Option<u32> {
 /// DXT2/DXT4 share the DXT3/DXT5 block layout, but `image` matches the FourCC
 /// exactly, so the tag is rewritten before handing the file over.
 fn rewrite_fourcc(bytes: &[u8], fourcc: u32) -> Option<Vec<u8>> {
-    let replacement = match fourcc {
+    let replacement: u32 = match fourcc {
         0x32_54_58_44 => 0x33_54_58_44, // DXT2 -> DXT3
         0x34_54_58_44 => 0x35_54_58_44, // DXT4 -> DXT5
         _ => return None,
