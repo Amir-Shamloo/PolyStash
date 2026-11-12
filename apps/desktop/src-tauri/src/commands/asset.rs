@@ -74,13 +74,34 @@ struct RawAssetRow {
     pub collections: Option<String>,
 }
 
+/// Resolve every stored `sbsar_textures` path against the library root, mirroring
+/// how `preview_model` is handled so a moved library keeps its shader ball.
+fn resolve_sbsar_textures(
+    root: &Path,
+    metadata: &mut std::collections::HashMap<String, serde_json::Value>,
+) {
+    let Some(serde_json::Value::Object(textures)) = metadata.get_mut("sbsar_textures") else {
+        return;
+    };
+    for value in textures.values_mut() {
+        let Some(rel) = value.as_str() else {
+            continue;
+        };
+        let resolved = resolve_path(root, rel);
+        *value = serde_json::Value::String(resolved);
+    }
+}
+
 /// Build an Asset from a raw SQLite row, resolving relative paths to absolute paths
 fn row_to_asset(root: Option<&Path>, row: RawAssetRow) -> Asset {
     let mut metadata: std::collections::HashMap<String, serde_json::Value> =
         serde_json::from_str(&row.metadata).unwrap_or_default();
-    if let (Some(r), Some(pm)) = (root, metadata.get("preview_model").and_then(|v| v.as_str())) {
-        let abs_pm = resolve_path(r, pm);
-        metadata.insert("preview_model".to_string(), serde_json::Value::String(abs_pm));
+    if let Some(r) = root {
+        if let Some(pm) = metadata.get("preview_model").and_then(|v| v.as_str()) {
+            let abs_pm = resolve_path(r, pm);
+            metadata.insert("preview_model".to_string(), serde_json::Value::String(abs_pm));
+        }
+        resolve_sbsar_textures(r, &mut metadata);
     }
     let tags: Vec<String> = row.tags
         .and_then(|j| serde_json::from_str(&j).ok())

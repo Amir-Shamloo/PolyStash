@@ -273,12 +273,12 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
             let kind_str = kind.as_str();
 
             // Pre-check if thumbnail already exists in .polystash/thumbs/
-            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(&file_name);
+            let stem = crate::preview::thumb_stem(path);
             let thumb_png = thumbs_dir.join(format!("{}_thumb.png", stem));
             let thumb_jpg = thumbs_dir.join(format!("{}_thumb.jpg", stem));
 
             let (mut preview_status, mut thumbnail_path, mut needs_job) =
-                preview_state_for(&ext, &thumb_png, &thumb_jpg, stem);
+                preview_state_for(&ext, &thumb_png, &thumb_jpg, &stem);
 
             let (id, is_update) = if let Some((existing_id, _, _, existing_thumb)) = existing_map.get(&rel_path) {
                 if thumbnail_path.is_none() && existing_thumb.is_some() {

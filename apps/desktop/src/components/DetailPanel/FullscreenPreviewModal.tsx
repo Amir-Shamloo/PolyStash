@@ -3,6 +3,8 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Asset } from '../../types';
 import { resolvePreview } from '../../lib/previewRouting';
 import { UsdConvertView } from './UsdConvertView';
+import { PlaceholderView } from './PlaceholderView';
+import { ZoomableImage } from './ZoomableImage';
 import { IconX } from '../Icons';
 import { ThreeViewer, DdsViewer } from './ThreeViewer';
 import { PanoramaViewer } from './PanoramaViewer';
@@ -25,15 +27,7 @@ function TextureFullscreenViewer({ asset, fallbackUrl }: { asset: Asset; fallbac
   const isRaster = RASTER_TEXTURE_EXTENSIONS.has(ext);
   const sourceUrl = isRaster && asset.filePath ? convertFileSrc(asset.filePath) : (fallbackUrl || '');
 
-  return (
-    <div className={styles.textureContainer}>
-      <img
-        src={sourceUrl}
-        alt={asset.fileName}
-        className={styles.textureImage}
-      />
-    </div>
-  );
+  return <ZoomableImage src={sourceUrl} alt={asset.fileName} />;
 }
 
 function FullscreenContent({
@@ -97,7 +91,10 @@ function FullscreenContent({
     case 'thumbnail':
       return <TextureFullscreenViewer asset={asset} fallbackUrl={preview.urls[0]} />;
     case 'usd-convert':
-      return <UsdConvertView asset={preview.asset} fallback={null} />;
+      return <UsdConvertView
+          asset={preview.asset}
+          fallback={<PlaceholderView kind={asset.kind} ext={asset.extension.toLowerCase()} />}
+        />;
     case 'placeholder':
       return null;
   }

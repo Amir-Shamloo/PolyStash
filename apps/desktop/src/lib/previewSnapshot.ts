@@ -11,6 +11,13 @@ import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
 import { useState, useEffect, useRef } from 'react';
 import type { Asset } from '../types';
 import {
+  USD_EXTENSIONS,
+  convertUsdAsset,
+  hasUsdConversionFailed,
+  markUsdConversionFailed,
+  refreshAssetInStore,
+} from './usdConversion';
+import {
   createGltfLoader,
   createSbsarShaderBallObject,
   extractSbsarTextures,
@@ -56,6 +63,8 @@ interface SnapshotJobSpec {
   targetPath: string;
   extension: string;
   sbsarTextures?: SbsarTextures;
+  /** USD asset still lacking a converted GLB; converted just before the snapshot. */
+  usdAsset?: Asset;
 }
 
 async function createIesSnapshotGroup(job: { rawPath: string; ext: string }): Promise<THREE.Object3D> {
@@ -274,12 +283,18 @@ function hasConvertedGlbModel(asset: Asset): boolean {
 export function isEligibleForSnapshot(asset: Asset | null | undefined): boolean {
   if (!asset) return false;
   const ext = asset.extension.toLowerCase();
-  if (ext === 'sbsar' && extractSbsarTextures(asset.metadata)) {
-    return true;
+  if (ext === 'sbsar') {
+    // An archive-embedded preview already is a raster thumbnail; only render the ball without one.
+    return Boolean(extractSbsarTextures(asset.metadata)) && !hasRasterThumbnail(asset);
   }
   if (hasRasterThumbnail(asset)) return false;
   if (!SNAPSHOT_ELIGIBLE_EXTENSIONS.has(ext)) return false;
+  if (needsUsdConversion(asset)) return !hasUsdConversionFailed(asset.id);
   return NATIVE_LOADER_EXTENSIONS.has(ext) || hasConvertedGlbModel(asset);
+}
+
+function needsUsdConversion(asset: Asset): boolean {
+  return USD_EXTENSIONS.has(asset.extension.toLowerCase()) && !hasConvertedGlbModel(asset);
 }
 
 function buildSnapshotJobSpec(asset: Asset): SnapshotJobSpec {
@@ -291,6 +306,9 @@ function buildSnapshotJobSpec(asset: Asset): SnapshotJobSpec {
   }
   if (asset.thumbnailPath?.endsWith('.glb')) {
     return { assetId: asset.id, targetPath: asset.thumbnailPath, extension: 'glb', sbsarTextures };
+  }
+  if (needsUsdConversion(asset)) {
+    return { assetId: asset.id, targetPath: '', extension: 'glb', usdAsset: asset };
   }
   return {
     assetId: asset.id,
@@ -329,6 +347,37 @@ function acquireSnapshotSlot(): Promise<() => void> {
   });
 }
 
+async function captureJobBlob(job: SnapshotJobSpec): Promise<Blob | null> {
+  let targetPath = job.targetPath;
+  if (job.usdAsset) {
+    try {
+      targetPath = await convertUsdAsset(job.usdAsset);
+    } catch {
+      return null;
+    }
+  }
+  return captureModelSnapshot(targetPath, job.extension, { sbsarTextures: job.sbsarTextures });
+}
+
+function handleJobBlob(
+  job: SnapshotJobSpec,
+  blob: Blob | null,
+  isMounted: boolean,
+  onDone: (url: string | null) => void
+) {
+  if (!blob) {
+    failedSnapshotAssets.add(job.assetId);
+    if (job.usdAsset) markUsdConversionFailed(job.assetId);
+    if (isMounted) onDone(null);
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  snapshotUrlCache.set(job.assetId, url);
+  if (isMounted) onDone(url);
+  if (job.usdAsset) void refreshAssetInStore(job.assetId).catch(() => undefined);
+}
+
 function executeSnapshotJob(
   job: SnapshotJobSpec,
   callbacks: { onDone: (url: string | null) => void }
@@ -349,19 +398,9 @@ function executeSnapshotJob(
       return;
     }
     release = rel;
-    captureModelSnapshot(job.targetPath, job.extension, {
-      sbsarTextures: job.sbsarTextures,
-    }).then((blob) => {
+    captureJobBlob(job).then((blob) => {
       releaseOnce();
-      if (!isMounted) return;
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        snapshotUrlCache.set(job.assetId, url);
-        callbacks.onDone(url);
-      } else {
-        failedSnapshotAssets.add(job.assetId);
-        callbacks.onDone(null);
-      }
+      handleJobBlob(job, blob, isMounted, callbacks.onDone);
     });
   });
 

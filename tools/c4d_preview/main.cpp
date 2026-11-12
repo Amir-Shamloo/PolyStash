@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -65,6 +66,15 @@ std::string to_utf8(const String& value)
 	std::string result = raw ? raw : "";
 	DeleteMem(raw);
 	return result;
+}
+
+// `Filename(const Char*)` decodes its input as the OS code page, which loses
+// characters outside it. Wide paths therefore go through `String` as explicit
+// UTF-8 instead.
+Filename to_filename(const std::filesystem::path& path)
+{
+	const std::string utf8 = path.u8string();
+	return Filename(String(utf8.c_str(), STRINGENCODING_UTF8));
 }
 
 float clamp01(float value)
@@ -566,7 +576,7 @@ std::string build_glb_json(const GlbModel& model, const std::vector<MaterialData
 	return json_bytes;
 }
 
-bool write_glb_file(const char* path, const std::string& json, const std::vector<unsigned char>& binary)
+bool write_glb_file(const std::filesystem::path& path, const std::string& json, const std::vector<unsigned char>& binary)
 {
 	std::vector<unsigned char> padded_binary = binary;
 	while (padded_binary.size() % 4 != 0)
@@ -596,13 +606,13 @@ bool write_glb_file(const char* path, const std::string& json, const std::vector
 	return out.good();
 }
 
-bool write_glb(const char* path, const std::vector<Primitive>& primitives, const std::vector<MaterialData>& materials)
+bool write_glb(const std::filesystem::path& path, const std::vector<Primitive>& primitives, const std::vector<MaterialData>& materials)
 {
 	GlbModel model = build_glb_model(primitives);
 	return write_glb_file(path, build_glb_json(model, materials), model.binary);
 }
 
-bool export_scene(BaseDocument* document, const char* output)
+bool export_scene(BaseDocument* document, const std::filesystem::path& output)
 {
 	for (BaseMaterial* material = document->GetFirstMaterial(); material; material = material->GetNext())
 	{
@@ -635,7 +645,10 @@ void GetWriterInfo(cineware::Int32& id, cineware::String& appname)
 	appname = "PolyStash C4D Preview";
 }
 
-int main(int argc, char** argv)
+// Windows entry point: the CRT hands `wmain` the wide command line
+// (GetCommandLineW), so library paths outside the active code page survive.
+// `main(int, char**)` would receive ANSI arguments and mangle them.
+int wmain(int argc, wchar_t** argv)
 {
 	if (argc != 3)
 	{
@@ -643,19 +656,20 @@ int main(int argc, char** argv)
 		return 2;
 	}
 
-	const char* input = argv[1];
-	const char* output = argv[2];
+	const std::filesystem::path input = argv[1];
+	const std::filesystem::path output = argv[2];
 
-	if (!GeFExist(Filename(input)))
+	const Filename input_name = to_filename(input);
+	if (!GeFExist(input_name))
 	{
-		std::fprintf(stderr, "c4d_preview: input does not exist: %s\n", input);
+		std::fprintf(stderr, "c4d_preview: input does not exist: %s\n", input.u8string().c_str());
 		return 3;
 	}
 
-	BaseDocument* document = LoadDocument(Filename(input), SCENEFILTER_OBJECTS | SCENEFILTER_MATERIALS);
+	BaseDocument* document = LoadDocument(input_name, SCENEFILTER_OBJECTS | SCENEFILTER_MATERIALS);
 	if (!document)
 	{
-		std::fprintf(stderr, "c4d_preview: could not read Cinema 4D scene: %s\n", input);
+		std::fprintf(stderr, "c4d_preview: could not read Cinema 4D scene: %s\n", input.u8string().c_str());
 		return 3;
 	}
 

@@ -51,6 +51,7 @@ cl /nologo /std:c++17 /EHsc /MT /O2 /DNDEBUG /Ithird_party\cineware\includes ^
 4. The copy embedded at build time, extracted on first use to
    `%TEMP%\polystash_c4d\c4d_preview.exe`.
 
-The converted GLB is written to `<library>/.polystash/thumbs/<stem>_preview.glb`,
-stored as the asset's `preview_model`, and used by the frontend to render the
-card thumbnail through the existing offscreen GLB snapshot path.
+The converted GLB is written to `<library>/.polystash/thumbs/<stem>_<hash>_preview.glb`
+(`<hash>` is a short fingerprint of the source folder, so same-named files in different
+folders never collide), stored as the asset's `preview_model`, and used by the frontend to
+render the card thumbnail through the existing offscreen GLB snapshot path.
