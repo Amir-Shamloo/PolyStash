@@ -1,14 +1,15 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageReader, Rgb, RgbImage};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
 use super::{aspect_ratio, round_two, save_thumb, structural};
 
-/// Checks if an extension is a standard raster image that Rust can decode directly.
+/// Checks if an extension is a standard raster image the backend can decode.
 ///
 /// AVIF is deliberately absent: the `image` crate's `avif` feature is an encoder
-/// only, so AVIF is decoded by the frontend instead of failing here.
+/// only, so AVIF is decoded by the frontend instead of failing here. DDS is
+/// decoded by `preview::dds`, which covers uncompressed surfaces as well as DXT.
 pub fn is_native_image(ext: &str) -> bool {
     matches!(
         ext.to_lowercase().as_str(),
@@ -20,10 +21,27 @@ pub fn is_native_image(ext: &str) -> bool {
 /// Uses Triangle (bilinear) filtering for 4x–8x faster performance than Lanczos3.
 ///
 /// GIF decodes to its first frame; the frontend animates the full file on the
-/// card and preview panel.
+/// card and preview panel. DDS is routed through `preview::dds` because the
+/// `image` DDS decoder only understands DXT while the Substance renderer writes
+/// uncompressed surfaces.
 pub fn generate_image_thumb(source: &Path, output: &Path) -> Result<()> {
-    let img = image::open(source)?;
+    let img = if is_dds(source) {
+        let bytes = std::fs::read(source)?;
+        let rgba = super::dds::decode(&bytes)
+            .ok_or_else(|| anyhow!("Unsupported DDS encoding: {}", source.display()))?;
+        DynamicImage::ImageRgba8(rgba)
+    } else {
+        image::open(source)?
+    };
     save_thumb(&img, output)
+}
+
+/// True for a `.dds` path, regardless of extension case.
+fn is_dds(source: &Path) -> bool {
+    source
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("dds"))
 }
 
 /// Technical metadata for a raster image: no pixel decode.

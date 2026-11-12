@@ -77,7 +77,7 @@ export function convertIesTextureToGrayscaleRgba(tex: THREE.DataTexture): THREE.
 }
 
 export const IES_SPOT_ANGLE = Math.PI / 2.4;
-const GOBO_SIZE = 256;
+const GOBO_SIZE = 1024;
 
 function readIesSample(data: Uint16Array | Float32Array | Uint8Array, index: number): number {
   const v = data[index * 4];
@@ -105,8 +105,11 @@ export function buildIesGoboTexture(tex: THREE.DataTexture, spotAngle = IES_SPOT
       const dx = ((x + 0.5) / GOBO_SIZE) * 2 - 1;
       const dy = ((y + 0.5) / GOBO_SIZE) * 2 - 1;
       const theta = Math.atan(Math.hypot(dx, dy) * tanAngle);
-      const idx = Math.min(width - 1, Math.round((theta * 180) / Math.PI));
-      const value = Math.round(Math.min(1, readIesSample(data, idx) * norm) * 255);
+      const pos = Math.min(width - 1, (theta * 180) / Math.PI);
+      const lo = Math.floor(pos);
+      const hi = Math.min(width - 1, lo + 1);
+      const sample = readIesSample(data, lo) + (readIesSample(data, hi) - readIesSample(data, lo)) * (pos - lo);
+      const value = Math.round(Math.min(1, sample * norm) * 255);
       const o = (y * GOBO_SIZE + x) * 4;
       out[o] = out[o + 1] = out[o + 2] = value;
       out[o + 3] = 255;
@@ -263,8 +266,10 @@ function IESPhotometricScene({ texture }: { texture: THREE.Texture }) {
         distance={28}
         decay={2}
         castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-bias={-0.0002}
+        shadow-mapSize={[4096, 4096]}
+        shadow-bias={-0.00005}
+        shadow-normalBias={0.02}
+        shadow-radius={3}
       />
 
       {/* Luminaire / Emitter housing at the light position */}
@@ -291,13 +296,13 @@ function IESPhotometricScene({ texture }: { texture: THREE.Texture }) {
       {/* Receiving ground plane */}
       <mesh rotation={[-Math.PI * 0.5, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[60, 60]} />
-        <meshStandardMaterial color="#565b66" roughness={0.72} metalness={0.05} />
+        <meshStandardMaterial color="#565b66" roughness={0.72} metalness={0.05} dithering />
       </mesh>
 
       {/* Curved backdrop / rear receiver wall */}
       <mesh position={[0, 4.5, -3.6]} receiveShadow>
         <planeGeometry args={[28, 9]} />
-        <meshStandardMaterial color="#484d57" roughness={0.78} metalness={0.04} />
+        <meshStandardMaterial color="#484d57" roughness={0.78} metalness={0.04} dithering />
       </mesh>
 
       {/* Subtle reference pedestal on the floor */}
@@ -657,13 +662,15 @@ export function IESLightViewer({
         extension={cleanExt}
       >
         <Canvas
-          shadows
+          shadows="soft"
+          dpr={Math.min(Math.max(window.devicePixelRatio || 1, 2), 3)}
           camera={{ position: [5.5, 3.2, 6.8], fov: 40, near: 0.1, far: 100 }}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 1.15,
             outputColorSpace: THREE.SRGBColorSpace,
             antialias: true,
+            powerPreference: 'high-performance',
           }}
         >
           <Suspense fallback={null}>

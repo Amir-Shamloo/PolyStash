@@ -311,11 +311,21 @@ interface SbsarTexSpec {
   srgb: boolean;
 }
 
+/** Sphere UVs span 2:1 (u: 2π, v: π). Repeating 2x1 keeps square Substance tiles undistorted. */
+const SBSAR_UV_REPEAT = new THREE.Vector2(2, 1);
+
+function configureSbsarTexture(tex: THREE.Texture, srgb: boolean): THREE.Texture {
+  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.copy(SBSAR_UV_REPEAT);
+  tex.anisotropy = 8;
+  return tex;
+}
+
 function loadSbsarTexture({ loader, rawPath, srgb }: SbsarTexSpec): THREE.Texture | null {
   if (!rawPath) return null;
-  const tex = loader.load(ensureConvertedModelUrl(rawPath));
-  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
-  return tex;
+  return configureSbsarTexture(loader.load(ensureConvertedModelUrl(rawPath)), srgb);
 }
 
 async function loadSbsarTextureAsync({
@@ -325,10 +335,9 @@ async function loadSbsarTextureAsync({
 }: SbsarTexSpec): Promise<THREE.Texture | null> {
   if (!rawPath) return null;
   try {
-    const tex = await loader.loadAsync(ensureConvertedModelUrl(rawPath));
-    tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
-    return tex;
-  } catch {
+    return configureSbsarTexture(await loader.loadAsync(ensureConvertedModelUrl(rawPath)), srgb);
+  } catch (err) {
+    console.warn('SBSAR texture failed to load:', rawPath, err);
     return null;
   }
 }
@@ -355,14 +364,17 @@ function buildSbsarMaterialFromMaps(maps: LoadedSbsarMaps): THREE.MeshStandardMa
     color: maps.baseColor ? 0xffffff : 0x8899aa,
     map: maps.baseColor,
     normalMap: maps.normal,
+    // Substance renders DirectX-convention normals (Y-); three.js expects OpenGL (Y+).
+    normalScale: new THREE.Vector2(1, -1),
     roughnessMap: maps.roughness,
     roughness: maps.roughness ? 1.0 : 0.35,
     metalnessMap: maps.metallic,
     metalness: maps.metallic ? 1.0 : 0.15,
-    displacementMap: maps.height,
-    displacementScale: maps.height ? 0.05 : 0,
+    bumpMap: maps.normal ? null : maps.height,
+    bumpScale: 0.02,
     alphaMap: maps.opacity,
-    transparent: Boolean(maps.opacity),
+    alphaTest: maps.opacity ? 0.5 : 0,
+    side: maps.opacity ? THREE.DoubleSide : THREE.FrontSide,
   });
 }
 
@@ -388,7 +400,7 @@ export function createSbsarMaterialSync(textures?: SbsarTextures): THREE.MeshSta
 export async function createSbsarShaderBallObject(
   textures?: SbsarTextures
 ): Promise<THREE.Mesh> {
-  const geom = new THREE.SphereGeometry(1, 64, 32);
+  const geom = new THREE.SphereGeometry(1, 128, 64);
   if (!textures) {
     const mat = createSbsarMaterialSync();
     return new THREE.Mesh(geom, mat);
@@ -422,7 +434,7 @@ export function SbsarShaderBall({
 }) {
   const { baseColor, normal, roughness, metallic, height, opacity } = sbsarTextures ?? {};
   const mesh = useMemo(() => {
-    const geom = new THREE.SphereGeometry(1, 64, 32);
+    const geom = new THREE.SphereGeometry(1, 128, 64);
     const mat = createSbsarMaterialSync({
       baseColor,
       normal,

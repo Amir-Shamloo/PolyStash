@@ -37,7 +37,8 @@ const MESH_EXTENSIONS: [&str; 10] = [
 const GALLERY_EXTENSIONS: [&str; 1] = ["skp"];
 
 /// GPU-compressed texture formats the frontend renders with KTX2Loader and the
-/// backend therefore skips. `dds` is *not* here: `image` decodes it natively.
+/// backend therefore skips. `dds` is *not* here: it goes through `preview::dds`,
+/// which also decodes the uncompressed surfaces `image` cannot.
 const GPU_TEXTURE_EXTENSIONS: [&str; 2] = ["ktx", "ktx2"];
 
 /// Formats the frontend shows as a plain kind icon: no backend thumbnail and
@@ -474,11 +475,37 @@ async fn complete_c4d_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Pat
     jobs.complete_model(job, &glb_rel, thumb.as_deref()).await;
 }
 
-/// File stem used to name the thumbnail, or a fixed fallback for unusual paths.
-fn thumb_stem(path: &Path) -> &str {
-    path.file_stem()
+/// Short, stable fingerprint of a source's parent directory.
+///
+/// FNV-1a with a murmur3 finalizer: deterministic across runs and machines, and
+/// the finalizer fixes FNV's weak low bits. Path separators are normalized so
+/// the walker (OS separators) and the preview worker (stored `/` paths) agree.
+fn parent_fingerprint(parent: Option<&Path>) -> String {
+    let mut hash: u32 = 0x811c_9dc5;
+    if let Some(parent) = parent {
+        for byte in parent.to_string_lossy().replace('\\', "/").bytes() {
+            hash ^= u32::from(byte);
+            hash = hash.wrapping_mul(0x0100_0193);
+        }
+    }
+    hash ^= hash >> 16;
+    hash = hash.wrapping_mul(0x85eb_ca6b);
+    hash ^= hash >> 13;
+    hash = hash.wrapping_mul(0xc2b2_ae35);
+    hash ^= hash >> 16;
+    format!("{:04x}", hash & 0xffff)
+}
+
+/// File stem used to name generated previews, suffixed with a short hash of the
+/// source's parent directory so `Chairs/chair.c4d` and `Props/chair.c4d` never
+/// share a thumbnail, GLB, or SBSAR map. Falls back to `preview` for unusual
+/// paths. Existing caches named after the bare stem are intentionally orphaned.
+pub(crate) fn thumb_stem(path: &Path) -> String {
+    let stem = path
+        .file_stem()
         .and_then(|stem| stem.to_str())
-        .unwrap_or("preview")
+        .unwrap_or("preview");
+    format!("{stem}_{}", parent_fingerprint(path.parent()))
 }
 
 /// Generate the thumbnail for one job and record the outcome.
@@ -529,7 +556,7 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
         return;
     }
 
-    if let Some(rel_thumb) = native_image_thumb(&full_source, &ext, file_stem, jobs.thumb_dir) {
+    if let Some(rel_thumb) = native_image_thumb(&full_source, &ext, &file_stem, jobs.thumb_dir) {
         jobs.complete(job, &[rel_thumb]).await;
         return;
     }
@@ -555,15 +582,15 @@ async fn complete_existing_thumbnail(
     ext: &str,
 ) -> bool {
     let file_stem = thumb_stem(source);
-    let Some(rel_thumb) = existing_thumb(jobs.thumb_dir, file_stem) else {
+    let Some(rel_thumb) = existing_thumb(jobs.thumb_dir, &file_stem) else {
         return false;
     };
 
     tracing::info!("Thumbnail already exists for {}, skipping generation", file_stem);
     let mut gallery = vec![rel_thumb];
-    gallery.extend(existing_thumb_set(jobs.thumb_dir, file_stem).into_iter().skip(1));
+    gallery.extend(existing_thumb_set(jobs.thumb_dir, &file_stem).into_iter().skip(1));
     if ext == "sbsar" {
-        if let Some(maps) = archive::render_sbsar_maps(source, file_stem, jobs.thumb_dir).await {
+        if let Some(maps) = archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
             publish_sbsar_textures(jobs, job, &maps).await;
         }
     }
@@ -571,33 +598,18 @@ async fn complete_existing_thumbnail(
     true
 }
 
-/// The card thumbnail is the base-colour map, downscaled to thumbnail size.
-fn write_sbsar_card_thumbnail(jobs: &LibraryJobs<'_>, file_stem: &str, maps: &[(String, String)]) {
-    let thumb_dest = jobs.thumb_dir.join(format!("{file_stem}_thumb.png"));
-    if thumb_dest.exists() {
-        return;
-    }
-    let Some((_, rel)) = maps.iter().find(|(key, _)| key == "baseColor") else {
-        return;
-    };
-    let Ok(image) = image::open(resolve_path(jobs.root_path, rel)) else {
-        return;
-    };
-    let _ = save_thumb(&image, &thumb_dest);
-}
-
-/// Substance job: the PBR maps feed the 3D viewer and are always produced; the
-/// embedded archive preview is only a shortcut for the card thumbnail.
+/// Substance job: the PBR maps feed the 3D viewer and are always produced.
+///
+/// The card thumbnail comes from the archive's own preview when it has one;
+/// otherwise the frontend renders the shader ball. The base-colour texture is
+/// never used as the card image.
 async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
     let file_stem = thumb_stem(source);
     let thumb_name = format!("{file_stem}_thumb.png");
     let thumb_dest = jobs.thumb_dir.join(&thumb_name);
 
-    match archive::render_sbsar_maps(source, file_stem, jobs.thumb_dir).await {
-        Some(maps) => {
-            write_sbsar_card_thumbnail(jobs, file_stem, &maps);
-            publish_sbsar_textures(jobs, job, &maps).await;
-        }
+    match archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
+        Some(maps) => publish_sbsar_textures(jobs, job, &maps).await,
         None => remove_metadata_key(jobs, job, "sbsar_textures").await,
     }
 
@@ -614,7 +626,9 @@ async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &P
 }
 
 /// Point the asset's `sbsar_textures` at the rendered PBR maps so the frontend
-/// can build the shader ball.
+/// can build the shader ball. Paths are stored library-relative, like
+/// `preview_model`, and resolved again in `row_to_asset` so moving a library
+/// keeps the shader ball working.
 async fn publish_sbsar_textures(
     jobs: &LibraryJobs<'_>,
     job: &JobRef<'_>,
@@ -622,7 +636,7 @@ async fn publish_sbsar_textures(
 ) {
     let textures: serde_json::Map<String, Value> = maps
         .iter()
-        .map(|(key, rel)| (key.clone(), Value::String(resolve_path(jobs.root_path, rel))))
+        .map(|(key, rel)| (key.clone(), Value::String(rel.clone())))
         .collect();
     let mut patch = serde_json::Map::new();
     patch.insert("sbsar_textures".to_string(), Value::Object(textures));
@@ -633,10 +647,10 @@ async fn publish_sbsar_textures(
 async fn complete_with_extraction(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path, ext: &str) {
     let file_stem = thumb_stem(source);
 
-    match generate_thumbnail(ext, source, file_stem, jobs.thumb_dir).await {
+    match generate_thumbnail(ext, source, &file_stem, jobs.thumb_dir).await {
         Ok(primary) => {
             let mut gallery = vec![primary];
-            gallery.extend(generate_gallery(ext, source, file_stem, jobs.thumb_dir));
+            gallery.extend(generate_gallery(ext, source, &file_stem, jobs.thumb_dir));
             jobs.complete(job, &gallery).await;
         }
         Err(e) => {

@@ -253,18 +253,27 @@ fn sbsar_renderer_exe() -> Option<PathBuf> {
 
 /// Map a Substance output identifier onto the frontend's PBR slot names.
 fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
-    const KEYS: [(&str, &str); 8] = [
+    const KEYS: [(&str, &str); 12] = [
         ("basecolor", "baseColor"),
+        ("albedo", "baseColor"),
         ("diffuse", "baseColor"),
         ("normal", "normal"),
         ("roughness", "roughness"),
         ("metallic", "metallic"),
+        ("metalness", "metallic"),
         ("height", "height"),
         ("displacement", "height"),
         ("opacity", "opacity"),
+        ("alpha", "opacity"),
+        ("color", "baseColor"),
     ];
+    // Graphs name outputs `base_color`, `Base Color`, `baseColor`, ...
+    let normalized: String = identifier
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect();
     KEYS.iter()
-        .find(|(needle, _)| identifier.ends_with(needle))
+        .find(|(needle, _)| normalized.ends_with(needle))
         .map(|(_, key)| *key)
 }
 
@@ -285,6 +294,46 @@ pub(crate) fn existing_sbsar_maps(thumb_dir: &Path, file_stem: &str) -> Vec<(Str
         .collect();
     maps.sort_by(|a, b| a.0.cmp(&b.0));
     maps
+}
+
+/// Sidecar recording which source file the rendered maps came from.
+fn sbsar_stamp_path(thumb_dir: &Path, file_stem: &str) -> PathBuf {
+    thumb_dir.join(format!("{file_stem}_sbsar.stamp"))
+}
+
+/// Fingerprint of the source archive: modification time plus size, both read
+/// from a single `metadata` call so the freshness check stays cheap.
+fn source_fingerprint(meta: &std::fs::Metadata) -> Option<String> {
+    let modified = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?;
+    Some(format!("{}:{}", modified.as_nanos(), meta.len()))
+}
+
+/// True when the maps on disk were rendered from the current source file.
+fn maps_are_current(thumb_dir: &Path, file_stem: &str, fingerprint: &str) -> bool {
+    std::fs::read_to_string(sbsar_stamp_path(thumb_dir, file_stem))
+        .is_ok_and(|stored| stored.trim() == fingerprint)
+}
+
+/// Drop maps from an earlier render so slots the new render no longer produces
+/// cannot survive as stale surfaces.
+fn clear_sbsar_maps(thumb_dir: &Path, file_stem: &str) {
+    let prefix = format!("{file_stem}_sbsar_");
+    let Ok(entries) = std::fs::read_dir(thumb_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if name.starts_with(&prefix) && name.ends_with(".png") {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
 }
 
 /// Convert every DDS the renderer wrote into a PNG, keyed by PBR slot.
@@ -321,15 +370,23 @@ async fn convert_sbsar_outputs(out_dir: &Path, thumb_dir: &Path, file_stem: &str
     maps
 }
 
-/// Render the PBR maps for an SBSAR, or return the ones already on disk.
+/// Render the PBR maps for an SBSAR, or return the ones already on disk when
+/// they were rendered from the current source file.
 pub(crate) async fn render_sbsar_maps(
     source: &Path,
     file_stem: &str,
     thumb_dir: &Path,
 ) -> Option<Vec<(String, String)>> {
-    let existing = existing_sbsar_maps(thumb_dir, file_stem);
-    if !existing.is_empty() {
-        return Some(existing);
+    // Cheap freshness check: one `metadata` call plus a small sidecar read.
+    let fingerprint = std::fs::metadata(source)
+        .ok()
+        .and_then(|meta| source_fingerprint(&meta));
+
+    if let Some(fingerprint) = &fingerprint {
+        let existing = existing_sbsar_maps(thumb_dir, file_stem);
+        if !existing.is_empty() && maps_are_current(thumb_dir, file_stem, fingerprint) {
+            return Some(existing);
+        }
     }
 
     let renderer = sbsar_renderer_exe()?.to_str()?.to_string();
@@ -337,6 +394,9 @@ pub(crate) async fn render_sbsar_maps(
     // A previous partial render would otherwise contribute stale surfaces.
     let _ = tokio::fs::remove_dir_all(&out_dir).await;
     tokio::fs::create_dir_all(&out_dir).await.ok()?;
+    // The source changed (or the sidecar is missing): old PNGs must not be
+    // merged with the new render.
+    clear_sbsar_maps(thumb_dir, file_stem);
 
     // The renderer writes `output_<graph>_<output>[<uid>].dds` into its working directory.
     let mut child = super::spawn_command(&renderer)
@@ -354,5 +414,13 @@ pub(crate) async fn render_sbsar_maps(
     }
 
     let maps = convert_sbsar_outputs(&out_dir, thumb_dir, file_stem).await;
-    (!maps.is_empty()).then_some(maps)
+    if maps.is_empty() {
+        return None;
+    }
+
+    // Written last: a crash mid-render leaves no valid stamp and re-renders.
+    if let Some(fingerprint) = fingerprint {
+        let _ = tokio::fs::write(sbsar_stamp_path(thumb_dir, file_stem), fingerprint).await;
+    }
+    Some(maps)
 }

@@ -113,6 +113,24 @@ async function readTextureBytes(ctx: ConversionContext, assetPath: string): Prom
   }
 }
 
+const MAX_TEXTURE_SIZE = 2048;
+
+/** Decodes an image and caps its longest side, since the GLB export re-encodes every texture. */
+async function decodeTextureBitmap(bytes: Uint8Array): Promise<ImageBitmap> {
+  const full = await createImageBitmap(new Blob([bytes as BlobPart]), { imageOrientation: 'none' });
+  const longest = Math.max(full.width, full.height);
+  if (longest <= MAX_TEXTURE_SIZE) return full;
+  const scale = MAX_TEXTURE_SIZE / longest;
+  const small = await createImageBitmap(full, {
+    resizeWidth: Math.round(full.width * scale),
+    resizeHeight: Math.round(full.height * scale),
+    resizeQuality: 'medium',
+    imageOrientation: 'none',
+  });
+  full.close();
+  return small;
+}
+
 function loadTexture(ctx: ConversionContext, shader: ShaderInfo, srgb: boolean): Promise<THREE.Texture | null> {
   const file = asDict(inputOf(shader, 'file'));
   const assetPath = (file?.resolvedPath ?? file?.path) as string | undefined;
@@ -124,7 +142,7 @@ function loadTexture(ctx: ConversionContext, shader: ShaderInfo, srgb: boolean):
     const bytes = await readTextureBytes(ctx, assetPath);
     if (!bytes) return null;
     try {
-      const bitmap = await createImageBitmap(new Blob([bytes as BlobPart]), { imageOrientation: 'none' });
+      const bitmap = await decodeTextureBitmap(bytes);
       const tex = new THREE.Texture(bitmap as unknown as HTMLImageElement);
       tex.flipY = false;
       tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;

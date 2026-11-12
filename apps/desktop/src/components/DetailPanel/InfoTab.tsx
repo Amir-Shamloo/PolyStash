@@ -178,6 +178,48 @@ function MetaSubGroup({ title, entries }: MetaSubGroupProps) {
   );
 }
 
+const SBSAR_TEXTURES_KEY = 'sbsar_textures';
+
+const SBSAR_SLOT_LABELS: Record<string, string> = {
+  baseColor: 'Base Color',
+  normal: 'Normal',
+  roughness: 'Roughness',
+  metallic: 'Metallic',
+  height: 'Height',
+  opacity: 'Opacity',
+};
+
+function SbsarTextureList({ textures }: { textures: Record<string, unknown> }) {
+  const rows = Object.entries(textures).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0
+  );
+  if (rows.length === 0) return null;
+  return (
+    <div className={styles.metaSubGroup}>
+      <span className={styles.metaSubGroupTitle}>Texture Maps</span>
+      <div className={styles.infoGrid}>
+        {rows.map(([slot, path]) => (
+          <Fragment key={slot}>
+            <span className={styles.metaKeyLabel}>{SBSAR_SLOT_LABELS[slot] ?? slot}</span>
+            <div className={styles.infoValue}>
+              <span className={styles.mono} title={path}>{fileNameOf(path)}</span>
+              <button
+                type="button"
+                className={styles.miniPathBtn}
+                onClick={() => api.revealInExplorer(path).catch(console.error)}
+                title="Open in file explorer"
+                aria-label={`Open ${SBSAR_SLOT_LABELS[slot] ?? slot} texture in file explorer`}
+              >
+                <IconExternal size={12} />
+              </button>
+            </div>
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface CategorizedMetadata {
   geometry: [string, unknown][];
   dimensions: [string, unknown][];
@@ -220,28 +262,87 @@ function partitionMetadata(entries: [string, unknown][]): CategorizedMetadata {
 
 interface TechnicalMetadataProps {
   metadata: Record<string, unknown>;
+  extension: string;
 }
 
-function TechnicalMetadataSection({ metadata }: TechnicalMetadataProps) {
-  const entries = useMemo(() => Object.entries(metadata || {}), [metadata]);
+function countKeys(value: unknown): number {
+  return value && typeof value === 'object' ? Object.keys(value as Record<string, unknown>).length : 0;
+}
+
+function shaderBallFieldCount(categorized: ReturnType<typeof partitionMetadata>, textureCount: number): number {
+  const groups = categorized.render.length + categorized.lighting.length + categorized.general.length;
+  return textureCount ? groups + 1 : groups;
+}
+
+/** Shader balls have no mesh data; their texture maps replace the geometry groups. */
+function MetadataGroups({
+  isShaderBall,
+  categorized,
+  sbsarTextures,
+  textureCount,
+}: {
+  isShaderBall: boolean;
+  categorized: ReturnType<typeof partitionMetadata>;
+  sbsarTextures: unknown;
+  textureCount: number;
+}) {
+  if (isShaderBall) {
+    return (
+      <>
+        {textureCount > 0 && (
+          <SbsarTextureList textures={sbsarTextures as Record<string, unknown>} />
+        )}
+        <MetaSubGroup title="Lighting & Photometry" entries={categorized.lighting} />
+        <MetaSubGroup title="Renderer & Engine" entries={categorized.render} />
+        <MetaSubGroup title="Additional Properties" entries={categorized.general} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <MetaSubGroup title="Geometry & Meshes" entries={categorized.geometry} />
+      <MetaSubGroup title="Dimensions & Resolution" entries={categorized.dimensions} />
+      <MetaSubGroup title="Lighting & Photometry" entries={categorized.lighting} />
+      <MetaSubGroup title="Renderer & Engine" entries={categorized.render} />
+      <MetaSubGroup title="Additional Properties" entries={categorized.general} />
+    </>
+  );
+}
+
+function TechnicalMetadataSection({ metadata, extension }: TechnicalMetadataProps) {
+  const isShaderBall = extension.toLowerCase().replace(/^\./, '') === 'sbsar';
+  const entries = useMemo(
+    () =>
+      Object.entries(metadata || {}).filter(
+        ([k]) => !(isShaderBall && k === SBSAR_TEXTURES_KEY)
+      ),
+    [metadata, isShaderBall]
+  );
   const categorized = useMemo(() => partitionMetadata(entries), [entries]);
+  const sbsarTextures = isShaderBall ? metadata?.[SBSAR_TEXTURES_KEY] : undefined;
+  const textureCount = countKeys(sbsarTextures);
+  const fieldCount = isShaderBall
+    ? shaderBallFieldCount(categorized, textureCount)
+    : entries.length;
 
   // Assets without metadata show no section at all, not an empty placeholder.
-  if (entries.length === 0) return null;
+  if (entries.length === 0 && textureCount === 0) return null;
 
   return (
     <div className={styles.infoSection}>
       <div className={styles.infoSectionHeader}>
         <span className={styles.infoSectionTitle}>Technical Metadata</span>
-        <span className={styles.metaCountBadge}>{entries.length} fields</span>
+        <span className={styles.metaCountBadge}>{fieldCount} fields</span>
       </div>
 
       <div className={styles.metaGroupsContainer}>
-        <MetaSubGroup title="Geometry & Meshes" entries={categorized.geometry} />
-        <MetaSubGroup title="Dimensions & Resolution" entries={categorized.dimensions} />
-        <MetaSubGroup title="Lighting & Photometry" entries={categorized.lighting} />
-        <MetaSubGroup title="Renderer & Engine" entries={categorized.render} />
-        <MetaSubGroup title="Additional Properties" entries={categorized.general} />
+        <MetadataGroups
+          isShaderBall={isShaderBall}
+          categorized={categorized}
+          sbsarTextures={sbsarTextures}
+          textureCount={textureCount}
+        />
       </div>
     </div>
   );
@@ -258,7 +359,7 @@ export function InfoTab({ asset }: InfoTabProps) {
         indexedAt={asset.indexedAt}
       />
 
-      <TechnicalMetadataSection metadata={asset.metadata} />
+      <TechnicalMetadataSection metadata={asset.metadata} extension={asset.extension} />
     </div>
   );
 }
