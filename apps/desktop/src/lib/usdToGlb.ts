@@ -8,13 +8,19 @@ type Dict = Record<string, unknown>;
 type Disposable = { delete?: () => void } | null | undefined;
 
 interface ShaderInfo { path: string; id: string | null; inputs: Dict }
-interface MaterialInfo { path: string; shaders: ShaderInfo[] }
+interface UvInfo { uvPrimvar?: string; uvTransform?: Dict | null }
+interface MaterialInfo { path: string; shaders: ShaderInfo[]; textureInfo?: UvInfo }
 interface TriGeometry {
   positions: ArrayLike<number>;
   pointIndices?: ArrayLike<number>;
   normals?: ArrayLike<number>;
   uvs?: ArrayLike<number>;
   displayColor?: number[] | null;
+}
+
+interface GeometryQuery {
+  time: UsdTimeCode;
+  uv?: UvInfo;
 }
 
 export const USD_EXTENSIONS = new Set(['usd', 'usda', 'usdc', 'usdz']);
@@ -72,6 +78,8 @@ function colorOf(value: unknown, fallback: THREE.Color): THREE.Color {
 }
 
 function normalizePath(p: string): string {
+  const inner = /\[([^\]]+)\]\s*$/.exec(p);
+  if (inner) p = inner[1];
   return p.replace(/^\.\//, '').replace(/^@|@$/g, '');
 }
 
@@ -248,12 +256,22 @@ function flipV(uvs: ArrayLike<number>): number[] {
   return out;
 }
 
+function applyIndices(geo: THREE.BufferGeometry, data: TriGeometry): void {
+  const vertexCount = geo.getAttribute('position').count;
+  const indices = data.pointIndices;
+  // Equal lengths mean the arrays are already expanded per corner; indexing
+  // them anyway scrambles the mesh.
+  if (indices?.length && indices.length !== vertexCount) {
+    geo.setIndex(Array.from(indices));
+  }
+}
+
 function buildGeometry(data: TriGeometry) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(Array.from(data.positions), 3));
   if (data.normals?.length) geo.setAttribute('normal', new THREE.Float32BufferAttribute(Array.from(data.normals), 3));
   if (data.uvs?.length) geo.setAttribute('uv', new THREE.Float32BufferAttribute(flipV(data.uvs), 2));
-  if (data.pointIndices?.length) geo.setIndex(Array.from(data.pointIndices));
+  applyIndices(geo, data);
   if (!geo.getAttribute('normal')) geo.computeVertexNormals();
   return geo;
 }
@@ -274,13 +292,17 @@ function attributeOf(prim: any, name: string, time: unknown): unknown {
   }
 }
 
-function computeGeometry(pxr: Pxr, prim: any, typeName: string, time: unknown): TriGeometry {
+function computeGeometry(pxr: Pxr, prim: any, typeName: string, query: GeometryQuery): TriGeometry {
   const Schema = (pxr.UsdGeom as any)[typeName];
   const schema = new Schema(prim);
   try {
     return typeName === 'Mesh'
-      ? schema.ComputeTriangulatedGeometry(time, 'primvars:st', null)
-      : schema.ComputeTriangulatedGeometry(time);
+      ? schema.ComputeTriangulatedGeometry(
+          query.time,
+          query.uv?.uvPrimvar || 'primvars:st',
+          query.uv?.uvTransform ?? null
+        )
+      : schema.ComputeTriangulatedGeometry(query.time);
   } finally {
     free(schema);
   }
@@ -335,13 +357,14 @@ function collectMaterialInfos(pxr: Pxr, prims: any[], materialTime: unknown): Ma
 }
 
 async function createMesh(state: SceneState, prim: any, typeName: string): Promise<THREE.Mesh> {
-  const { pxr, time } = state;
-  const geom = computeGeometry(pxr, prim, typeName, time);
+  const { pxr } = state;
   const boundPath = materialBindingPath(pxr, prim);
+  const info = boundPath ? state.materialInfos.get(boundPath) : undefined;
+  const geom = computeGeometry(pxr, prim, typeName, { time: state.time, uv: info?.textureInfo });
   const material = await buildMaterial(state.ctx, {
-    info: boundPath ? state.materialInfos.get(boundPath) : undefined,
+    info,
     displayColor: geom.displayColor,
-    doubleSided: Boolean(attributeOf(prim, 'doubleSided', time)),
+    doubleSided: Boolean(attributeOf(prim, 'doubleSided', state.time)),
   });
   return new THREE.Mesh(buildGeometry(geom), material);
 }

@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { convertFileSrc } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
-import { IconGrid, IconRefresh, IconCameraReset, IconInfo } from '../Icons';
+import { IconGrid, IconRefresh, IconCameraReset } from '../Icons';
 import { computeModelStats, frameCameraAuto, isZUpFormat, type ModelStats } from './ThreeViewerUtils';
 import { MODEL_RENDERERS, ensureConvertedModelUrl, type SbsarTextures } from './ThreeModelLoaders';
 import styles from './ThreeViewer.module.css';
@@ -250,11 +250,9 @@ function StudioLighting() {
 interface ToolbarProps {
   wireframe: boolean;
   autoRotate: boolean;
-  showInfo: boolean;
   isFullscreen?: boolean;
   onToggleWireframe: () => void;
   onToggleRotate: () => void;
-  onToggleInfo: () => void;
   onResetCamera: () => void;
   onToggleFullscreen?: () => void;
 }
@@ -262,11 +260,9 @@ interface ToolbarProps {
 function ViewerToolbar({
   wireframe,
   autoRotate,
-  showInfo,
   isFullscreen = false,
   onToggleWireframe,
   onToggleRotate,
-  onToggleInfo,
   onResetCamera,
   onToggleFullscreen,
 }: ToolbarProps) {
@@ -292,17 +288,6 @@ function ViewerToolbar({
         title="Toggle auto-rotation"
       >
         <IconRefresh size={13} />
-      </button>
-
-      <button
-        type="button"
-        className={clsx(styles.toolbarBtn, showInfo && styles.toolbarBtnActive)}
-        onClick={onToggleInfo}
-        aria-label="Toggle model information"
-        aria-pressed={showInfo}
-        title="Model information"
-      >
-        <IconInfo size={13} />
       </button>
 
       <button
@@ -336,7 +321,7 @@ export interface ThreeViewerProps {
   sbsarTextures?: SbsarTextures;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
-  /** Called once the model geometry is parsed; stats mirror the info panel. */
+  /** Called once the model geometry is parsed; consumed by the details panel. */
   onStats?: (stats: ModelStats) => void;
 }
 
@@ -350,8 +335,6 @@ export function ThreeViewer({
 }: ThreeViewerProps) {
   const [wireframe, setWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
-  const [modelStats, setModelStats] = useState<ModelStats | null>(null);
   const [groundY, setGroundY] = useState(0);
   const controlsRef = useRef<OrbitHandle | null>(null);
 
@@ -368,7 +351,6 @@ export function ThreeViewer({
   // Stable: keeps Model's onLoaded effect from re-firing every render.
   const handleStatsReady = useCallback(
     (stats: ModelStats) => {
-      setModelStats(stats);
       onStats?.(stats);
     },
     [onStats]
@@ -379,31 +361,12 @@ export function ThreeViewer({
       <ViewerToolbar
         wireframe={wireframe}
         autoRotate={autoRotate}
-        showInfo={showInfo}
         isFullscreen={isFullscreen}
         onToggleWireframe={() => setWireframe((v) => !v)}
         onToggleRotate={() => setAutoRotate((v) => !v)}
-        onToggleInfo={() => setShowInfo((v) => !v)}
         onResetCamera={handleResetCamera}
         onToggleFullscreen={onToggleFullscreen}
       />
-
-      {showInfo && modelStats && (
-        <div className={styles.infoPanel} role="region" aria-label="3D Model Statistics">
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Meshes</span>
-            <span className={styles.infoValue}>{modelStats.meshCount.toLocaleString()}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Polys</span>
-            <span className={styles.infoValue}>{modelStats.triangles.toLocaleString()}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Vertices</span>
-            <span className={styles.infoValue}>{modelStats.vertices.toLocaleString()}</span>
-          </div>
-        </div>
-      )}
 
       <ThreeErrorBoundary
         key={modelPath}

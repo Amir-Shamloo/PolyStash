@@ -13,7 +13,7 @@ import {
   type IntensityCurve,
 } from '@ies-tools/core';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
-import { IconSun, IconRefresh, IconCameraReset } from '../Icons';
+import { IconSun, IconRefresh, IconCameraReset, IconInfo } from '../Icons';
 import { ThreeErrorBoundary } from './ThreeViewer';
 import styles from './ThreeViewer.module.css';
 
@@ -145,6 +145,8 @@ function IconMinimize({ size = 13 }: { size?: number }) {
 interface IESToolbarProps {
   autoRotate: boolean;
   isFullscreen?: boolean;
+  showInfo: boolean;
+  onToggleInfo: () => void;
   onToggleRotate: () => void;
   onResetCamera: () => void;
   onToggleFullscreen?: () => void;
@@ -153,6 +155,8 @@ interface IESToolbarProps {
 function IESToolbar({
   autoRotate,
   isFullscreen = false,
+  showInfo,
+  onToggleInfo,
   onToggleRotate,
   onResetCamera,
   onToggleFullscreen,
@@ -168,6 +172,17 @@ function IESToolbar({
         title="Toggle auto-rotation"
       >
         <IconRefresh size={13} />
+      </button>
+
+      <button
+        type="button"
+        className={clsx(styles.toolbarBtn, showInfo && styles.toolbarBtnActive)}
+        onClick={onToggleInfo}
+        aria-label="Toggle photometric information"
+        aria-pressed={showInfo}
+        title="Photometric information"
+      >
+        <IconInfo size={13} />
       </button>
 
       <button
@@ -547,7 +562,12 @@ function PhotometricInfoPanel({
   const info = profileInfo ?? buildEmptyProfileInfo(fallbackExt);
 
   return (
-    <div className={styles.infoPanel} role="region" aria-label="Photometric Profile Info">
+    <div
+      className={styles.infoPanel}
+      role="region"
+      aria-label="Photometric Profile Info"
+      style={{ maxWidth: 'min(240px, calc(100% - 24px))', maxHeight: 'calc(100% - 24px)', overflowY: 'auto' }}
+    >
       <div className={styles.infoRow}>
         <span className={styles.infoLabel}>Profile</span>
         <span
@@ -592,6 +612,8 @@ export function IESLightViewer({
   onToggleFullscreen,
 }: IESLightViewerProps) {
   const [autoRotate, setAutoRotate] = useState(false);
+  const [showInfo, setShowInfo] = useState(Boolean(isFullscreen));
+  useEffect(() => setShowInfo(Boolean(isFullscreen)), [isFullscreen]);
   const controlsRef = useRef<OrbitHandle | null>(null);
   const cleanExt = (extension || filePath.split('.').pop() || '').toLowerCase();
   const { texture, profileInfo, errorMsg } = useIesTexture({ filePath, ext: cleanExt });
@@ -621,12 +643,14 @@ export function IESLightViewer({
       <IESToolbar
         autoRotate={autoRotate}
         isFullscreen={isFullscreen}
+        showInfo={showInfo}
+        onToggleInfo={() => setShowInfo((v) => !v)}
         onToggleRotate={() => setAutoRotate((v) => !v)}
         onResetCamera={handleResetCamera}
         onToggleFullscreen={onToggleFullscreen}
       />
 
-      <PhotometricInfoPanel profileInfo={profileInfo} fallbackExt={cleanExt} />
+      {showInfo && <PhotometricInfoPanel profileInfo={profileInfo} fallbackExt={cleanExt} />}
 
       <ThreeErrorBoundary
         key={filePath}

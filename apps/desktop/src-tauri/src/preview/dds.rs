@@ -60,7 +60,7 @@ fn decode_uncompressed(header: &[u8], data: &[u8], width: usize, height: usize) 
         pixels.extend_from_slice(&[r, g, b, alpha]);
     }
 
-    RgbaImage::from_raw(width as u32, height as u32, pixels).ok()
+    RgbaImage::from_raw(width as u32, height as u32, pixels)
 }
 
 /// Decode a DDS surface to RGBA, or `None` when the format is unsupported.
