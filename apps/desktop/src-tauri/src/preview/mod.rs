@@ -398,6 +398,46 @@ async fn complete_dae_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, _source: &Pa
     jobs.complete(job, &[]).await;
 }
 
+/// True when `path` is a complete GLB: correct magic, version 2, and a declared
+/// length that matches the file on disk.
+fn valid_glb(path: &Path) -> bool {
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let Ok(len) = file.metadata().map(|meta| meta.len()) else {
+        return false;
+    };
+    let mut header = [0_u8; 12];
+    let Ok(()) = std::io::Read::read_exact(&mut file, &mut header) else {
+        return false;
+    };
+    let magic = u32::from_le_bytes(header[0..4].try_into().unwrap_or_default());
+    let version = u32::from_le_bytes(header[4..8].try_into().unwrap_or_default());
+    let declared = u32::from_le_bytes(header[8..12].try_into().unwrap_or_default());
+    magic == 0x4654_6C67 && version == 2 && u64::from(declared) == len
+}
+
+/// Remove a metadata key so a stale preview is never shown after a fallback.
+async fn remove_metadata_key(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, key: &str) {
+    let existing: Option<(String,)> = sqlx::query_as("SELECT metadata FROM assets WHERE id = ?")
+        .bind(job.asset_id)
+        .fetch_optional(jobs.pool)
+        .await
+        .unwrap_or(None);
+    let Some((raw,)) = existing else {
+        return;
+    };
+    let mut metadata: serde_json::Map<String, Value> = serde_json::from_str(&raw).unwrap_or_default();
+    if metadata.remove(key).is_none() {
+        return;
+    }
+    let _ = sqlx::query("UPDATE assets SET metadata = ? WHERE id = ?")
+        .bind(Value::Object(metadata).to_string())
+        .bind(job.asset_id)
+        .execute(jobs.pool)
+        .await;
+}
+
 /// Complete a Cinema 4D job. The Cineware GLB always feeds the 3D viewer; an
 /// embedded preview image is only used as a better card thumbnail. If the
 /// helper is unavailable or the scene has no exportable geometry, fall back to
@@ -408,7 +448,7 @@ async fn complete_c4d_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Pat
     let glb_rel = format!(".polystash/thumbs/{glb_name}");
     let glb_dest = jobs.thumb_dir.join(&glb_name);
 
-    let glb_ready = if glb_dest.is_file() {
+    let glb_ready = if valid_glb(&glb_dest) {
         true
     } else {
         cineware::export_c4d_glb(source, &glb_dest).await.is_ok()
@@ -419,6 +459,7 @@ async fn complete_c4d_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Pat
             "Cineware GLB export failed for {}; falling back to the embedded preview.",
             source.display()
         );
+        remove_metadata_key(jobs, job, "preview_model").await;
         complete_with_extraction(jobs, job, source, "c4d").await;
         return;
     }
@@ -530,6 +571,21 @@ async fn complete_existing_thumbnail(
     true
 }
 
+/// The card thumbnail is the base-colour map, downscaled to thumbnail size.
+fn write_sbsar_card_thumbnail(jobs: &LibraryJobs<'_>, file_stem: &str, maps: &[(String, String)]) {
+    let thumb_dest = jobs.thumb_dir.join(format!("{file_stem}_thumb.png"));
+    if thumb_dest.exists() {
+        return;
+    }
+    let Some((_, rel)) = maps.iter().find(|(key, _)| key == "baseColor") else {
+        return;
+    };
+    let Ok(image) = image::open(resolve_path(jobs.root_path, rel)) else {
+        return;
+    };
+    let _ = save_thumb(&image, &thumb_dest);
+}
+
 /// Substance job: the PBR maps feed the 3D viewer and are always produced; the
 /// embedded archive preview is only a shortcut for the card thumbnail.
 async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
@@ -537,13 +593,12 @@ async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &P
     let thumb_name = format!("{file_stem}_thumb.png");
     let thumb_dest = jobs.thumb_dir.join(&thumb_name);
 
-    if let Some(maps) = archive::render_sbsar_maps(source, file_stem, jobs.thumb_dir).await {
-        if !thumb_dest.exists() {
-            if let Some((_, rel)) = maps.iter().find(|(key, _)| key == "baseColor") {
-                let _ = std::fs::copy(resolve_path(jobs.root_path, rel), &thumb_dest);
-            }
+    match archive::render_sbsar_maps(source, file_stem, jobs.thumb_dir).await {
+        Some(maps) => {
+            write_sbsar_card_thumbnail(jobs, file_stem, &maps);
+            publish_sbsar_textures(jobs, job, &maps).await;
         }
-        publish_sbsar_textures(jobs, job, &maps).await;
+        None => remove_metadata_key(jobs, job, "sbsar_textures").await,
     }
 
     if !thumb_dest.exists() {
