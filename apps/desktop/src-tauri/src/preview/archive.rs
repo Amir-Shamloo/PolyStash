@@ -275,6 +275,25 @@ fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
     KEYS.iter()
         .find(|(needle, _)| normalized.ends_with(needle))
         .map(|(_, key)| *key)
+        .or_else(|| {
+            let bare = strip_map_suffix(&normalized)?;
+            KEYS.iter()
+                .find(|(needle, _)| bare.ends_with(needle))
+                .map(|(_, key)| *key)
+        })
+        .or_else(|| {
+            KEYS.iter()
+                .find(|(needle, _)| normalized.contains(needle))
+                .map(|(_, key)| *key)
+        })
+}
+
+/// Drop one trailing `texture`/`texturemap`/`map` token some renderers append.
+/// Longest suffix first so `...texturemap` loses the whole token, not just `map`.
+fn strip_map_suffix(normalized: &str) -> Option<&str> {
+    ["texturemap", "texture", "map"]
+        .into_iter()
+        .find_map(|suffix| normalized.strip_suffix(suffix))
 }
 
 /// Maps already rendered for `file_stem`, read back from the thumbnail folder.

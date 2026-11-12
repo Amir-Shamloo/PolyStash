@@ -262,8 +262,8 @@ fn float_pixel(data: &[u8], base: usize, format: &FloatFormat) -> Option<[u8; 4]
     let sample = |channel: usize| (format.read)(data, base + channel * stride);
     let srgb = format.channels == 4;
     let mut rgba = [255u8; 4];
-    for channel in 0..format.channels {
-        rgba[channel] = quantise(sample(channel)?, srgb && channel < 3);
+    for (channel, value) in rgba.iter_mut().enumerate().take(format.channels) {
+        *value = quantise(sample(channel)?, srgb && channel < 3);
     }
     if format.channels == 1 {
         rgba[1] = rgba[0];
