@@ -75,7 +75,7 @@ impl Drop for IndexLock {
 const SUPPORTED_EXTENSIONS: &[&str] = &[
     // 3D & CAD
     "fbx", "obj", "3ds", "dae", "gltf", "glb", "skp", "blend",
-    "c4d", "3dm", "rfa", "rvt", "dwg", "dxf", "stl", "usd", "usdz", "max",
+    "c4d", "3dm", "rfa", "rvt", "dwg", "dxf", "stl", "usd", "usda", "usdc", "usdz", "max",
     "abc", "ply", "x3d", "wrl", "ztl", "zpr", "zbr",
     // Materials
     "mat", "vrmat", "sbsar", "sbs", "mdl",
@@ -133,7 +133,7 @@ struct PendingAsset {
 /// or renders them itself, so a backend job would add nothing.
 const PREVIEW_EXTENSIONS: &[&str] = &[
     // Mesh and CAD
-    "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "ply", "usdz",
+    "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "ply", "usdz", "usda", "usdc",
     "x3d", "wrl", "skp", "rfa", "rvt", "rte", "dwg", "dxf", "3dm",
     // Materials and textures
     "vrmat", "sbsar", "dds", "sbs", "mdl", "mat", "abc",

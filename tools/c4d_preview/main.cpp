@@ -10,6 +10,7 @@
 // sweeps can only be exported when the .c4d file was saved with "Save Polygons
 // for Cineware". Plain polygon objects always export.
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -59,7 +60,8 @@ std::vector<Primitive> g_primitives;
 
 std::string to_utf8(const String& value)
 {
-	Char* raw = value.GetCStringCopy();
+	// glTF JSON must be UTF-8; the default XBIT encoding is the OS code page.
+	Char* raw = value.GetCStringCopy(STRINGENCODING_UTF8);
 	std::string result = raw ? raw : "";
 	DeleteMem(raw);
 	return result;
@@ -195,7 +197,7 @@ bool has_geometry(const Vector* points, const CPolygon* polygons, Int32 point_co
 	return point_count > 0 && polygon_count > 0;
 }
 
-void emit_polygon(PolygonObject* object, const Matrix& transform)
+void emit_polygon(PolygonObject* object, const Matrix& transform, int inherited_material)
 {
 	const Vector* points = object->GetPointR();
 	const CPolygon* polygons = object->GetPolygonR();
@@ -209,6 +211,9 @@ void emit_polygon(PolygonObject* object, const Matrix& transform)
 	primitive.name = to_utf8(object->GetName());
 	fill_positions(primitive, points, point_count, transform);
 	primitive.material = material_from_tag(object->GetTag(Ttexture));
+	// Cache objects are geometry-only and carry no texture tag of their own.
+	if (primitive.material < 0)
+		primitive.material = inherited_material;
 	fill_indices(primitive, polygons, polygon_count, point_count);
 
 	if (!primitive.indices.empty())
@@ -222,39 +227,42 @@ void emit_polygon(PolygonObject* object, const Matrix& transform)
 // World matrices are accumulated from GetMl() instead of calling GetMg():
 // cache objects are virtual and not attached to a document, which makes GetMg()
 // invalid for them.
-void walk_object(BaseObject* object, const Matrix& parent_world);
+void walk_object(BaseObject* object, const Matrix& parent_world, int inherited_material);
 
-void emit_cache_polygons(BaseObject* cache, const Matrix& world)
+void emit_cache_polygons(BaseObject* cache, const Matrix& world, int material)
 {
 	for (BaseObject* node = cache; node; node = node->GetNext())
 	{
 		if (!node->GetBit(BIT_CONTROLOBJECT) && node->IsInstanceOf(Opolygon))
-			emit_polygon((PolygonObject*)node, world);
+			emit_polygon((PolygonObject*)node, world, material);
 	}
 }
 
-void walk_cache(BaseObject* object, const Matrix& world)
+void walk_cache(BaseObject* object, const Matrix& world, int material)
 {
 	BaseObject* cache = object->GetCache();
 	if (!cache)
 	{
 		if (!object->GetBit(BIT_CONTROLOBJECT) && object->IsInstanceOf(Opolygon))
-			emit_polygon((PolygonObject*)object, world);
+			emit_polygon((PolygonObject*)object, world, material);
 		return;
 	}
 
 	// Cache hierarchies live in the generator's local space; the cache
 	// objects' own GetMl() values carry their internal transforms.
 	for (BaseObject* node = cache; node; node = node->GetNext())
-		walk_object(node, world);
+		walk_object(node, world, material);
 }
 
-void walk_object(BaseObject* object, const Matrix& parent_world)
+void walk_object(BaseObject* object, const Matrix& parent_world, int inherited_material)
 {
 	if (!object)
 		return;
 
 	const Matrix world = parent_world * object->GetMl();
+	int material = material_from_tag(object->GetTag(Ttexture));
+	if (material < 0)
+		material = inherited_material;
 
 	BaseObject* deform_cache = object->GetDeformCache();
 	if (deform_cache)
@@ -262,15 +270,15 @@ void walk_object(BaseObject* object, const Matrix& parent_world)
 		// A deform cache replaces the source object's geometry. Its points are
 		// already deformed in the source object's local space, so `world` is
 		// final and the cache object's own matrix must not be applied again.
-		emit_cache_polygons(deform_cache, world);
+		emit_cache_polygons(deform_cache, world, material);
 	}
 	else
 	{
-		walk_cache(object, world);
+		walk_cache(object, world, material);
 	}
 
 	for (BaseObject* child = object->GetDown(); child; child = child->GetNext())
-		walk_object(child, world);
+		walk_object(child, world, material);
 }
 
 void append_escaped_char(std::string& out, char ch)
@@ -464,7 +472,7 @@ void append_scene_indices(std::ostringstream& json, size_t count)
 
 void append_nodes_json(std::ostringstream& json, const GlbModel& model)
 {
-	json << "],\"nodes\":[";
+	json << "]}],\"nodes\":[";
 	for (size_t i = 0; i < model.infos.size(); ++i)
 	{
 		if (i)
@@ -583,6 +591,8 @@ bool write_glb_file(const char* path, const std::string& json, const std::vector
 	if (!padded_binary.empty())
 		out.write((const char*)padded_binary.data(), (std::streamsize)padded_binary.size());
 
+	// Flush before checking: the destructor runs after this returns.
+	out.flush();
 	return out.good();
 }
 
@@ -603,7 +613,7 @@ bool export_scene(BaseDocument* document, const char* output)
 
 	const Matrix identity;
 	for (BaseObject* object = document->GetFirstObject(); object; object = object->GetNext())
-		walk_object(object, identity);
+		walk_object(object, identity, -1);
 
 	if (g_primitives.empty())
 	{

@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use super::ole::{dib_offsets, dib_to_bmp};
 use super::{find_png, save_thumb};
@@ -263,49 +264,95 @@ fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
         ("opacity", "opacity"),
     ];
     KEYS.iter()
-        .find(|(needle, _)| identifier.contains(needle))
+        .find(|(needle, _)| identifier.ends_with(needle))
         .map(|(_, key)| *key)
 }
 
-/// Render PBR maps with the Substance SDK and convert them to PNG. Returns the
-/// PBR slot and library-relative path for every map the renderer produced.
+/// Maps already rendered for `file_stem`, read back from the thumbnail folder.
+pub(crate) fn existing_sbsar_maps(thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
+    let prefix = format!("{file_stem}_sbsar_");
+    let Ok(entries) = std::fs::read_dir(thumb_dir) else {
+        return Vec::new();
+    };
+
+    let mut maps: Vec<(String, String)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_str()?.to_string();
+            let key = name.strip_prefix(&prefix)?.strip_suffix(".png")?;
+            Some((key.to_string(), format!(".polystash/thumbs/{name}")))
+        })
+        .collect();
+    maps.sort_by(|a, b| a.0.cmp(&b.0));
+    maps
+}
+
+/// Convert every DDS the renderer wrote into a PNG, keyed by PBR slot.
+async fn convert_sbsar_outputs(out_dir: &Path, thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
+    let mut maps = Vec::new();
+    let Ok(mut entries) = tokio::fs::read_dir(out_dir).await else {
+        return maps;
+    };
+    while let Some(entry) = entries.next_entry().await.ok().flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("dds") {
+            continue;
+        }
+        // The identifier is the last `_`-separated token before the `[uid]` tag.
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        let stem = name.split('[').next().unwrap_or(&name);
+        let Some(key) = sbsar_map_key(stem) else {
+            continue;
+        };
+        let png_name = format!("{file_stem}_sbsar_{key}.png");
+        let Ok(bytes) = tokio::fs::read(&path).await else {
+            continue;
+        };
+        let Some(image) = super::dds::decode(&bytes) else {
+            continue;
+        };
+        if image.save(thumb_dir.join(&png_name)).is_ok() {
+            maps.push((key.to_string(), format!(".polystash/thumbs/{png_name}")));
+        }
+    }
+
+    maps.sort_by(|a, b| a.0.cmp(&b.0));
+    maps.dedup_by(|a, b| a.0 == b.0);
+    maps
+}
+
+/// Render the PBR maps for an SBSAR, or return the ones already on disk.
 pub(crate) async fn render_sbsar_maps(
     source: &Path,
     file_stem: &str,
     thumb_dir: &Path,
 ) -> Option<Vec<(String, String)>> {
+    let existing = existing_sbsar_maps(thumb_dir, file_stem);
+    if !existing.is_empty() {
+        return Some(existing);
+    }
+
     let renderer = sbsar_renderer_exe()?.to_str()?.to_string();
     let out_dir = thumb_dir.join(format!("{file_stem}_sbsar"));
+    // A previous partial render would otherwise contribute stale surfaces.
+    let _ = tokio::fs::remove_dir_all(&out_dir).await;
     tokio::fs::create_dir_all(&out_dir).await.ok()?;
 
     // The renderer writes `output_<graph>_<output>[<uid>].dds` into its working directory.
-    let status = super::spawn_command(&renderer)
+    let mut child = super::spawn_command(&renderer)
         .arg(source)
         .current_dir(&out_dir)
-        .status()
+        .kill_on_drop(true)
+        .spawn()
+        .ok()?;
+    let status = tokio::time::timeout(Duration::from_secs(180), child.wait())
         .await
+        .ok()?
         .ok()?;
     if !status.success() {
         return None;
     }
 
-    let mut maps = Vec::new();
-    let mut entries = tokio::fs::read_dir(&out_dir).await.ok()?;
-    while let Some(entry) = entries.next_entry().await.ok()? {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("dds") {
-            continue;
-        }
-        let name = path.file_name()?.to_str()?.to_ascii_lowercase();
-        let key = sbsar_map_key(&name)?.to_string();
-        let png_name = format!("{file_stem}_sbsar_{key}.png");
-        let bytes = tokio::fs::read(&path).await.ok()?;
-        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Dds).ok()?;
-        image.save(thumb_dir.join(&png_name)).ok()?;
-        maps.push((key, format!(".polystash/thumbs/{png_name}")));
-    }
-
-    maps.sort_by(|a, b| a.0.cmp(&b.0));
-    maps.dedup_by(|a, b| a.0 == b.0);
+    let maps = convert_sbsar_outputs(&out_dir, thumb_dir, file_stem).await;
     (!maps.is_empty()).then_some(maps)
 }
