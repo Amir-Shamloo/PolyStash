@@ -17,6 +17,7 @@ import {
   centerObject,
   createDefaultClayMaterial,
   ensureGeometryNormals,
+  applySingleKeyLightSpecularToMaterial,
   sanitizeModelMaterialsAndNormals,
 } from './ThreeViewerUtils';
 
@@ -352,6 +353,12 @@ interface LoadedSbsarMaps {
 }
 
 function buildSbsarMaterialFromMaps(maps: LoadedSbsarMaps): THREE.MeshStandardMaterial {
+  const material = createSbsarMaterial(maps);
+  applySingleKeyLightSpecularToMaterial(material);
+  return material;
+}
+
+function createSbsarMaterial(maps: LoadedSbsarMaps): THREE.MeshStandardMaterial {
   const hasAny = Object.values(maps).some(Boolean);
   if (!hasAny) {
     return new THREE.MeshStandardMaterial({

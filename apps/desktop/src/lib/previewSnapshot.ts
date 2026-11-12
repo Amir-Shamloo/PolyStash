@@ -25,6 +25,7 @@ import {
   type SbsarTextures,
 } from '../components/DetailPanel/ThreeModelLoaders';
 import {
+  applySingleKeyLightSpecular,
   createDefaultClayMaterial,
   ensureGeometryNormals,
   frameCameraAuto,
@@ -212,6 +213,7 @@ function prepareSnapshotSceneObject(params: {
   }
 
   sanitizeModelMaterialsAndNormals(modelObj, cleanExt);
+  applySingleKeyLightSpecular(modelObj);
   const shouldFlip = explicitFlipYZ ?? isZUpFormat(cleanExt);
   frameCameraAuto(camera, modelObj, shouldFlip);
 }

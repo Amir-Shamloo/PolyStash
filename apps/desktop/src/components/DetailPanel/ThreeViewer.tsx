@@ -7,7 +7,13 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { IconGrid, IconRefresh, IconCameraReset } from '../Icons';
-import { computeModelStats, frameCameraAuto, isZUpFormat, type ModelStats } from './ThreeViewerUtils';
+import {
+  applySingleKeyLightSpecular,
+  computeModelStats,
+  frameCameraAuto,
+  isZUpFormat,
+  type ModelStats,
+} from './ThreeViewerUtils';
 import { MODEL_RENDERERS, ensureConvertedModelUrl, type SbsarTextures } from './ThreeModelLoaders';
 import styles from './ThreeViewer.module.css';
 
@@ -142,6 +148,7 @@ export function Model({
 
   const handleLoaded = useCallback(
     (obj: THREE.Object3D) => {
+      applySingleKeyLightSpecular(obj);
       if (camera instanceof THREE.PerspectiveCamera) {
         const box = frameCameraAuto(camera, obj, isZUpFormat(ext));
         if (!box.isEmpty()) onGroundYChange?.(box.min.y);

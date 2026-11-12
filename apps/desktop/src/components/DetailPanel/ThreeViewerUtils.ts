@@ -248,3 +248,47 @@ export function computeModelStats(root: THREE.Object3D): ModelStats {
     name: root.name || 'Model',
   };
 }
+
+const DIRECT_LIGHT_CALL =
+  'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );';
+
+const KEY_LIGHT_ONLY_CALL = [
+  '{',
+  '\tPhysicalMaterial specMaterial = material;',
+  '\tif ( i > 0 ) specMaterial.specularColor = vec3( 0.0 );',
+  '\tRE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, specMaterial, reflectedLight );',
+  '}',
+].join('\n');
+
+const DIRECTIONAL_LOOP_BLOCK = new RegExp(
+  '(getDirectionalLightInfo\\( directionalLight, directLight \\);[\\s\\S]*?' +
+    DIRECT_LIGHT_CALL.replace(/[()]/g, '\\$&') +
+    ')'
+);
+
+/**
+ * three.js has no per-light specular control; the studio wants a single key-light
+ * highlight. Zeroing specularColor for every directional light after the first keeps
+ * their diffuse shading and removes their reflections.
+ * If the shader chunk text changes and nothing matches, the material renders normally.
+ */
+export function applySingleKeyLightSpecularToMaterial(material: THREE.Material | undefined): void {
+  const standard = material as THREE.MeshStandardMaterial | undefined;
+  if (!standard?.isMeshStandardMaterial || standard.userData.singleKeyLightSpecular) return;
+  standard.userData.singleKeyLightSpecular = true;
+  standard.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(DIRECTIONAL_LOOP_BLOCK, (_m, block: string) =>
+      block.replace(DIRECT_LIGHT_CALL, KEY_LIGHT_ONLY_CALL)
+    );
+  };
+  standard.needsUpdate = true;
+}
+
+export function applySingleKeyLightSpecular(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    materials.forEach(applySingleKeyLightSpecularToMaterial);
+  });
+}
