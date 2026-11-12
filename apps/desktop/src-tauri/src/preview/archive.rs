@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use image::DynamicImage;
+use image::{DynamicImage, RgbaImage};
 use sevenz_rust2::{Password, SevenZReader};
 use std::fs::File;
 use std::io::Read;
@@ -336,6 +336,9 @@ fn clear_sbsar_maps(thumb_dir: &Path, file_stem: &str) {
     }
 }
 
+/// Long side every rendered SBSAR map is scaled up to.
+const SBSAR_MAP_SIZE: u32 = 1080;
+
 /// Convert every DDS the renderer wrote into a PNG, keyed by PBR slot.
 async fn convert_sbsar_outputs(out_dir: &Path, thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
     let mut maps = Vec::new();
@@ -344,30 +347,60 @@ async fn convert_sbsar_outputs(out_dir: &Path, thumb_dir: &Path, file_stem: &str
     };
     while let Some(entry) = entries.next_entry().await.ok().flatten() {
         let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("dds") {
-            continue;
-        }
-        // The identifier is the last `_`-separated token before the `[uid]` tag.
-        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
-        let stem = name.split('[').next().unwrap_or(&name);
-        let Some(key) = sbsar_map_key(stem) else {
-            continue;
-        };
-        let png_name = format!("{file_stem}_sbsar_{key}.png");
-        let Ok(bytes) = tokio::fs::read(&path).await else {
-            continue;
-        };
-        let Some(image) = super::dds::decode(&bytes) else {
-            continue;
-        };
-        if image.save(thumb_dir.join(&png_name)).is_ok() {
-            maps.push((key.to_string(), format!(".polystash/thumbs/{png_name}")));
+        if let Some(map) = convert_sbsar_output(&path, thumb_dir, file_stem).await {
+            maps.push(map);
         }
     }
 
     maps.sort_by(|a, b| a.0.cmp(&b.0));
     maps.dedup_by(|a, b| a.0 == b.0);
     maps
+}
+
+/// Convert one renderer output into a PNG, logging the DDS header so a missing
+/// map can be diagnosed from the renderer's own files.
+async fn convert_sbsar_output(
+    path: &Path,
+    thumb_dir: &Path,
+    file_stem: &str,
+) -> Option<(String, String)> {
+    if path.extension().and_then(|ext| ext.to_str()) != Some("dds") {
+        return None;
+    }
+
+    let name = path.file_name()?.to_string_lossy().to_string();
+    // The identifier is the last `_`-separated token before the `[uid]` tag.
+    let stem = name.split('[').next().unwrap_or(&name).to_ascii_lowercase();
+    let key = sbsar_map_key(&stem);
+    let bytes = tokio::fs::read(path).await.ok()?;
+    let image = super::dds::decode(&bytes);
+    let decoded = image.as_ref().map_or_else(
+        || "no".to_string(),
+        |img| format!("{}x{}", img.width(), img.height()),
+    );
+    tracing::info!(
+        "SBSAR DDS {name}: {} key={} decoded={decoded}",
+        super::dds::describe(&bytes),
+        key.unwrap_or("none")
+    );
+
+    let key = key?;
+    let png_name = format!("{file_stem}_sbsar_{key}.png");
+    ensure_hd(image?).save(thumb_dir.join(&png_name)).ok()?;
+    Some((key.to_string(), format!(".polystash/thumbs/{png_name}")))
+}
+
+/// Upscale a map so its long side reaches `SBSAR_MAP_SIZE`, preserving the
+/// aspect ratio. Maps that are already large enough are returned unchanged.
+fn ensure_hd(image: RgbaImage) -> RgbaImage {
+    let long_side = image.width().max(image.height());
+    if long_side == 0 || long_side >= SBSAR_MAP_SIZE {
+        return image;
+    }
+    let scale = SBSAR_MAP_SIZE as f32 / long_side as f32;
+    let width = (image.width() as f32 * scale).round() as u32;
+    let height = (image.height() as f32 * scale).round() as u32;
+    image::imageops::resize(&image, width, height, image::imageops::FilterType::Lanczos3)
 }
 
 /// Render the PBR maps for an SBSAR, or return the ones already on disk when
