@@ -218,10 +218,7 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
             .filter_entry(|e| {
                 // Skip hidden folders and .polystash internal folder
                 let file_name = e.file_name().to_string_lossy();
-                if e.file_type().is_dir() && file_name.starts_with('.') {
-                    return false;
-                }
-                true
+                !(e.file_type().is_dir() && file_name.starts_with('.'))
             });
 
         for entry in walker.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
