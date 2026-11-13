@@ -16,6 +16,24 @@ function needsPreview(asset: Asset | undefined): asset is Asset {
   );
 }
 
+function collectPendingIds(inView: Set<string>, requested: Set<string>, assets: Asset[]): string[] {
+  const byId = new Map(assets.map((a) => [a.id, a]));
+  return [...inView].filter((id) => !requested.has(id) && needsPreview(byId.get(id)));
+}
+
+function trackVisibility(inView: Set<string>, entries: IntersectionObserverEntry[]) {
+  for (const entry of entries) {
+    const id = entry.target.id.slice(ID_PREFIX.length);
+    if (entry.isIntersecting) inView.add(id);
+    else inView.delete(id);
+  }
+}
+
+function requestPreviews(ids: string[], requested: Set<string>) {
+  ids.forEach((id) => requested.add(id));
+  api.requestPreview(ids).catch(() => ids.forEach((id) => requested.delete(id)));
+}
+
 /** Requests thumbnail generation for cards inside `container` that are in view and lack one. */
 export function useVisibleAssetPreviewRequest(container: HTMLElement | null, assets: Asset[]) {
   const assetsRef = useRef(assets);
@@ -26,39 +44,19 @@ export function useVisibleAssetPreviewRequest(container: HTMLElement | null, ass
   useEffect(() => {
     if (!container || typeof IntersectionObserver === 'undefined') return;
     inView.current.clear();
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const flush = () => {
-      timer = null;
-      const byId = new Map(assetsRef.current.map((a) => [a.id, a]));
-      const ids = [...inView.current].filter(
-        (id) => !requested.current.has(id) && needsPreview(byId.get(id))
-      );
-      if (ids.length === 0) return;
-      ids.forEach((id) => requested.current.add(id));
-      api.requestPreview(ids).catch(() => ids.forEach((id) => requested.current.delete(id)));
-    };
-    const schedule = () => {
-      if (timer === null) timer = setTimeout(flush, THROTTLE_MS);
-    };
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = entry.target.id.slice(ID_PREFIX.length);
-          if (entry.isIntersecting) inView.current.add(id);
-          else inView.current.delete(id);
-        }
-        schedule();
-      },
-      { root: container }
-    );
+    const observer = new IntersectionObserver((entries) => trackVisibility(inView.current, entries), {
+      root: container,
+    });
     container.querySelectorAll(CARD_SELECTOR).forEach((el) => observer.observe(el));
-    schedule();
+    return () => observer.disconnect();
+  }, [container, assets]);
 
-    return () => {
-      observer.disconnect();
-      if (timer !== null) clearTimeout(timer);
-    };
+  useEffect(() => {
+    if (!container || typeof IntersectionObserver === 'undefined') return;
+    const timer = setInterval(() => {
+      const ids = collectPendingIds(inView.current, requested.current, assetsRef.current);
+      if (ids.length > 0) requestPreviews(ids, requested.current);
+    }, THROTTLE_MS);
+    return () => clearInterval(timer);
   }, [container, assets]);
 }
