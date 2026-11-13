@@ -600,29 +600,35 @@ async fn complete_existing_thumbnail(
 
 /// Substance job: the PBR maps feed the 3D viewer and are always produced.
 ///
-/// The card thumbnail comes from the archive's own preview when it has one;
-/// otherwise the frontend renders the shader ball. The base-colour texture is
-/// never used as the card image.
+/// The archive's own preview wins the card and is published before the slow
+/// render starts, so the ready thumbnail shows up immediately. Only when the
+/// archive has no preview does the card fall back to the frontend's 3js
+/// snapshot. The base-colour texture is never used as the card image.
 async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
     let file_stem = thumb_stem(source);
     let thumb_name = format!("{file_stem}_thumb.png");
     let thumb_dest = jobs.thumb_dir.join(&thumb_name);
+
+    let card = archive::extract_sbsar_thumb(source, &thumb_dest)
+        .ok()
+        .map(|()| format!(".polystash/thumbs/{thumb_name}"));
+
+    // Publish the ready archive preview before the slow render so the card
+    // never waits for it.
+    if let Some(rel) = &card {
+        jobs.complete(job, std::slice::from_ref(rel)).await;
+    }
 
     match archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
         Some(maps) => publish_sbsar_textures(jobs, job, &maps).await,
         None => remove_metadata_key(jobs, job, "sbsar_textures").await,
     }
 
-    if !thumb_dest.exists() {
-        let _ = archive::extract_sbsar_thumb(source, &thumb_dest);
+    // No archive preview: the frontend's 3js snapshot is the card, taken after
+    // the maps exist so the shader ball is textured.
+    if card.is_none() {
+        jobs.complete(job, &[]).await;
     }
-
-    let rel = thumb_dest
-        .exists()
-        .then(|| format!(".polystash/thumbs/{thumb_name}"))
-        .into_iter()
-        .collect::<Vec<_>>();
-    jobs.complete(job, &rel).await;
 }
 
 /// Point the asset's `sbsar_textures` at the rendered PBR maps so the frontend

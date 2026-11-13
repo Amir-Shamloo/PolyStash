@@ -164,12 +164,14 @@ fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
     let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
     let mut best: Option<(u8, Vec<u8>)> = None;
     let mut found_preferred = false;
+    let mut has_image = false;
 
     // Sevenz entries must be read in order, so every entry is drained and only
     // the best-ranked image is retained.
     let _ = archive.for_each_entries(|entry, input| {
         let priority = sbsar_entry_priority(entry.name());
         found_preferred |= priority == Some(SBSAR_PREFERRED);
+        has_image |= priority.is_some();
 
         let bytes = read_entry(input, priority.is_some())?;
         if let Some(priority) = priority {
@@ -179,6 +181,10 @@ fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
         }
         Ok(!found_preferred)
     });
+
+    if !has_image {
+        tracing::debug!("No image entry in Substance archive {}", source.display());
+    }
 
     let (_, bytes) = best?;
     image::load_from_memory(&bytes).ok()
@@ -315,23 +321,9 @@ fn strip_map_suffix(normalized: &str) -> Option<&str> {
         .find_map(|suffix| normalized.strip_suffix(suffix))
 }
 
-/// Maps already rendered for `file_stem`, read back from the thumbnail folder.
+/// Maps already rendered for `file_stem`, read back from the output folder.
 pub(crate) fn existing_sbsar_maps(thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
-    let prefix = format!("{file_stem}_sbsar_");
-    let Ok(entries) = std::fs::read_dir(thumb_dir) else {
-        return Vec::new();
-    };
-
-    let mut maps: Vec<(String, String)> = entries
-        .flatten()
-        .filter_map(|entry| {
-            let name = entry.file_name().to_str()?.to_string();
-            let key = name.strip_prefix(&prefix)?.strip_suffix(".png")?;
-            Some((key.to_string(), format!(".polystash/thumbs/{name}")))
-        })
-        .collect();
-    maps.sort_by(|a, b| a.0.cmp(&b.0));
-    maps
+    collect_sbsar_maps(&thumb_dir.join(format!("{file_stem}_sbsar")), file_stem)
 }
 
 /// Sidecar recording which source file the rendered maps came from.
@@ -356,9 +348,8 @@ fn maps_are_current(thumb_dir: &Path, file_stem: &str, fingerprint: &str) -> boo
         .is_ok_and(|stored| stored.trim() == fingerprint)
 }
 
-/// Drop maps from an earlier render so slots the new render no longer produces
-/// cannot survive as stale surfaces.
-fn clear_sbsar_maps(thumb_dir: &Path, file_stem: &str) {
+/// Delete the flat `<stem>_sbsar_*.png` copies written by the old layout.
+fn clear_legacy_sbsar_maps(thumb_dir: &Path, file_stem: &str) {
     let prefix = format!("{file_stem}_sbsar_");
     let Ok(entries) = std::fs::read_dir(thumb_dir) else {
         return;
@@ -390,10 +381,9 @@ fn cached_sbsar_maps(
 
 /// Start each render from an empty output directory so a previous partial
 /// render cannot contribute stale surfaces.
-async fn prepare_sbsar_output(out_dir: &Path, thumb_dir: &Path, file_stem: &str) -> Option<()> {
+async fn prepare_sbsar_output(out_dir: &Path) -> Option<()> {
     let _ = tokio::fs::remove_dir_all(out_dir).await;
     tokio::fs::create_dir_all(out_dir).await.ok()?;
-    clear_sbsar_maps(thumb_dir, file_stem);
     Some(())
 }
 
@@ -418,47 +408,36 @@ async fn run_sbsar_renderer(renderer: &Path, source: &Path, out_dir: &Path) -> b
     )
 }
 
-/// Copy one rendered PNG into the thumbnail folder under its PBR slot name.
-async fn copy_sbsar_map(
-    path: &Path,
-    thumb_dir: &Path,
-    file_stem: &str,
-) -> Option<(String, String)> {
-    let is_png = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("png"));
-    if !is_png {
-        return None;
-    }
-
-    // The helper names every PNG after the output's real identifier.
-    let identifier = path.file_stem()?.to_str()?;
-    let key = sbsar_map_key(&identifier.to_ascii_lowercase())?;
-    let png_name = format!("{file_stem}_sbsar_{key}.png");
-    tokio::fs::copy(path, thumb_dir.join(&png_name))
-        .await
-        .ok()?;
-    Some((key.to_string(), format!(".polystash/thumbs/{png_name}")))
-}
-
-/// Copy every rendered PNG that maps to a PBR slot, newest render first.
-async fn collect_sbsar_maps(
-    out_dir: &Path,
-    thumb_dir: &Path,
-    file_stem: &str,
-) -> Vec<(String, String)> {
-    let mut maps = Vec::new();
-    let Ok(mut entries) = tokio::fs::read_dir(out_dir).await else {
-        return maps;
+/// Every rendered PNG in the SBSAR output folder that maps to a PBR slot,
+/// published as `(slot, library-relative path)`. The folder itself is the
+/// library copy, so no second file is written.
+fn collect_sbsar_maps(out_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
+    let folder = format!("{file_stem}_sbsar");
+    let Ok(entries) = std::fs::read_dir(out_dir) else {
+        return Vec::new();
     };
-    while let Some(entry) = entries.next_entry().await.ok().flatten() {
-        if let Some(map) = copy_sbsar_map(&entry.path(), thumb_dir, file_stem).await {
-            maps.push(map);
-        }
-    }
 
-    maps.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut maps: Vec<(String, String)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let is_png = path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("png"));
+            if !is_png {
+                return None;
+            }
+
+            // The helper names every PNG after the output's real identifier.
+            let name = path.file_name()?.to_str()?;
+            let identifier = path.file_stem()?.to_str()?;
+            let key = sbsar_map_key(&identifier.to_ascii_lowercase())?;
+            Some((key.to_string(), format!(".polystash/thumbs/{folder}/{name}")))
+        })
+        .collect();
+
+    maps.sort();
     maps.dedup_by(|a, b| a.0 == b.0);
     maps
 }
@@ -470,6 +449,10 @@ pub(crate) async fn render_sbsar_maps(
     file_stem: &str,
     thumb_dir: &Path,
 ) -> Option<Vec<(String, String)>> {
+    // Migrate libraries written by the old flat-copy layout even when the
+    // cached maps are already current.
+    clear_legacy_sbsar_maps(thumb_dir, file_stem);
+
     // Cheap freshness check: one `metadata` call plus a small sidecar read.
     let fingerprint = std::fs::metadata(source)
         .ok()
@@ -481,10 +464,10 @@ pub(crate) async fn render_sbsar_maps(
 
     let renderer = sbsar_renderer_exe()?;
     let out_dir = thumb_dir.join(format!("{file_stem}_sbsar"));
-    prepare_sbsar_output(&out_dir, thumb_dir, file_stem).await?;
+    prepare_sbsar_output(&out_dir).await?;
 
     let success = run_sbsar_renderer(&renderer, source, &out_dir).await;
-    let maps = collect_sbsar_maps(&out_dir, thumb_dir, file_stem).await;
+    let maps = collect_sbsar_maps(&out_dir, file_stem);
     if maps.is_empty() {
         return None;
     }
