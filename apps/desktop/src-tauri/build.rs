@@ -28,7 +28,7 @@ const SBSAR_INCLUDE_DIRS: [&str; 2] = [
 const SBSAR_LIB_DIR: &str = "third_party/substance/lib";
 const SBSAR_BIN_DIR: &str = "third_party/substance/bin";
 const PREBUILT_SBSAR_HELPER: &str = "bin/sbsar/sbsar_render.exe";
-const SBSAR_LIBRARIES: [&str; 3] =
+const SBSAR_LIBRARIES: [&str; 4] =
     [
         "substance_framework.lib",
         "substance_linker.lib",
