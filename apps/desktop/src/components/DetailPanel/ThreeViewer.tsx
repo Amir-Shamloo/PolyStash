@@ -8,7 +8,6 @@ import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { IconGrid, IconRefresh, IconCameraReset } from '../Icons';
 import {
-  applySingleKeyLightSpecular,
   computeModelStats,
   frameCameraAuto,
   isZUpFormat,
@@ -148,7 +147,6 @@ export function Model({
 
   const handleLoaded = useCallback(
     (obj: THREE.Object3D) => {
-      applySingleKeyLightSpecular(obj);
       if (camera instanceof THREE.PerspectiveCamera) {
         const box = frameCameraAuto(camera, obj, isZUpFormat(ext));
         if (!box.isEmpty()) onGroundYChange?.(box.min.y);
@@ -240,16 +238,8 @@ function StudioLighting() {
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0001}
       />
-      <directionalLight
-        position={[-6, 4, -3]}
-        intensity={0.75}
-        color="#e3edfc"
-      />
-      <directionalLight
-        position={[0, 6, -8]}
-        intensity={0.9}
-        color="#f8fafc"
-      />
+      <hemisphereLight args={['#e3edfc', '#1e293b', 0.75]} />
+      <hemisphereLight args={['#f8fafc', '#1e293b', 0.9]} />
     </>
   );
 }
