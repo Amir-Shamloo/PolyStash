@@ -1,9 +1,9 @@
-//! Minimal DDS reader for the Substance renderer's output.
+//! Minimal DDS reader for `.dds` assets and embedded previews.
 //!
-//! The `image` crate only decodes DXT variants, while the SDK's `writeDDSFile`
-//! emits a wider range of surfaces: raw 24/32-bit pixels, 16-bit integer
-//! channels, half/full floats, and BC4/BC5 blocks. Those are decoded here;
-//! DXT1/3/5 is still delegated to `image`.
+//! The `image` crate only decodes DXT variants, while DDS files in the wild
+//! also use raw 24/32-bit pixels, 16-bit integer channels, half/full floats,
+//! and BC4/BC5 blocks. Those are decoded here; DXT1/3/5 is still delegated to
+//! `image`.
 
 use image::RgbaImage;
 
@@ -67,20 +67,6 @@ fn parse_header(bytes: &[u8]) -> Option<DdsHeader> {
             le_u32(header, 100)?,
         ],
     })
-}
-
-/// One-line header summary for the SBSAR render log.
-pub(crate) fn describe(bytes: &[u8]) -> String {
-    let Some(header) = parse_header(bytes) else {
-        return "not a DDS".to_string();
-    };
-    let fourcc = header
-        .fourcc
-        .map_or_else(|| "none".to_string(), |code| format!("0x{code:08X}"));
-    format!(
-        "fourcc={fourcc} pf=0x{:08X} size={}x{}",
-        header.pf_flags, header.width, header.height
-    )
 }
 
 /// Scale one masked channel to 0..=255.

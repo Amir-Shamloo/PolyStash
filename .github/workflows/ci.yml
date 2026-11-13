@@ -73,6 +73,25 @@ jobs:
         run: |
           if not exist bin\c4d\c4d_preview.exe (echo Missing c4d_preview.exe & exit /b 1)
           echo Built bin\c4d\c4d_preview.exe
+      - name: Build SBSAR renderer
+        shell: cmd
+        working-directory: apps/desktop/src-tauri
+        run: |
+          if not exist bin\sbsar mkdir bin\sbsar
+          cl /nologo /std:c++17 /EHsc /MD /O2 /DNDEBUG /D_CRT_SECURE_NO_WARNINGS /Ithird_party\substance\include /Ithird_party\substance\stb /Fo%TEMP%\sbsar_render.obj /Fe:bin\sbsar\sbsar_render.exe ..\..\..\tools\sbsar_render\main.cpp /link /LIBPATH:third_party\substance\lib substance_framework.lib tinyxml.lib
+          if not exist bin\sbsar\sbsar_render.exe (echo Missing sbsar_render.exe & exit /b 1)
+          copy /Y third_party\substance\bin\substance_linker.dll bin\sbsar\ >nul
+          copy /Y third_party\substance\bin\substance_sse2_blend.dll bin\sbsar\ >nul
+          echo Built bin\sbsar\sbsar_render.exe
+      - name: Smoke test SBSAR renderer
+        shell: cmd
+        working-directory: apps/desktop/src-tauri
+        run: |
+          if exist "%TEMP%\sbsar_smoke" rmdir /s /q "%TEMP%\sbsar_smoke"
+          bin\sbsar\sbsar_render.exe third_party\substance\sample.sbsar "%TEMP%\sbsar_smoke"
+          if errorlevel 1 (echo SBSAR smoke render failed & exit /b 1)
+          if not exist "%TEMP%\sbsar_smoke\*.png" (echo No SBSAR PNG produced & exit /b 1)
+          dir /b "%TEMP%\sbsar_smoke\*.png"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'apps/desktop/src-tauri -> target'

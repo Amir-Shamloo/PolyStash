@@ -21,6 +21,9 @@ Cargo.lock
 # C4D preview helper (built by CI, embedded into the app by build.rs)
 apps/desktop/src-tauri/bin/c4d/
 
+# SBSAR renderer (built by CI, embedded into the app by build.rs)
+apps/desktop/src-tauri/bin/sbsar/sbsar_render.exe
+
 # ── Python & Preview Worker ────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
@@ -74,6 +77,8 @@ scratch/
 *.mat
 *.vrmat
 *.sbsar
+# Committed fixture used by the SBSAR renderer smoke test.
+!apps/desktop/src-tauri/third_party/substance/sample.sbsar
 
 # ── Scratch / Local Test Scripts ───────────────────────────────────────────
 check_db.py
