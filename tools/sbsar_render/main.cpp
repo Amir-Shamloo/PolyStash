@@ -29,7 +29,9 @@
 namespace
 {
 
-constexpr int kOutputSize = 2048;
+// $outputsize in an SBSAR is a size LOG2, not pixels (Autumn_Leaves default "9,9" = 512):
+// 11 renders natively at 2048x2048.
+constexpr int kOutputSizeLog2 = 11;
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -647,7 +649,7 @@ void apply_native_output_size(SubstanceAir::GraphInstances& instances)
 
 			auto* size = dynamic_cast<SubstanceAir::InputInstanceInt2*>(input);
 			if (size != nullptr)
-				size->setValue(SubstanceAir::Vec2Int(kOutputSize, kOutputSize));
+				size->setValue(SubstanceAir::Vec2Int(kOutputSizeLog2, kOutputSizeLog2));
 		}
 	}
 }
