@@ -188,12 +188,8 @@ function setupSnapshotSceneLights(scene: THREE.Scene, cleanExt: string): void {
   const dirLight = new THREE.DirectionalLight(0xfff6ed, 1.65);
   dirLight.position.set(5, 8, 6);
   scene.add(dirLight);
-  const fillLight = new THREE.DirectionalLight(0xe3edfc, 0.75);
-  fillLight.position.set(-5, 3, -3);
-  scene.add(fillLight);
-  const rimLight = new THREE.DirectionalLight(0xffffff, 0.85);
-  rimLight.position.set(0, 5, -6);
-  scene.add(rimLight);
+  scene.add(new THREE.HemisphereLight(0xe3edfc, 0x1e293b, 0.75));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.85));
 }
 
 function prepareSnapshotSceneObject(params: {

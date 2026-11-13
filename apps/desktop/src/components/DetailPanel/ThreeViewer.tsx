@@ -7,7 +7,12 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js';
 import { IconGrid, IconRefresh, IconCameraReset } from '../Icons';
-import { computeModelStats, frameCameraAuto, isZUpFormat, type ModelStats } from './ThreeViewerUtils';
+import {
+  computeModelStats,
+  frameCameraAuto,
+  isZUpFormat,
+  type ModelStats,
+} from './ThreeViewerUtils';
 import { MODEL_RENDERERS, ensureConvertedModelUrl, type SbsarTextures } from './ThreeModelLoaders';
 import styles from './ThreeViewer.module.css';
 
@@ -233,16 +238,8 @@ function StudioLighting() {
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0001}
       />
-      <directionalLight
-        position={[-6, 4, -3]}
-        intensity={0.75}
-        color="#e3edfc"
-      />
-      <directionalLight
-        position={[0, 6, -8]}
-        intensity={0.9}
-        color="#f8fafc"
-      />
+      <hemisphereLight args={['#e3edfc', '#1e293b', 0.75]} />
+      <hemisphereLight args={['#f8fafc', '#1e293b', 0.9]} />
     </>
   );
 }
