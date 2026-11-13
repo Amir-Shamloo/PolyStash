@@ -151,9 +151,12 @@ fn is_thumbnail_name(name: &str) -> bool {
 /// Entry-name rank for the Substance preview: exact `preview.png` first.
 const SBSAR_PREFERRED: u8 = 0;
 
-/// Substance archives are 7z containers holding a rendered preview image.
-/// Falling back is fine: the frontend renders a PBR shader ball when no
-/// backend thumbnail exists.
+/// Directory holding the graph XML and the icon image it names.
+const SBSAR_GRAPH_DIR: &str = "assemblies/content/0000/";
+
+/// Substance archives are 7z containers holding a rendered preview image and a
+/// graph description naming the icon to use. Falling back is fine: the frontend
+/// renders a PBR shader ball when no backend thumbnail exists.
 pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
     let img = sbsar_preview(source)
         .ok_or_else(|| anyhow!("No preview image inside Substance archive"))?;
@@ -161,6 +164,96 @@ pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
 }
 
 fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
+    sbsar_icon_preview(source).or_else(|| sbsar_heuristic_preview(source))
+}
+
+/// Preview named by the graph's `icon` attribute, when that entry decodes.
+fn sbsar_icon_preview(source: &Path) -> Option<DynamicImage> {
+    let icon = sbsar_icon_entry(source)?;
+    let bytes = read_archive_entry(source, &icon)?;
+    image::load_from_memory(&bytes).ok()
+}
+
+/// Archive path of the icon the first `<graph>` element declares.
+fn sbsar_icon_entry(source: &Path) -> Option<String> {
+    let xml = read_graph_xml(source)?;
+    let icon = normalized_archive_name(graph_icon(&xml)?);
+    let icon = icon.trim_start_matches("./");
+    if icon.starts_with(SBSAR_GRAPH_DIR) {
+        return Some(icon.to_string());
+    }
+    Some(format!("{SBSAR_GRAPH_DIR}{icon}"))
+}
+
+/// Graph description text: `assemblies/content/0000/*.xml`.
+fn read_graph_xml(source: &Path) -> Option<String> {
+    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
+    let mut xml = None;
+
+    let _ = archive.for_each_entries(|entry, input| {
+        if !is_graph_xml(entry.name()) {
+            return Ok(true);
+        }
+        let mut text = String::new();
+        input.read_to_string(&mut text)?;
+        xml = Some(text);
+        Ok(false)
+    });
+
+    xml
+}
+
+fn is_graph_xml(name: &str) -> bool {
+    let lower = normalized_archive_name(name);
+    lower.starts_with(SBSAR_GRAPH_DIR) && lower.ends_with(".xml")
+}
+
+/// Value of `icon="..."` on the first `<graph>` element. The description is
+/// small and one attribute does not justify an XML parser.
+fn graph_icon(xml: &str) -> Option<&str> {
+    let start = graph_element_start(xml)?;
+    let tag_end = start + xml[start..].find('>')?;
+    let tag = &xml[start..tag_end];
+    let attribute = "icon=\"";
+    let value = &tag[tag.find(attribute)? + attribute.len()..];
+    let value = &value[..value.find('"')?];
+    (!value.is_empty()).then_some(value)
+}
+
+/// `<graphs>` wraps the graph list, so skip it and match the element itself.
+fn graph_element_start(xml: &str) -> Option<usize> {
+    xml.match_indices("<graph").find_map(|(index, _)| {
+        let after = xml[index + "<graph".len()..].chars().next()?;
+        (after.is_ascii_whitespace() || after == '>').then_some(index)
+    })
+}
+
+/// Case- and separator-insensitive archive entry name.
+fn normalized_archive_name(name: &str) -> String {
+    name.replace('\\', "/").to_ascii_lowercase()
+}
+
+/// Read one named entry, skipping earlier entries in the sequential archive.
+fn read_archive_entry(source: &Path, wanted: &str) -> Option<Vec<u8>> {
+    let wanted = normalized_archive_name(wanted);
+    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
+    let mut bytes: Option<Vec<u8>> = None;
+
+    let _ = archive.for_each_entries(|entry, input| {
+        if normalized_archive_name(entry.name()) != wanted {
+            return Ok(true);
+        }
+        let mut data = Vec::new();
+        input.read_to_end(&mut data)?;
+        bytes = Some(data);
+        Ok(false)
+    });
+
+    bytes
+}
+
+/// Priority heuristic used when the graph declares no usable icon.
+fn sbsar_heuristic_preview(source: &Path) -> Option<DynamicImage> {
     let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
     let mut best: Option<(u8, Vec<u8>)> = None;
     let mut found_preferred = false;
@@ -242,7 +335,15 @@ const SBSAR_HELPER_DIR: &str = "polystash_sbsar";
 /// 2048x2048 renders are much slower than the old graph-default renders.
 const SBSAR_RENDER_TIMEOUT: Duration = Duration::from_secs(420);
 
+/// Native renders saturate the CPU for minutes, so only two helpers run at once.
+const SBSAR_RENDER_CONCURRENCY: usize = 2;
+
 static SBSAR_RENDERER: OnceLock<Option<PathBuf>> = OnceLock::new();
+static SBSAR_RENDER_SLOTS: OnceLock<tokio::sync::Semaphore> = OnceLock::new();
+
+fn sbsar_render_slots() -> &'static tokio::sync::Semaphore {
+    SBSAR_RENDER_SLOTS.get_or_init(|| tokio::sync::Semaphore::new(SBSAR_RENDER_CONCURRENCY))
+}
 
 fn file_matches(path: &Path, bytes: &[u8]) -> bool {
     std::fs::metadata(path).is_ok_and(|metadata| metadata.len() == bytes.len() as u64)
@@ -464,6 +565,10 @@ pub(crate) async fn render_sbsar_maps(
 
     let renderer = sbsar_renderer_exe()?;
     let out_dir = thumb_dir.join(format!("{file_stem}_sbsar"));
+
+    let Ok(_render_slot) = sbsar_render_slots().acquire().await else {
+        return None;
+    };
     prepare_sbsar_output(&out_dir).await?;
 
     let success = run_sbsar_renderer(&renderer, source, &out_dir).await;

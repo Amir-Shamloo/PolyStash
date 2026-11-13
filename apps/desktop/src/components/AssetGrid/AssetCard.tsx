@@ -72,6 +72,13 @@ function CardThumbPlaceholder({ asset }: { asset: Asset }) {
   );
 }
 
+function isSbsarWorking(asset: Asset): boolean {
+  return (
+    asset.extension.toLowerCase() === 'sbsar' &&
+    (asset.previewStatus === 'pending' || asset.previewStatus === 'generating')
+  );
+}
+
 function canRenderAnimatedGif(asset: Asset, mediaError: boolean): boolean {
   if (mediaError || !asset.filePath) return false;
   return asset.extension.toLowerCase() === 'gif';
@@ -149,6 +156,14 @@ function CardThumbMedia({ asset, snapshotUrl }: CardThumbMediaProps) {
 
   if (canRenderVideoThumb(asset, mediaError)) {
     return <VideoCardPreview filePath={asset.filePath} onError={() => setMediaError(true)} />;
+  }
+
+  if (isSbsarWorking(asset)) {
+    return (
+      <div className={styles.thumbPlaceholder} aria-label="Generating preview">
+        <div className={styles.spinnerCircle} />
+      </div>
+    );
   }
 
   return placeholder;

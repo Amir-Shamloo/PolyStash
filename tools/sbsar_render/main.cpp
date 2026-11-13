@@ -1,7 +1,7 @@
 // PolyStash SBSAR renderer.
 //
 // Loads a Substance archive through the vendored Adobe Substance SDK, renders
-// the outputs the material uses at a native 2048x2048 resolution, converts each
+// every output the graph exposes at a native 2048x2048 resolution, converts each
 // result to 8-bit RGBA and writes one PNG named after its real identifier.
 //
 // Usage: sbsar_render.exe <input.sbsar> <output-directory>
@@ -84,21 +84,6 @@ std::string lower_identifier(const char* identifier)
 	return lower;
 }
 
-// Keep lowercase letters and digits so `Base Color` and `base_color` match the
-// same slot.
-std::string normalized_identifier(const char* identifier)
-{
-	std::string normalized;
-	for (const char character : lower_identifier(identifier))
-	{
-		const bool alphanumeric = (character >= 'a' && character <= 'z')
-			|| (character >= '0' && character <= '9');
-		if (alphanumeric)
-			normalized.push_back(character);
-	}
-	return normalized;
-}
-
 bool is_data_identifier(const char* identifier)
 {
 	static const char* const kDataTokens[] = {
@@ -111,25 +96,6 @@ bool is_data_identifier(const char* identifier)
 	for (const char* token : kDataTokens)
 	{
 		if (lower.find(token) != std::string::npos)
-			return true;
-	}
-	return false;
-}
-
-// The frontend material reads only these PBR slots; any other output would be
-// rendered and written for nothing.
-bool is_used_output(const char* identifier)
-{
-	static const char* const kUsedTokens[] = {
-		"basecolor", "diffuse", "albedo", "color", "normal", "roughness",
-		"metallic", "metalness", "height", "displacement", "bump",
-		"opacity", "alpha"
-	};
-
-	const std::string normalized = normalized_identifier(identifier);
-	for (const char* token : kUsedTokens)
-	{
-		if (normalized.find(token) != std::string::npos)
 			return true;
 	}
 	return false;
@@ -693,18 +659,9 @@ void apply_native_output_size(SubstanceAir::GraphInstances& instances)
 	}
 }
 
-void disable_unused_outputs(SubstanceAir::GraphInstances& instances)
-{
-	for (const auto& instance : instances)
-	{
-		for (auto* output : instance->getOutputs())
-			output->mEnabled = is_used_output(output->mDesc.mIdentifier.c_str());
-	}
-}
-
 size_t render_output(SubstanceAir::OutputInstance& output, const std::filesystem::path& output_dir)
 {
-	if (!output.mDesc.isImage() || !output.mEnabled)
+	if (!output.mDesc.isImage())
 		return 0;
 
 	auto result = output.grabResult();
@@ -797,7 +754,6 @@ int main(int argc, char** argv)
 	SubstanceAir::GraphInstances instances;
 	SubstanceAir::instantiate(instances, package);
 	apply_native_output_size(instances);
-	disable_unused_outputs(instances);
 
 	// Render one graph at a time so each graph's PNGs are on disk before the
 	// next job starts: a timeout leaves the completed graphs behind.
