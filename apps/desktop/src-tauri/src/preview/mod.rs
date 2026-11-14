@@ -194,7 +194,6 @@ fn generate_embedded_thumbnail(ext: &str, source: &Path, file_stem: &str, thumb_
 
     match ext {
         "skp" => archive::extract_skp_thumb(source, &thumb_dest)?,
-        "sbsar" => archive::extract_sbsar_thumb(source, &thumb_dest)?,
         "dwg" => cad::extract_dwg_thumb(source, &thumb_dest)?,
         "dxf" => cad::extract_dxf_thumb(source, &thumb_dest)?,
         "3dm" => embedded::extract_3dm_thumb(source, &thumb_dest)?,
@@ -545,7 +544,7 @@ async fn process_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>) {
     }
 
     // Substance archives render PBR maps through the optional SDK tool; the
-    // embedded archive preview stays the fast path when one is present.
+    // frontend's 3js shader ball is the card image.
     if ext == "sbsar" {
         complete_sbsar_job(jobs, job, &full_source).await;
         return;
@@ -601,35 +600,17 @@ async fn complete_existing_thumbnail(
 
 /// Substance job: the PBR maps feed the 3D viewer and are always produced.
 ///
-/// The archive's own preview wins the card and is published before the slow
-/// render starts, so the ready thumbnail shows up immediately. Only when the
-/// archive has no preview does the card fall back to the frontend's 3js
-/// snapshot. The base-colour texture is never used as the card image.
+/// The card image is the frontend's 3js shader ball, so the archive's embedded
+/// preview is never extracted. On failure the stale `sbsar_textures` key is
+/// removed and the job completes without a thumbnail.
 async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
     let file_stem = thumb_stem(source);
-    let thumb_name = format!("{file_stem}_thumb.png");
-    let thumb_dest = jobs.thumb_dir.join(&thumb_name);
-
-    let card = archive::extract_sbsar_thumb(source, &thumb_dest)
-        .ok()
-        .map(|()| format!(".polystash/thumbs/{thumb_name}"));
-
-    // Publish the ready archive preview before the slow render so the card
-    // never waits for it.
-    if let Some(rel) = &card {
-        jobs.complete(job, std::slice::from_ref(rel)).await;
-    }
-
     match archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
         Some(maps) => publish_sbsar_textures(jobs, job, &maps).await,
         None => remove_metadata_key(jobs, job, "sbsar_textures").await,
     }
 
-    // No archive preview: the frontend's 3js snapshot is the card, taken after
-    // the maps exist so the shader ball is textured.
-    if card.is_none() {
-        jobs.complete(job, &[]).await;
-    }
+    jobs.complete(job, &[]).await;
 }
 
 /// Point the asset's `sbsar_textures` at the rendered PBR maps so the frontend

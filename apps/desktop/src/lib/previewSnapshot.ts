@@ -298,8 +298,7 @@ export function isEligibleForSnapshot(asset: Asset | null | undefined): boolean 
   if (!asset) return false;
   const ext = asset.extension.toLowerCase();
   if (ext === 'sbsar') {
-    // An archive-embedded preview already is a raster thumbnail; only render the ball without one.
-    return Boolean(extractSbsarTextures(asset.metadata)) && !hasRasterThumbnail(asset);
+    return Boolean(extractSbsarTextures(asset.metadata));
   }
   if (hasRasterThumbnail(asset)) return false;
   if (!SNAPSHOT_ELIGIBLE_EXTENSIONS.has(ext)) return false;

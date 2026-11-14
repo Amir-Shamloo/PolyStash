@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use image::DynamicImage;
-use sevenz_rust2::{Password, SevenZReader};
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -148,200 +147,9 @@ fn is_thumbnail_name(name: &str) -> bool {
     lower.contains("thumb") && (lower.ends_with(".png") || lower.ends_with(".jpg") || lower.ends_with(".jpeg"))
 }
 
-/// Entry-name ranks for the fallback scan, best first.
-const SBSAR_ICON_NAME: u8 = 0;
-const SBSAR_PREVIEW_NAME: u8 = 1;
-const SBSAR_NAMED_IMAGE: u8 = 2;
-const SBSAR_ANY_IMAGE: u8 = 3;
-
-/// Directory holding the graph XML and the icon image it names.
-const SBSAR_GRAPH_DIR: &str = "assemblies/content/0000/";
-
-/// Substance archives are 7z containers holding a rendered preview image and a
-/// graph description naming the icon to use. Falling back is fine: the frontend
-/// renders a PBR shader ball when no backend thumbnail exists.
-pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
-    let img = sbsar_preview(source)
-        .ok_or_else(|| anyhow!("No preview image inside Substance archive"))?;
-    save_thumb(&img, output)
-}
-
-/// Graph-declared icon first, then the filename tiers ranked by
-/// `sbsar_entry_priority`.
-fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
-    sbsar_icon_preview(source).or_else(|| sbsar_heuristic_preview(source))
-}
-
-/// Preview named by the graph's `icon` attribute, when that entry decodes.
-fn sbsar_icon_preview(source: &Path) -> Option<DynamicImage> {
-    let icon = sbsar_icon_entry(source)?;
-    let bytes = read_archive_entry(source, &icon)?;
-    image::load_from_memory(&bytes).ok()
-}
-
-/// Archive path of the icon the first `<graph>` element declares.
-fn sbsar_icon_entry(source: &Path) -> Option<String> {
-    let xml = read_graph_xml(source)?;
-    let icon = normalized_archive_name(graph_icon(&xml)?);
-    let icon = icon.trim_start_matches("./");
-    if icon.starts_with(SBSAR_GRAPH_DIR) {
-        return Some(icon.to_string());
-    }
-    Some(format!("{SBSAR_GRAPH_DIR}{icon}"))
-}
-
-/// Graph description text: `assemblies/content/0000/*.xml`.
-fn read_graph_xml(source: &Path) -> Option<String> {
-    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
-    let mut xml = None;
-
-    let _ = archive.for_each_entries(|entry, input| {
-        if !is_graph_xml(entry.name()) {
-            return Ok(true);
-        }
-        let mut text = String::new();
-        input.read_to_string(&mut text)?;
-        xml = Some(text);
-        Ok(false)
-    });
-
-    xml
-}
-
-fn is_graph_xml(name: &str) -> bool {
-    let lower = normalized_archive_name(name);
-    lower.starts_with(SBSAR_GRAPH_DIR) && lower.ends_with(".xml")
-}
-
-/// Value of `icon="..."` on the first `<graph>` element. The description is
-/// small and one attribute does not justify an XML parser.
-fn graph_icon(xml: &str) -> Option<&str> {
-    let start = graph_element_start(xml)?;
-    let tag_end = start + xml[start..].find('>')?;
-    let tag = &xml[start..tag_end];
-    let attribute = "icon=\"";
-    let value = &tag[tag.find(attribute)? + attribute.len()..];
-    let value = &value[..value.find('"')?];
-    (!value.is_empty()).then_some(value)
-}
-
-/// `<graphs>` wraps the graph list, so skip it and match the element itself.
-fn graph_element_start(xml: &str) -> Option<usize> {
-    xml.match_indices("<graph").find_map(|(index, _)| {
-        let after = xml[index + "<graph".len()..].chars().next()?;
-        (after.is_ascii_whitespace() || after == '>').then_some(index)
-    })
-}
-
-/// Case- and separator-insensitive archive entry name.
-fn normalized_archive_name(name: &str) -> String {
-    name.replace('\\', "/").to_ascii_lowercase()
-}
-
-/// Read one named entry, skipping earlier entries in the sequential archive.
-fn read_archive_entry(source: &Path, wanted: &str) -> Option<Vec<u8>> {
-    let wanted = normalized_archive_name(wanted);
-    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
-    let mut bytes: Option<Vec<u8>> = None;
-
-    let _ = archive.for_each_entries(|entry, input| {
-        if normalized_archive_name(entry.name()) != wanted {
-            return Ok(true);
-        }
-        let mut data = Vec::new();
-        input.read_to_end(&mut data)?;
-        bytes = Some(data);
-        Ok(false)
-    });
-
-    bytes
-}
-
-/// Priority heuristic used when the graph declares no usable icon. Substance
-/// names its standard icon `icon.png` or `icon<uid>.png`.
-fn sbsar_heuristic_preview(source: &Path) -> Option<DynamicImage> {
-    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
-    let mut best: Option<(u8, Vec<u8>)> = None;
-    let mut found_best = false;
-    let mut has_image = false;
-
-    // Sevenz entries must be read in order, so every entry is drained and only
-    // the best-ranked image is retained.
-    let _ = archive.for_each_entries(|entry, input| {
-        let priority = sbsar_entry_priority(entry.name());
-        found_best |= priority == Some(SBSAR_ICON_NAME);
-        has_image |= priority.is_some();
-
-        let bytes = read_entry(input, priority.is_some())?;
-        if let Some(priority) = priority {
-            if best.as_ref().is_none_or(|(seen, _)| priority < *seen) {
-                best = Some((priority, bytes));
-            }
-        }
-        Ok(!found_best)
-    });
-
-    if !has_image {
-        tracing::debug!("No image entry in Substance archive {}", source.display());
-    }
-
-    let (_, bytes) = best?;
-    image::load_from_memory(&bytes).ok()
-}
-
-/// Read a candidate entry into memory; drain every other entry so a solid
-/// archive stays sequential without keeping unrelated data around.
-fn read_entry(
-    input: &mut dyn Read,
-    keep: bool,
-) -> std::result::Result<Vec<u8>, sevenz_rust2::Error> {
-    let mut bytes = Vec::new();
-    if keep {
-        input.read_to_end(&mut bytes)?;
-    } else {
-        std::io::copy(input, &mut std::io::sink())?;
-    }
-    Ok(bytes)
-}
-
-fn sbsar_entry_priority(name: &str) -> Option<u8> {
-    let lower = name.to_ascii_lowercase();
-    if !is_image_name(&lower) {
-        return None;
-    }
-
-    let file_name = lower.rsplit(['/', '\\']).next().unwrap_or_default();
-    if is_icon_name(file_name) {
-        Some(SBSAR_ICON_NAME)
-    } else if file_name == "preview.png" {
-        Some(SBSAR_PREVIEW_NAME)
-    } else if lower.contains("preview") || lower.contains("thumb") {
-        Some(SBSAR_NAMED_IMAGE)
-    } else {
-        Some(SBSAR_ANY_IMAGE)
-    }
-}
-
-/// Substance's standard icon name: `icon.png` or `icon<uid>.png`.
-fn is_icon_name(file_name: &str) -> bool {
-    let Some(stem) = file_name.strip_suffix(".png") else {
-        return false;
-    };
-    let Some(uid) = stem.strip_prefix("icon") else {
-        return false;
-    };
-    uid.is_empty() || uid.bytes().all(|byte| byte.is_ascii_digit())
-}
-
-fn is_image_name(name: &str) -> bool {
-    [".png", ".jpg", ".jpeg"]
-        .into_iter()
-        .any(|extension| name.ends_with(extension))
-}
-
-/// Helper generated by `build.rs`: the native Substance SDK renderer and the
-/// two runtime DLLs embedded in the application binary (empty stub on
-/// non-Windows builds or when the SDK libraries are missing).
+/// Helper generated by `build.rs`: the native Substance SDK renderer and its
+/// runtime DLLs embedded in the application binary (empty stub on non-Windows
+/// builds or when the SDK libraries are missing).
 mod embedded_helper {
     include!(concat!(env!("OUT_DIR"), "/sbsar_render_exe.rs"));
 }
@@ -349,6 +157,8 @@ mod embedded_helper {
 const SBSAR_RENDERER_EXE: &str = "sbsar_render.exe";
 const SBSAR_LINKER_DLL: &str = "substance_linker.dll";
 const SBSAR_SSE2_DLL: &str = "substance_sse2_blend.dll";
+const SBSAR_D3D11_BLEND_DLL: &str = "substance_d3d11_blend.dll";
+const SBSAR_D3D11_NATIVE_DLL: &str = "substance_d3d11_native.dll";
 const SBSAR_HELPER_DIR: &str = "polystash_sbsar";
 
 /// 2048x2048 renders are much slower than the old graph-default renders.
@@ -381,24 +191,28 @@ fn extract_sbsar_helper() -> Option<PathBuf> {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let exe_bytes = embedded_helper::SBSAR_RENDER_EXE?;
-    let linker_bytes = embedded_helper::SBSAR_LINKER_DLL?;
-    let sse2_bytes = embedded_helper::SBSAR_SSE2_DLL?;
+    let dlls = [
+        (SBSAR_LINKER_DLL, embedded_helper::SBSAR_LINKER_DLL?),
+        (SBSAR_SSE2_DLL, embedded_helper::SBSAR_SSE2_DLL?),
+        (SBSAR_D3D11_BLEND_DLL, embedded_helper::SBSAR_D3D11_BLEND_DLL?),
+        (SBSAR_D3D11_NATIVE_DLL, embedded_helper::SBSAR_D3D11_NATIVE_DLL?),
+    ];
 
     let dir = std::env::temp_dir().join(SBSAR_HELPER_DIR);
     let exe = dir.join(SBSAR_RENDERER_EXE);
-    let linker = dir.join(SBSAR_LINKER_DLL);
-    let sse2 = dir.join(SBSAR_SSE2_DLL);
     let ready = file_matches(&exe, exe_bytes)
-        && file_matches(&linker, linker_bytes)
-        && file_matches(&sse2, sse2_bytes);
+        && dlls
+            .iter()
+            .all(|(name, bytes)| file_matches(&dir.join(name), bytes));
     if ready {
         return Some(exe);
     }
 
     std::fs::create_dir_all(&dir).ok()?;
     std::fs::write(&exe, exe_bytes).ok()?;
-    std::fs::write(&linker, linker_bytes).ok()?;
-    std::fs::write(&sse2, sse2_bytes).ok()?;
+    for (name, bytes) in dlls {
+        std::fs::write(dir.join(name), bytes).ok()?;
+    }
     Some(exe)
 }
 
@@ -409,24 +223,37 @@ fn sbsar_renderer_exe() -> Option<PathBuf> {
 
 /// Map a Substance output identifier onto the frontend's PBR slot names.
 fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
-    const KEYS: [(&str, &str); 12] = [
+    const KEYS: [(&str, &str); 24] = [
         ("basecolor", "baseColor"),
         ("albedo", "baseColor"),
         ("diffuse", "baseColor"),
+        ("color", "baseColor"),
+        ("normaldirectx", "normal"),
+        ("normalopengl", "normal"),
         ("normal", "normal"),
+        ("bump", "normal"),
         ("roughness", "roughness"),
+        ("rough", "roughness"),
+        ("glossiness", "roughness"),
         ("metallic", "metallic"),
         ("metalness", "metallic"),
+        ("metal", "metallic"),
         ("height", "height"),
         ("displacement", "height"),
+        ("disp", "height"),
+        ("ambientocclusion", "ambientOcclusion"),
+        ("occlusion", "ambientOcclusion"),
+        ("ao", "ambientOcclusion"),
         ("opacity", "opacity"),
         ("alpha", "opacity"),
-        ("color", "baseColor"),
+        ("transparency", "opacity"),
+        ("mask", "opacity"),
     ];
     // Graphs name outputs `base_color`, `Base Color`, `baseColor`, ...
     let normalized: String = identifier
         .chars()
         .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
         .collect();
     KEYS.iter()
         .find(|(needle, _)| normalized.ends_with(needle))
@@ -466,6 +293,7 @@ fn sbsar_map_rank(key: &str, identifier: &str) -> usize {
     let normalized: String = identifier
         .chars()
         .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
         .collect();
     let bare = strip_map_suffix(&normalized).unwrap_or(&normalized);
     let ends_with = |suffix: &str| normalized.ends_with(suffix) || bare.ends_with(suffix);
@@ -678,5 +506,38 @@ mod tests {
     #[test]
     fn diffuse_maps_to_basecolor() {
         assert_eq!(Some("baseColor"), sbsar_map_key("diffuse"));
+    }
+
+    /// Every identifier the guide lists lands in its canonical PBR slot.
+    #[test]
+    fn maps_every_pbr_slot_variant() {
+        let cases = [
+            ("Base Color", "baseColor"),
+            ("base_color", "baseColor"),
+            ("albedo", "baseColor"),
+            ("color", "baseColor"),
+            ("normal_directx", "normal"),
+            ("normal_opengl", "normal"),
+            ("bump", "normal"),
+            ("roughness", "roughness"),
+            ("rough", "roughness"),
+            ("glossiness", "roughness"),
+            ("metallic", "metallic"),
+            ("metalness", "metallic"),
+            ("metal", "metallic"),
+            ("height", "height"),
+            ("displacement", "height"),
+            ("disp", "height"),
+            ("ambient_occlusion", "ambientOcclusion"),
+            ("ao", "ambientOcclusion"),
+            ("occlusion", "ambientOcclusion"),
+            ("opacity", "opacity"),
+            ("alpha", "opacity"),
+            ("transparency", "opacity"),
+            ("mask", "opacity"),
+        ];
+        for (identifier, slot) in cases {
+            assert_eq!(Some(slot), sbsar_map_key(identifier), "{identifier}");
+        }
     }
 }
