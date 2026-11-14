@@ -122,45 +122,19 @@ struct PendingAsset {
     now: i64,
     preview_status: &'static str,
     thumbnail_path: Option<String>,
-    needs_job: bool,
     is_update: bool,
 }
 
-/// Every format with a backend or frontend preview path belongs here;
-/// formats absent from this list are never queued for preview generation.
-///
-/// AVIF, KTX/KTX2, and raw USD are intentionally absent: the frontend decodes
-/// or renders them itself, so a backend job would add nothing.
-const PREVIEW_EXTENSIONS: &[&str] = &[
-    // Mesh and CAD
-    "max", "fbx", "obj", "gltf", "glb", "dae", "stl", "3ds", "ply", "usdz", "usda", "usdc",
-    "x3d", "wrl", "skp", "rfa", "rvt", "rte", "dwg", "dxf", "3dm",
-    // Materials and textures
-    "vrmat", "sbsar", "dds", "sbs", "mdl", "mat", "abc",
-    "jpg", "jpeg", "png", "gif", "tif", "tiff", "tga", "bmp", "webp",
-    // HDRI
-    "exr", "hdr", "hdri",
-    // Documents and layered images
-    "psd", "psb", "ai", "pdf", "c4d", "blend",
-    // Photometric
-    "ies", "ldt",
-    // Video
-    "mp4", "mov", "avi", "mkv", "webm", "m4v",
-];
-
-/// Decide the preview status for a freshly scanned file: reuse an existing
-/// thumbnail when present, otherwise queue a job for any previewable format.
-fn preview_state_for(ext: &str, thumb_png: &Path, thumb_jpg: &Path, stem: &str) -> (&'static str, Option<String>, bool) {
+/// Status for a freshly scanned file: reuse an existing thumbnail, otherwise
+/// none. Preview jobs are created only by `request_preview`.
+fn preview_state_for(thumb_png: &Path, thumb_jpg: &Path, stem: &str) -> (&'static str, Option<String>) {
     if thumb_png.exists() {
-        return ("done", Some(format!(".polystash/thumbs/{stem}_thumb.png")), false);
+        return ("done", Some(format!(".polystash/thumbs/{stem}_thumb.png")));
     }
     if thumb_jpg.exists() {
-        return ("done", Some(format!(".polystash/thumbs/{stem}_thumb.jpg")), false);
+        return ("done", Some(format!(".polystash/thumbs/{stem}_thumb.jpg")));
     }
-    if PREVIEW_EXTENSIONS.contains(&ext) {
-        return ("pending", None, true);
-    }
-    ("none", None, false)
+    ("none", None)
 }
 
 /// Walk `paths` and index all found files as Assets into the database.
@@ -274,14 +248,13 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
             let thumb_png = thumbs_dir.join(format!("{}_thumb.png", stem));
             let thumb_jpg = thumbs_dir.join(format!("{}_thumb.jpg", stem));
 
-            let (mut preview_status, mut thumbnail_path, mut needs_job) =
-                preview_state_for(&ext, &thumb_png, &thumb_jpg, &stem);
+            let (mut preview_status, mut thumbnail_path) =
+                preview_state_for(&thumb_png, &thumb_jpg, &stem);
 
             let (id, is_update) = if let Some((existing_id, _, _, existing_thumb)) = existing_map.get(&rel_path) {
                 if thumbnail_path.is_none() && existing_thumb.is_some() {
                     thumbnail_path.clone_from(existing_thumb);
                     preview_status = "done";
-                    needs_job = false;
                 }
                 (existing_id.clone(), true)
             } else {
@@ -299,7 +272,6 @@ pub async fn index_paths(db: &Database, library_id: &str, paths: &[String]) -> R
                 now,
                 preview_status,
                 thumbnail_path,
-                needs_job,
                 is_update,
             });
 
@@ -397,18 +369,6 @@ async fn commit_asset_batch(pool: &sqlx::Pool<sqlx::Sqlite>, batch: &[PendingAss
             .bind(item.preview_status)
             .execute(&mut *tx)
             .await?;
-
-            if item.needs_job {
-                let job_id = Uuid::new_v4().to_string();
-                let _ = sqlx::query(
-                    "INSERT INTO preview_jobs (id, asset_id, status, created_at) VALUES (?, ?, 'pending', ?)"
-                )
-                .bind(&job_id)
-                .bind(&item.id)
-                .bind(item.now)
-                .execute(&mut *tx)
-                .await;
-            }
         }
     }
 

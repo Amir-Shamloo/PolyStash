@@ -37,6 +37,19 @@ pub async fn request_preview(
             None => state.db.get_active_pool().await,
         };
 
+        // A job already running keeps its work; only replace jobs that are still
+        // waiting to run.
+        let processing: Option<(i64,)> = sqlx::query_as(
+            "SELECT COUNT(*) FROM preview_jobs WHERE asset_id = ? AND status = 'processing'",
+        )
+        .bind(asset_id)
+        .fetch_optional(&pool)
+        .await
+        .unwrap_or(None);
+        if processing.is_some_and(|(count,)| count > 0) {
+            continue;
+        }
+
         // Delete any existing preview job so a new one is queued cleanly
         let _ = sqlx::query("DELETE FROM preview_jobs WHERE asset_id = ?")
             .bind(asset_id)

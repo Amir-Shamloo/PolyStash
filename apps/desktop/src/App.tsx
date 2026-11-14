@@ -11,6 +11,7 @@ import { IconCheck } from './components/Icons';
 import { useUIStore } from './store';
 import { useLibraryStore, useTagStore, useCollectionStore, useAssetStore } from './store';
 import { api } from './api';
+import { clearSnapshotCache } from './lib/previewSnapshot';
 import styles from './App.module.css';
 
 function isEditingText(): boolean {
@@ -46,8 +47,12 @@ export default function App() {
     const unlistenDone = listen<{ assetId: string; thumbnailPath?: string; previewModel?: string }>(
       'preview:done',
       (event) => {
-        useAssetStore.getState().updateAssetPreview(
-          event.payload.assetId,
+        const { assetId } = event.payload;
+        const state = useAssetStore.getState();
+        const asset = state.assetMap.get(assetId) ?? state.assets.find((a) => a.id === assetId);
+        if (asset?.extension.toLowerCase() === 'sbsar') clearSnapshotCache(assetId);
+        state.updateAssetPreview(
+          assetId,
           event.payload.thumbnailPath,
           event.payload.previewModel
         );
