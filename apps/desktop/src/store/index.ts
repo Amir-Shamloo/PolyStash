@@ -5,6 +5,7 @@ import type {
   Library,
   Collection,
   Tag,
+  TagPatch,
   SearchQuery,
   FilterSpec,
   SortField,
@@ -111,6 +112,7 @@ interface UIState {
   activeCollectionId: string | null;
   activeFolder: ActiveFolder | null;
   folderTreeVersion: number;
+  tagForgeOpen: boolean;
 
   setViewMode: (mode: 'grid' | 'list') => void;
   setGridSize: (size: 'sm' | 'md' | 'lg') => void;
@@ -129,6 +131,7 @@ interface UIState {
   setActiveCollection: (id: string | null) => void;
   setActiveFolder: (folder: ActiveFolder | null) => void;
   refreshFolderTree: () => void;
+  setTagForgeOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -145,7 +148,9 @@ export const useUIStore = create<UIState>()(
       activeCollectionId: null,
       activeFolder: null,
       folderTreeVersion: 0,
+      tagForgeOpen: false,
 
+      setTagForgeOpen: (tagForgeOpen) => set({ tagForgeOpen }),
       setViewMode: (viewMode) => set({ viewMode }),
       setGridSize: (gridSize) => set({ gridSize }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -529,7 +534,9 @@ interface TagStore {
   tags: Tag[];
   tagMap: Map<string, Tag>;
   fetchTags: () => Promise<void>;
-  createTag: (name: string, parentId?: string) => Promise<void>;
+  createTag: (name: string, patch?: TagPatch) => Promise<void>;
+  updateTag: (id: string, name: string, patch?: TagPatch) => Promise<void>;
+  saveTagTree: (tags: Tag[]) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
 }
 
@@ -542,12 +549,25 @@ export const useTagStore = create<TagStore>()((set) => ({
     set({ tags, tagMap: new Map(tags.map((t) => [t.id, t])) });
   },
 
-  createTag: async (name, parentId) => {
-    const tag = await api.createTag(name, parentId);
+  createTag: async (name, patch) => {
+    const tag = await api.createTag(name, patch);
     set((s) => ({
       tags: [...s.tags, tag],
       tagMap: new Map(s.tagMap).set(tag.id, tag),
     }));
+  },
+
+  updateTag: async (id, name, patch) => {
+    const tag = await api.updateTag(id, name, patch);
+    set((s) => ({
+      tags: s.tags.map((t) => (t.id === tag.id ? tag : t)),
+      tagMap: new Map(s.tagMap).set(tag.id, tag),
+    }));
+  },
+
+  saveTagTree: async (tags) => {
+    const saved = await api.saveTagTree(tags);
+    set({ tags: saved, tagMap: new Map(saved.map((t) => [t.id, t])) });
   },
 
   deleteTag: async (id) => {

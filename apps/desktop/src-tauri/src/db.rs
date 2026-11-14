@@ -30,6 +30,34 @@ async fn apply_smart_column_drop(pool: &Pool<Sqlite>) {
         .await;
 }
 
+/// Applies migration 004, which rebuilds `tags` without the name UNIQUE
+/// constraint and adds `icon_id`. Migration 004 copies only the old columns on
+/// every run, so replaying it would erase icon assignments; databases that
+/// already have `icon_id` are therefore left alone. Errors are ignored to keep
+/// startup idempotent (same pattern as apply_smart_column_drop).
+async fn apply_tag_forge(pool: &Pool<Sqlite>) {
+    let has_icon_id = sqlx::query_as::<_, (i64,)>(
+        "SELECT COUNT(*) FROM pragma_table_info('tags') WHERE name = 'icon_id'",
+    )
+    .fetch_one(pool)
+    .await
+    .is_ok_and(|(count,)| count > 0);
+
+    if has_icon_id {
+        return;
+    }
+
+    let _ = sqlx::query(include_str!("../migrations/004_tag_forge.sql"))
+        .execute(pool)
+        .await;
+}
+
+/// Runs the migrations every pool needs at startup, in order.
+async fn apply_startup_migrations(pool: &Pool<Sqlite>) {
+    apply_smart_column_drop(pool).await;
+    apply_tag_forge(pool).await;
+}
+
 /// Connect to a per-library SQLite database with NAS-safe settings.
 /// WAL mode is intentionally avoided: on SMB/NFS shares the -shm shared-memory
 /// locking that WAL requires is unreliable and can silently corrupt the database
@@ -65,8 +93,8 @@ pub async fn connect_library_sqlite(db_path: &Path) -> Result<Pool<Sqlite>> {
         .execute(&pool)
         .await?;
 
-    // Migration 003 drops the removed smart-collection columns.
-    apply_smart_column_drop(&pool).await;
+    // Migration 003 drops the removed smart-collection columns; 004 rebuilds tags.
+    apply_startup_migrations(&pool).await;
 
     // Backward compatibility: ensure dir_mtimes table exists
     let _ = sqlx::query(
@@ -155,9 +183,9 @@ impl Database {
         // Also ensure library schema tables exist on master_pool as fallback
         let _ = sqlx::query(include_str!("../migrations/002_library_schema.sql")).execute(&master_pool).await;
 
-        // Migration 003: drop the removed smart-collection columns from the
-        // master DB as well (see connect_library_sqlite).
-        apply_smart_column_drop(&master_pool).await;
+        // Migration 003 drops the removed smart-collection columns and 004
+        // rebuilds tags; the master DB gets the same treatment.
+        apply_startup_migrations(&master_pool).await;
 
         let _ = sqlx::query("ALTER TABLE assets ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
             .execute(&master_pool)
@@ -229,23 +257,23 @@ impl Database {
 
     pub async fn sync_library_metadata(&self, lib_pool: &Pool<Sqlite>) {
         // 1. Sync tags from master_pool to lib_pool
-        if let Ok(tags) = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
-            "SELECT id, name, color, parent_id FROM tags"
+        if let Ok(tags) = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, Option<String>)>(
+            "SELECT id, name, color, parent_id, icon_id FROM tags"
         ).fetch_all(&self.master_pool).await {
-            for (id, name, color, parent_id) in tags {
-                let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id) VALUES (?, ?, ?, ?)")
-                    .bind(&id).bind(&name).bind(&color).bind(&parent_id)
+            for (id, name, color, parent_id, icon_id) in tags {
+                let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id, icon_id) VALUES (?, ?, ?, ?, ?)")
+                    .bind(&id).bind(&name).bind(&color).bind(&parent_id).bind(&icon_id)
                     .execute(lib_pool).await;
             }
         }
 
         // 2. Sync tags from lib_pool to master_pool
-        if let Ok(tags) = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
-            "SELECT id, name, color, parent_id FROM tags"
+        if let Ok(tags) = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, Option<String>)>(
+            "SELECT id, name, color, parent_id, icon_id FROM tags"
         ).fetch_all(lib_pool).await {
-            for (id, name, color, parent_id) in tags {
-                let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id) VALUES (?, ?, ?, ?)")
-                    .bind(&id).bind(&name).bind(&color).bind(&parent_id)
+            for (id, name, color, parent_id, icon_id) in tags {
+                let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id, icon_id) VALUES (?, ?, ?, ?, ?)")
+                    .bind(&id).bind(&name).bind(&color).bind(&parent_id).bind(&icon_id)
                     .execute(&self.master_pool).await;
             }
         }
@@ -351,5 +379,66 @@ pub fn make_relative_path(root: &Path, p: &Path) -> String {
         rel.to_string_lossy().replace('\\', "/")
     } else {
         p.to_string_lossy().replace('\\', "/")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn memory_pool() -> Pool<Sqlite> {
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite pool")
+    }
+
+    #[tokio::test]
+    async fn tag_forge_migration_is_idempotent_and_preserves_links() {
+        let pool = memory_pool().await;
+        sqlx::query(include_str!("../migrations/002_library_schema.sql"))
+            .execute(&pool)
+            .await
+            .expect("library schema");
+
+        for sql in [
+            "INSERT INTO tags (id, name, color, parent_id) VALUES ('t1', 'Wood', 'red', NULL)",
+            "INSERT INTO tags (id, name, color, parent_id) VALUES ('t2', 'Oak', 'blue', 't1')",
+            "INSERT INTO assets (id, file_path, file_name, extension, kind, size_bytes, modified_at, indexed_at) \
+             VALUES ('a1', 'chair.fbx', 'chair.fbx', 'fbx', '3d_model', 1, 1, 1)",
+            "INSERT INTO asset_tags (asset_id, tag_id) VALUES ('a1', 't1')",
+            "INSERT INTO asset_tags (asset_id, tag_id) VALUES ('a1', 't2')",
+        ] {
+            sqlx::query(sql).execute(&pool).await.expect("seed row");
+        }
+
+        apply_tag_forge(&pool).await;
+        sqlx::query("UPDATE tags SET icon_id = 'ic1' WHERE id = 't1'")
+            .execute(&pool)
+            .await
+            .expect("set icon");
+        // Startup runs the migration again; icons must survive the replay.
+        apply_tag_forge(&pool).await;
+
+        let tag = sqlx::query_as::<_, (String, Option<String>)>(
+            "SELECT name, icon_id FROM tags WHERE id = 't1'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("tag row");
+        assert_eq!(tag, ("Wood".to_string(), Some("ic1".to_string())));
+
+        let links = sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM asset_tags")
+            .fetch_one(&pool)
+            .await
+            .expect("link count");
+        assert_eq!(links.0, 2, "asset_tags links must survive the rebuild");
+
+        // Duplicate names are legitimate in a hierarchical taxonomy.
+        sqlx::query("INSERT INTO tags (id, name) VALUES ('t3', 'Wood')")
+            .execute(&pool)
+            .await
+            .expect("duplicate names must be allowed after migration");
     }
 }

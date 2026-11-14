@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { Toolbar } from './components/Toolbar/Toolbar';
@@ -13,6 +13,8 @@ import { useLibraryStore, useTagStore, useCollectionStore, useAssetStore } from 
 import { api } from './api';
 import { clearSnapshotCache } from './lib/previewSnapshot';
 import styles from './App.module.css';
+
+const TagForgeModal = React.lazy(() => import('./components/TagForge/TagForgeModal'));
 
 function isEditingText(): boolean {
   const active = document.activeElement;
@@ -73,6 +75,8 @@ export default function App() {
 
     // Keyboard shortcuts: F5, Space hold for QuickLook, Ctrl+C to copy path
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (useUIStore.getState().tagForgeOpen) return;
+
       // Refresh
       if (e.key === 'F5' || (e.ctrlKey && e.key.toLowerCase() === 'r')) {
         e.preventDefault();
@@ -211,6 +215,12 @@ export default function App() {
     }
   };
 
+  const handleTagForgeSaved = () => {
+    setCopyToast('Tags saved');
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = window.setTimeout(() => setCopyToast(null), 2200);
+  };
+
   return (
     <div className={styles.layout}>
       <Toolbar />
@@ -241,6 +251,11 @@ export default function App() {
           setAssetsToDelete([]);
         }}
       />
+
+      {/* Tag Forge Modal */}
+      <React.Suspense fallback={null}>
+        <TagForgeModal onSaved={handleTagForgeSaved} />
+      </React.Suspense>
 
       {/* Copy Path Feedback Toast */}
       {copyToast && (
