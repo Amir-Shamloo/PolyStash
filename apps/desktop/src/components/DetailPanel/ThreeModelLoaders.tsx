@@ -298,9 +298,11 @@ export function extractSbsarTextures(
 ): SbsarTextures | undefined {
   const raw = metadata?.sbsar_textures;
   if (!isPlainObject(raw)) return undefined;
-  const entries = Object.entries(raw).filter(
-    ([, val]) => typeof val === 'string' && val.trim().length > 0
-  );
+  const entries = Object.entries(raw).filter(([slot, val]) => {
+    if (typeof val !== 'string' || val.trim().length === 0) return false;
+    if (slot === 'opacity' && /(?:^|[\\/])mask\.png$/i.test(val)) return false;
+    return true;
+  });
   if (entries.length === 0) return undefined;
   return Object.fromEntries(entries) as SbsarTextures;
 }
@@ -462,6 +464,19 @@ export function SbsarShaderBall({
 
   useEffect(() => {
     onLoaded?.(mesh);
+    return () => {
+      mesh.geometry?.dispose();
+      if (mesh.material instanceof THREE.Material) {
+        const matRecord = mesh.material as unknown as Record<string, unknown>;
+        for (const key of Object.keys(matRecord)) {
+          const val = matRecord[key];
+          if (val && typeof val === 'object' && 'isTexture' in val && typeof (val as THREE.Texture).dispose === 'function') {
+            (val as THREE.Texture).dispose();
+          }
+        }
+        mesh.material.dispose();
+      }
+    };
   }, [mesh, onLoaded]);
 
   return <primitive object={mesh} />;

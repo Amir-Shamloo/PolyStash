@@ -710,7 +710,11 @@ std::unique_ptr<SubstanceAir::Renderer> create_renderer(D3D11Device& d3d, Device
 {
 	HMODULE engine = nullptr;
 	if (SUCCEEDED(d3d.create()))
+	{
 		engine = LoadLibraryA((executable_directory() / kD3D11Engine).string().c_str());
+		if (engine == nullptr)
+			engine = LoadLibraryA((executable_directory() / "../../third_party/substance/bin" / kD3D11Engine).string().c_str());
+	}
 
 	if (engine == nullptr)
 	{
@@ -807,6 +811,8 @@ size_t render_graph(SubstanceAir::GraphInstance& graph, const std::filesystem::p
 
 int main(int argc, char** argv)
 {
+	stbi_write_png_compression_level = 1;
+
 	if (argc < 3)
 	{
 		std::fprintf(stderr, "usage: sbsar_render <input.sbsar> <output-directory>\n");

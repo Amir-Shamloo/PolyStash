@@ -1,4 +1,5 @@
 # ── Dependencies ───────────────────────────────────────────────────────────
+*.zip
 node_modules/
 .pnpm-store/
 
@@ -13,6 +14,10 @@ bundle/
 gen/
 .tauri/
 *.tsbuildinfo
+/*.exe
+/*.lnk
+/*.bat
+/*.ico
 
 # ── Rust & Cargo ───────────────────────────────────────────────────────────
 *.rs.bk

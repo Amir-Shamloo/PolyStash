@@ -308,7 +308,12 @@ interface AssetStore {
   deleteAsset: (id: string, deleteFile?: boolean) => Promise<void>;
   deleteAssets: (ids: string[], deleteFile?: boolean) => Promise<void>;
   renameAsset: (id: string, newName: string) => Promise<Asset>;
-  updateAssetPreview: (id: string, thumbnailPath?: string, previewModel?: string) => void;
+  updateAssetPreview: (
+    id: string,
+    thumbnailPath?: string,
+    previewModel?: string,
+    sbsarTextures?: Record<string, string>
+  ) => void;
   setPreviewStatus: (id: string, status: Asset['previewStatus']) => void;
   getById: (id: string) => Asset | undefined;
 }
@@ -497,15 +502,22 @@ export const useAssetStore = create<AssetStore>()((set, get) => ({
     return updated;
   },
 
-  updateAssetPreview: (id, thumbnailPath, previewModel) => {
+  updateAssetPreview: (id, thumbnailPath, previewModel, sbsarTextures) => {
     set((s) => {
       const asset = s.assetMap.get(id);
       if (!asset) return s;
+      let newMetadata = asset.metadata;
+      if (previewModel) {
+        newMetadata = { ...newMetadata, preview_model: previewModel };
+      }
+      if (sbsarTextures) {
+        newMetadata = { ...newMetadata, sbsar_textures: sbsarTextures };
+      }
       const updated: Asset = {
         ...asset,
         thumbnailPath: thumbnailPath || asset.thumbnailPath,
         previewStatus: 'done',
-        metadata: previewModel ? { ...asset.metadata, preview_model: previewModel } : asset.metadata,
+        metadata: newMetadata,
       };
       return {
         assets: s.assets.map((a) => (a.id === id ? updated : a)),

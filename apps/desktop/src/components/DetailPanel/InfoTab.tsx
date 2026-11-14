@@ -186,6 +186,7 @@ const SBSAR_SLOT_LABELS: Record<string, string> = {
   roughness: 'Roughness',
   metallic: 'Metallic',
   height: 'Height',
+  ambientOcclusion: 'Ambient Occlusion',
   opacity: 'Opacity',
 };
 

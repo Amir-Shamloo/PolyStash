@@ -337,6 +337,44 @@ impl LibraryJobs<'_> {
         }));
     }
 
+    /// Complete an SBSAR job: saves technical metadata, updates preview status,
+    /// and emits `preview:done` with resolved texture paths so the frontend
+    /// can construct the 3D shader ball immediately without a full reload.
+    async fn complete_sbsar(
+        &self,
+        job: &JobRef<'_>,
+        sbsar_textures: Option<serde_json::Map<String, Value>>,
+    ) {
+        let _ = sqlx::query("UPDATE preview_jobs SET status = 'done' WHERE id = ?")
+            .bind(job.id)
+            .execute(self.pool)
+            .await;
+
+        let status = if sbsar_textures.is_some() { "done" } else { "error" };
+        let _ = sqlx::query("UPDATE assets SET preview_status = ? WHERE id = ?")
+            .bind(status)
+            .bind(job.asset_id)
+            .execute(self.pool)
+            .await;
+
+        if let Some(fields) = self.technical_metadata(job).await {
+            self.merge_metadata(job.asset_id, fields).await;
+        }
+
+        if let Some(textures) = sbsar_textures {
+            let _ = self.state.app_handle.emit("preview:done", json!({
+                "assetId": job.asset_id,
+                "thumbnailPath": Value::Null,
+                "thumbnailPaths": [],
+                "sbsarTextures": textures,
+            }));
+        } else {
+            let _ = self.state.app_handle.emit("preview:error", json!({
+                "assetId": job.asset_id,
+            }));
+        }
+    }
+
     /// Format-specific metadata for the asset record. Extraction is best effort:
     /// a missing external tool or an unreadable header yields no fields.
     async fn technical_metadata(&self, job: &JobRef<'_>) -> Option<serde_json::Map<String, Value>> {
@@ -605,12 +643,22 @@ async fn complete_existing_thumbnail(
 /// removed and the job completes without a thumbnail.
 async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
     let file_stem = thumb_stem(source);
-    match archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
-        Some(maps) => publish_sbsar_textures(jobs, job, &maps).await,
-        None => remove_metadata_key(jobs, job, "sbsar_textures").await,
-    }
+    let resolved_maps = match archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
+        Some(maps) => {
+            publish_sbsar_textures(jobs, job, &maps).await;
+            let abs_maps: serde_json::Map<String, Value> = maps
+                .into_iter()
+                .map(|(key, rel)| (key, Value::String(resolve_path(jobs.root_path, &rel))))
+                .collect();
+            Some(abs_maps)
+        }
+        None => {
+            remove_metadata_key(jobs, job, "sbsar_textures").await;
+            None
+        }
+    };
 
-    jobs.complete(job, &[]).await;
+    jobs.complete_sbsar(job, resolved_maps).await;
 }
 
 /// Point the asset's `sbsar_textures` at the rendered PBR maps so the frontend
