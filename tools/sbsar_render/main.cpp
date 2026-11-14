@@ -1,8 +1,8 @@
 // PolyStash SBSAR renderer.
 //
 // Loads a Substance archive through the vendored Adobe Substance SDK, renders
-// every graph output at a native 2048x2048 resolution, converts the result to
-// 8-bit RGBA and writes one PNG per output named after its real identifier.
+// every output the graph exposes at a native 2048x2048 resolution, converts each
+// result to 8-bit RGBA and writes one PNG named after its real identifier.
 //
 // Usage: sbsar_render.exe <input.sbsar> <output-directory>
 //
@@ -72,6 +72,18 @@ std::string sanitize_identifier(const char* identifier)
 	return name;
 }
 
+std::string lower_identifier(const char* identifier)
+{
+	std::string lower;
+	for (const unsigned char* cursor = reinterpret_cast<const unsigned char*>(identifier); *cursor != 0; ++cursor)
+	{
+		const unsigned char character = *cursor;
+		const bool upper = character >= 'A' && character <= 'Z';
+		lower.push_back(static_cast<char>(upper ? character - 'A' + 'a' : character));
+	}
+	return lower;
+}
+
 bool is_data_identifier(const char* identifier)
 {
 	static const char* const kDataTokens[] = {
@@ -80,14 +92,7 @@ bool is_data_identifier(const char* identifier)
 		"gloss", "smoothness"
 	};
 
-	std::string lower;
-	for (const unsigned char* cursor = reinterpret_cast<const unsigned char*>(identifier); *cursor != 0; ++cursor)
-	{
-		const unsigned char character = *cursor;
-		const bool upper = character >= 'A' && character <= 'Z';
-		lower.push_back(static_cast<char>(upper ? character - 'A' + 'a' : character));
-	}
-
+	const std::string lower = lower_identifier(identifier);
 	for (const char* token : kDataTokens)
 	{
 		if (lower.find(token) != std::string::npos)

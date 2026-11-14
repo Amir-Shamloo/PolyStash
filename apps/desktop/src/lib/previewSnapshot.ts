@@ -7,6 +7,7 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
 import { useState, useEffect, useRef } from 'react';
 import type { Asset } from '../types';
@@ -161,6 +162,7 @@ function disposeSceneHierarchy(scene: THREE.Scene, renderer: THREE.WebGLRenderer
       mats.forEach((m) => m?.dispose());
     }
   });
+  scene.environment?.dispose();
   renderer.dispose();
   renderer.forceContextLoss();
 }
@@ -190,6 +192,21 @@ function setupSnapshotSceneLights(scene: THREE.Scene, cleanExt: string): void {
   scene.add(dirLight);
   scene.add(new THREE.HemisphereLight(0xe3edfc, 0x1e293b, 0.75));
   scene.add(new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.85));
+}
+
+/** Same RoomEnvironment IBL as the interactive viewer, so card balls match it. */
+function applySnapshotEnvironment(scene: THREE.Scene, renderer: THREE.WebGLRenderer): void {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const roomEnv = new RoomEnvironment();
+  scene.environment = pmrem.fromScene(roomEnv, 0.04).texture;
+  roomEnv.dispose();
+  pmrem.dispose();
+}
+
+function setupSnapshotEnvironment(scene: THREE.Scene, renderer: THREE.WebGLRenderer, cleanExt: string): void {
+  if (cleanExt === 'ies' || cleanExt === 'ldt') return;
+  applySnapshotEnvironment(scene, renderer);
 }
 
 function prepareSnapshotSceneObject(params: {
@@ -233,6 +250,7 @@ export async function captureModelSnapshot(
 
     renderer = createSnapshotRenderer(canvas, { width: resolution, height: resolution });
     setupSnapshotSceneLights(scene, cleanExt);
+    setupSnapshotEnvironment(scene, renderer, cleanExt);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     const fileUrl = /^(http|asset:|blob:)/.test(url) ? url : convertFileSrc(url);
@@ -439,6 +457,11 @@ export interface LazySnapshotState {
   ref: React.RefObject<HTMLDivElement>;
   snapshotUrl: string | null;
   isGenerating: boolean;
+}
+
+export function clearSnapshotCache(assetId: string): void {
+  snapshotUrlCache.delete(assetId);
+  failedSnapshotAssets.delete(assetId);
 }
 
 function getCachedSnapshot(assetId: string | undefined): string | null {

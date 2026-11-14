@@ -148,28 +148,129 @@ fn is_thumbnail_name(name: &str) -> bool {
     lower.contains("thumb") && (lower.ends_with(".png") || lower.ends_with(".jpg") || lower.ends_with(".jpeg"))
 }
 
-/// Entry-name rank for the Substance preview: exact `preview.png` first.
-const SBSAR_PREFERRED: u8 = 0;
+/// Entry-name ranks for the fallback scan, best first.
+const SBSAR_ICON_NAME: u8 = 0;
+const SBSAR_PREVIEW_NAME: u8 = 1;
+const SBSAR_NAMED_IMAGE: u8 = 2;
+const SBSAR_ANY_IMAGE: u8 = 3;
 
-/// Substance archives are 7z containers holding a rendered preview image.
-/// Falling back is fine: the frontend renders a PBR shader ball when no
-/// backend thumbnail exists.
+/// Directory holding the graph XML and the icon image it names.
+const SBSAR_GRAPH_DIR: &str = "assemblies/content/0000/";
+
+/// Substance archives are 7z containers holding a rendered preview image and a
+/// graph description naming the icon to use. Falling back is fine: the frontend
+/// renders a PBR shader ball when no backend thumbnail exists.
 pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
     let img = sbsar_preview(source)
         .ok_or_else(|| anyhow!("No preview image inside Substance archive"))?;
     save_thumb(&img, output)
 }
 
+/// Graph-declared icon first, then the filename tiers ranked by
+/// `sbsar_entry_priority`.
 fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
+    sbsar_icon_preview(source).or_else(|| sbsar_heuristic_preview(source))
+}
+
+/// Preview named by the graph's `icon` attribute, when that entry decodes.
+fn sbsar_icon_preview(source: &Path) -> Option<DynamicImage> {
+    let icon = sbsar_icon_entry(source)?;
+    let bytes = read_archive_entry(source, &icon)?;
+    image::load_from_memory(&bytes).ok()
+}
+
+/// Archive path of the icon the first `<graph>` element declares.
+fn sbsar_icon_entry(source: &Path) -> Option<String> {
+    let xml = read_graph_xml(source)?;
+    let icon = normalized_archive_name(graph_icon(&xml)?);
+    let icon = icon.trim_start_matches("./");
+    if icon.starts_with(SBSAR_GRAPH_DIR) {
+        return Some(icon.to_string());
+    }
+    Some(format!("{SBSAR_GRAPH_DIR}{icon}"))
+}
+
+/// Graph description text: `assemblies/content/0000/*.xml`.
+fn read_graph_xml(source: &Path) -> Option<String> {
+    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
+    let mut xml = None;
+
+    let _ = archive.for_each_entries(|entry, input| {
+        if !is_graph_xml(entry.name()) {
+            return Ok(true);
+        }
+        let mut text = String::new();
+        input.read_to_string(&mut text)?;
+        xml = Some(text);
+        Ok(false)
+    });
+
+    xml
+}
+
+fn is_graph_xml(name: &str) -> bool {
+    let lower = normalized_archive_name(name);
+    lower.starts_with(SBSAR_GRAPH_DIR) && lower.ends_with(".xml")
+}
+
+/// Value of `icon="..."` on the first `<graph>` element. The description is
+/// small and one attribute does not justify an XML parser.
+fn graph_icon(xml: &str) -> Option<&str> {
+    let start = graph_element_start(xml)?;
+    let tag_end = start + xml[start..].find('>')?;
+    let tag = &xml[start..tag_end];
+    let attribute = "icon=\"";
+    let value = &tag[tag.find(attribute)? + attribute.len()..];
+    let value = &value[..value.find('"')?];
+    (!value.is_empty()).then_some(value)
+}
+
+/// `<graphs>` wraps the graph list, so skip it and match the element itself.
+fn graph_element_start(xml: &str) -> Option<usize> {
+    xml.match_indices("<graph").find_map(|(index, _)| {
+        let after = xml[index + "<graph".len()..].chars().next()?;
+        (after.is_ascii_whitespace() || after == '>').then_some(index)
+    })
+}
+
+/// Case- and separator-insensitive archive entry name.
+fn normalized_archive_name(name: &str) -> String {
+    name.replace('\\', "/").to_ascii_lowercase()
+}
+
+/// Read one named entry, skipping earlier entries in the sequential archive.
+fn read_archive_entry(source: &Path, wanted: &str) -> Option<Vec<u8>> {
+    let wanted = normalized_archive_name(wanted);
+    let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
+    let mut bytes: Option<Vec<u8>> = None;
+
+    let _ = archive.for_each_entries(|entry, input| {
+        if normalized_archive_name(entry.name()) != wanted {
+            return Ok(true);
+        }
+        let mut data = Vec::new();
+        input.read_to_end(&mut data)?;
+        bytes = Some(data);
+        Ok(false)
+    });
+
+    bytes
+}
+
+/// Priority heuristic used when the graph declares no usable icon. Substance
+/// names its standard icon `icon.png` or `icon<uid>.png`.
+fn sbsar_heuristic_preview(source: &Path) -> Option<DynamicImage> {
     let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
     let mut best: Option<(u8, Vec<u8>)> = None;
-    let mut found_preferred = false;
+    let mut found_best = false;
+    let mut has_image = false;
 
     // Sevenz entries must be read in order, so every entry is drained and only
     // the best-ranked image is retained.
     let _ = archive.for_each_entries(|entry, input| {
         let priority = sbsar_entry_priority(entry.name());
-        found_preferred |= priority == Some(SBSAR_PREFERRED);
+        found_best |= priority == Some(SBSAR_ICON_NAME);
+        has_image |= priority.is_some();
 
         let bytes = read_entry(input, priority.is_some())?;
         if let Some(priority) = priority {
@@ -177,8 +278,12 @@ fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
                 best = Some((priority, bytes));
             }
         }
-        Ok(!found_preferred)
+        Ok(!found_best)
     });
+
+    if !has_image {
+        tracing::debug!("No image entry in Substance archive {}", source.display());
+    }
 
     let (_, bytes) = best?;
     image::load_from_memory(&bytes).ok()
@@ -206,13 +311,26 @@ fn sbsar_entry_priority(name: &str) -> Option<u8> {
     }
 
     let file_name = lower.rsplit(['/', '\\']).next().unwrap_or_default();
-    if file_name == "preview.png" {
-        Some(SBSAR_PREFERRED)
+    if is_icon_name(file_name) {
+        Some(SBSAR_ICON_NAME)
+    } else if file_name == "preview.png" {
+        Some(SBSAR_PREVIEW_NAME)
     } else if lower.contains("preview") || lower.contains("thumb") {
-        Some(1)
+        Some(SBSAR_NAMED_IMAGE)
     } else {
-        Some(2)
+        Some(SBSAR_ANY_IMAGE)
     }
+}
+
+/// Substance's standard icon name: `icon.png` or `icon<uid>.png`.
+fn is_icon_name(file_name: &str) -> bool {
+    let Some(stem) = file_name.strip_suffix(".png") else {
+        return false;
+    };
+    let Some(uid) = stem.strip_prefix("icon") else {
+        return false;
+    };
+    uid.is_empty() || uid.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn is_image_name(name: &str) -> bool {
@@ -236,13 +354,32 @@ const SBSAR_HELPER_DIR: &str = "polystash_sbsar";
 /// 2048x2048 renders are much slower than the old graph-default renders.
 const SBSAR_RENDER_TIMEOUT: Duration = Duration::from_secs(420);
 
-static SBSAR_RENDERER: OnceLock<Option<PathBuf>> = OnceLock::new();
+/// Native renders saturate the CPU for minutes, so only two helpers run at once.
+const SBSAR_RENDER_CONCURRENCY: usize = 2;
 
-fn file_matches(path: &Path, bytes: &[u8]) -> bool {
+static SBSAR_RENDERER: OnceLock<Option<PathBuf>> = OnceLock::new();
+static SBSAR_RENDER_SLOTS: OnceLock<tokio::sync::Semaphore> = OnceLock::new();
+
+/// Serializes the check-and-extract of the shared helper directory. Two
+/// concurrent jobs can both find the directory stale and write the same files;
+/// one would then run a half-written executable.
+static SBSAR_HELPER_LOCK: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
+
+fn sbsar_render_slots() -> &'static tokio::sync::Semaphore {
+    SBSAR_RENDER_SLOTS.get_or_init(|| tokio::sync::Semaphore::new(SBSAR_RENDER_CONCURRENCY))
+}
+
+/// True when `path` already holds exactly `bytes` (length check only).
+pub(crate) fn file_matches(path: &Path, bytes: &[u8]) -> bool {
     std::fs::metadata(path).is_ok_and(|metadata| metadata.len() == bytes.len() as u64)
 }
 
 fn extract_sbsar_helper() -> Option<PathBuf> {
+    let _guard = SBSAR_HELPER_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
     let exe_bytes = embedded_helper::SBSAR_RENDER_EXE?;
     let linker_bytes = embedded_helper::SBSAR_LINKER_DLL?;
     let sse2_bytes = embedded_helper::SBSAR_SSE2_DLL?;
@@ -315,23 +452,36 @@ fn strip_map_suffix(normalized: &str) -> Option<&str> {
         .find_map(|suffix| normalized.strip_suffix(suffix))
 }
 
-/// Maps already rendered for `file_stem`, read back from the thumbnail folder.
-pub(crate) fn existing_sbsar_maps(thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
-    let prefix = format!("{file_stem}_sbsar_");
-    let Ok(entries) = std::fs::read_dir(thumb_dir) else {
-        return Vec::new();
-    };
+/// Identifiers preferred inside the `baseColor` slot, best first.
+const BASECOLOR_PREFERRED: [&str; 3] = ["basecolor", "albedo", "color"];
 
-    let mut maps: Vec<(String, String)> = entries
-        .flatten()
-        .filter_map(|entry| {
-            let name = entry.file_name().to_str()?.to_string();
-            let key = name.strip_prefix(&prefix)?.strip_suffix(".png")?;
-            Some((key.to_string(), format!(".polystash/thumbs/{name}")))
-        })
+/// Rank an identifier inside its slot, lower wins. Only `baseColor` has
+/// competing outputs; every other slot keeps rank 0 so the path still decides.
+/// `diffuse` always loses because some graphs export it black.
+fn sbsar_map_rank(key: &str, identifier: &str) -> usize {
+    if key != "baseColor" {
+        return 0;
+    }
+
+    let normalized: String = identifier
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
         .collect();
-    maps.sort_by(|a, b| a.0.cmp(&b.0));
-    maps
+    let bare = strip_map_suffix(&normalized).unwrap_or(&normalized);
+    let ends_with = |suffix: &str| normalized.ends_with(suffix) || bare.ends_with(suffix);
+
+    if ends_with("diffuse") {
+        return BASECOLOR_PREFERRED.len() + 1;
+    }
+    BASECOLOR_PREFERRED
+        .iter()
+        .position(|needle| ends_with(needle))
+        .unwrap_or(BASECOLOR_PREFERRED.len())
+}
+
+/// Maps already rendered for `file_stem`, read back from the output folder.
+pub(crate) fn existing_sbsar_maps(thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
+    collect_sbsar_maps(&thumb_dir.join(format!("{file_stem}_sbsar")), file_stem)
 }
 
 /// Sidecar recording which source file the rendered maps came from.
@@ -356,9 +506,8 @@ fn maps_are_current(thumb_dir: &Path, file_stem: &str, fingerprint: &str) -> boo
         .is_ok_and(|stored| stored.trim() == fingerprint)
 }
 
-/// Drop maps from an earlier render so slots the new render no longer produces
-/// cannot survive as stale surfaces.
-fn clear_sbsar_maps(thumb_dir: &Path, file_stem: &str) {
+/// Delete the flat `<stem>_sbsar_*.png` copies written by the old layout.
+fn clear_legacy_sbsar_maps(thumb_dir: &Path, file_stem: &str) {
     let prefix = format!("{file_stem}_sbsar_");
     let Ok(entries) = std::fs::read_dir(thumb_dir) else {
         return;
@@ -390,10 +539,9 @@ fn cached_sbsar_maps(
 
 /// Start each render from an empty output directory so a previous partial
 /// render cannot contribute stale surfaces.
-async fn prepare_sbsar_output(out_dir: &Path, thumb_dir: &Path, file_stem: &str) -> Option<()> {
+async fn prepare_sbsar_output(out_dir: &Path) -> Option<()> {
     let _ = tokio::fs::remove_dir_all(out_dir).await;
     tokio::fs::create_dir_all(out_dir).await.ok()?;
-    clear_sbsar_maps(thumb_dir, file_stem);
     Some(())
 }
 
@@ -418,49 +566,42 @@ async fn run_sbsar_renderer(renderer: &Path, source: &Path, out_dir: &Path) -> b
     )
 }
 
-/// Copy one rendered PNG into the thumbnail folder under its PBR slot name.
-async fn copy_sbsar_map(
-    path: &Path,
-    thumb_dir: &Path,
-    file_stem: &str,
-) -> Option<(String, String)> {
-    let is_png = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("png"));
-    if !is_png {
-        return None;
-    }
-
-    // The helper names every PNG after the output's real identifier.
-    let identifier = path.file_stem()?.to_str()?;
-    let key = sbsar_map_key(&identifier.to_ascii_lowercase())?;
-    let png_name = format!("{file_stem}_sbsar_{key}.png");
-    tokio::fs::copy(path, thumb_dir.join(&png_name))
-        .await
-        .ok()?;
-    Some((key.to_string(), format!(".polystash/thumbs/{png_name}")))
-}
-
-/// Copy every rendered PNG that maps to a PBR slot, newest render first.
-async fn collect_sbsar_maps(
-    out_dir: &Path,
-    thumb_dir: &Path,
-    file_stem: &str,
-) -> Vec<(String, String)> {
-    let mut maps = Vec::new();
-    let Ok(mut entries) = tokio::fs::read_dir(out_dir).await else {
-        return maps;
+/// Every rendered PNG in the SBSAR output folder that maps to a PBR slot,
+/// published as `(slot, library-relative path)`. The folder itself is the
+/// library copy, so no second file is written.
+fn collect_sbsar_maps(out_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
+    let folder = format!("{file_stem}_sbsar");
+    let Ok(entries) = std::fs::read_dir(out_dir) else {
+        return Vec::new();
     };
-    while let Some(entry) = entries.next_entry().await.ok().flatten() {
-        if let Some(map) = copy_sbsar_map(&entry.path(), thumb_dir, file_stem).await {
-            maps.push(map);
-        }
-    }
 
-    maps.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut maps: Vec<(String, usize, String)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let is_png = path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("png"));
+            if !is_png {
+                return None;
+            }
+
+            // The helper names every PNG after the output's real identifier.
+            let name = path.file_name()?.to_str()?;
+            let identifier = path.file_stem()?.to_str()?.to_ascii_lowercase();
+            let key = sbsar_map_key(&identifier)?;
+            let rank = sbsar_map_rank(key, &identifier);
+            Some((key.to_string(), rank, format!(".polystash/thumbs/{folder}/{name}")))
+        })
+        .collect();
+
+    // Best-ranked identifier per slot, then path so the result stays stable.
+    maps.sort_by(|a, b| (&a.0, a.1, &a.2).cmp(&(&b.0, b.1, &b.2)));
     maps.dedup_by(|a, b| a.0 == b.0);
-    maps
+    maps.into_iter()
+        .map(|(key, _, path)| (key, path))
+        .collect()
 }
 
 /// Render the PBR maps for an SBSAR, or return the ones already on disk when
@@ -470,6 +611,10 @@ pub(crate) async fn render_sbsar_maps(
     file_stem: &str,
     thumb_dir: &Path,
 ) -> Option<Vec<(String, String)>> {
+    // Migrate libraries written by the old flat-copy layout even when the
+    // cached maps are already current.
+    clear_legacy_sbsar_maps(thumb_dir, file_stem);
+
     // Cheap freshness check: one `metadata` call plus a small sidecar read.
     let fingerprint = std::fs::metadata(source)
         .ok()
@@ -481,10 +626,14 @@ pub(crate) async fn render_sbsar_maps(
 
     let renderer = sbsar_renderer_exe()?;
     let out_dir = thumb_dir.join(format!("{file_stem}_sbsar"));
-    prepare_sbsar_output(&out_dir, thumb_dir, file_stem).await?;
+
+    let Ok(_render_slot) = sbsar_render_slots().acquire().await else {
+        return None;
+    };
+    prepare_sbsar_output(&out_dir).await?;
 
     let success = run_sbsar_renderer(&renderer, source, &out_dir).await;
-    let maps = collect_sbsar_maps(&out_dir, thumb_dir, file_stem).await;
+    let maps = collect_sbsar_maps(&out_dir, file_stem);
     if maps.is_empty() {
         return None;
     }
@@ -496,4 +645,38 @@ pub(crate) async fn render_sbsar_maps(
         }
     }
     Some(maps)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{sbsar_map_key, sbsar_map_rank};
+
+    /// `basecolor` is the canonical name, so it must win the slot.
+    #[test]
+    fn basecolor_outranks_diffuse() {
+        let basecolor = sbsar_map_rank("baseColor", "basecolor");
+        let diffuse = sbsar_map_rank("baseColor", "diffuse");
+        assert!(basecolor < diffuse);
+    }
+
+    /// `albedo` and unknown variants both lose to `basecolor` but beat `diffuse`.
+    #[test]
+    fn albedo_and_unknown_names_beat_diffuse() {
+        let diffuse = sbsar_map_rank("baseColor", "diffuse");
+        assert!(sbsar_map_rank("baseColor", "albedo") < diffuse);
+        assert!(sbsar_map_rank("baseColor", "base_color_v2") < diffuse);
+    }
+
+    /// Slots with a single output keep rank 0 so the file path decides.
+    #[test]
+    fn other_slots_rank_zero() {
+        assert_eq!(0, sbsar_map_rank("normal", "diffuse"));
+        assert_eq!(0, sbsar_map_rank("roughness", "basecolor"));
+    }
+
+    /// The slot mapping itself: `diffuse` is still published as `baseColor`.
+    #[test]
+    fn diffuse_maps_to_basecolor() {
+        assert_eq!(Some("baseColor"), sbsar_map_key("diffuse"));
+    }
 }

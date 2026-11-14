@@ -7,6 +7,7 @@ mod embedded;
 mod material;
 mod ole;
 mod psd;
+mod queue;
 mod raster;
 mod structural;
 mod video;
@@ -17,7 +18,6 @@ use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::Emitter;
-use crate::db::LibraryHandle;
 use crate::AppState;
 use crate::db::resolve_path;
 
@@ -382,10 +382,11 @@ async fn recover_orphaned_jobs(state: &AppState) {
     }
 }
 
-/// Poll one batch of queued jobs for a library.
+/// Poll one batch of queued jobs for a library. User-requested jobs ('queued')
+/// go before bulk-scan jobs ('pending'); oldest first within each group.
 async fn fetch_queued_jobs(pool: &sqlx::Pool<sqlx::Sqlite>) -> Vec<(String, String, String)> {
     sqlx::query_as(
-        "SELECT p.id, p.asset_id, a.file_path FROM preview_jobs p JOIN assets a ON p.asset_id = a.id WHERE p.status = 'queued' OR p.status = 'pending' LIMIT 10"
+        "SELECT p.id, p.asset_id, a.file_path FROM preview_jobs p JOIN assets a ON p.asset_id = a.id WHERE p.status = 'queued' OR p.status = 'pending' ORDER BY CASE p.status WHEN 'queued' THEN 0 ELSE 1 END, p.created_at LIMIT 10"
     )
     .fetch_all(pool)
     .await
@@ -600,29 +601,35 @@ async fn complete_existing_thumbnail(
 
 /// Substance job: the PBR maps feed the 3D viewer and are always produced.
 ///
-/// The card thumbnail comes from the archive's own preview when it has one;
-/// otherwise the frontend renders the shader ball. The base-colour texture is
-/// never used as the card image.
+/// The archive's own preview wins the card and is published before the slow
+/// render starts, so the ready thumbnail shows up immediately. Only when the
+/// archive has no preview does the card fall back to the frontend's 3js
+/// snapshot. The base-colour texture is never used as the card image.
 async fn complete_sbsar_job(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, source: &Path) {
     let file_stem = thumb_stem(source);
     let thumb_name = format!("{file_stem}_thumb.png");
     let thumb_dest = jobs.thumb_dir.join(&thumb_name);
+
+    let card = archive::extract_sbsar_thumb(source, &thumb_dest)
+        .ok()
+        .map(|()| format!(".polystash/thumbs/{thumb_name}"));
+
+    // Publish the ready archive preview before the slow render so the card
+    // never waits for it.
+    if let Some(rel) = &card {
+        jobs.complete(job, std::slice::from_ref(rel)).await;
+    }
 
     match archive::render_sbsar_maps(source, &file_stem, jobs.thumb_dir).await {
         Some(maps) => publish_sbsar_textures(jobs, job, &maps).await,
         None => remove_metadata_key(jobs, job, "sbsar_textures").await,
     }
 
-    if !thumb_dest.exists() {
-        let _ = archive::extract_sbsar_thumb(source, &thumb_dest);
+    // No archive preview: the frontend's 3js snapshot is the card, taken after
+    // the maps exist so the shader ball is textured.
+    if card.is_none() {
+        jobs.complete(job, &[]).await;
     }
-
-    let rel = thumb_dest
-        .exists()
-        .then(|| format!(".polystash/thumbs/{thumb_name}"))
-        .into_iter()
-        .collect::<Vec<_>>();
-    jobs.complete(job, &rel).await;
 }
 
 /// Point the asset's `sbsar_textures` at the rendered PBR maps so the frontend
@@ -663,44 +670,6 @@ async fn complete_with_extraction(jobs: &LibraryJobs<'_>, job: &JobRef<'_>, sour
     }
 }
 
-/// Drain one batch of queued jobs for a library; true when any job was seen.
-async fn process_library(state: &AppState, lib: &LibraryHandle) -> bool {
-    let thumb_dir = lib.root_path.join(".polystash").join("thumbs");
-    let _ = tokio::fs::create_dir_all(&thumb_dir).await;
-
-    let jobs = fetch_queued_jobs(&lib.pool).await;
-    if jobs.is_empty() {
-        return false;
-    }
-
-    let jobs_ctx = LibraryJobs {
-        state,
-        pool: &lib.pool,
-        root_path: &lib.root_path,
-        thumb_dir: &thumb_dir,
-    };
-
-    for (id, asset_id, file_path) in jobs {
-        let job = JobRef {
-            id: &id,
-            asset_id: &asset_id,
-            file_path: &file_path,
-        };
-        let claimed = sqlx::query("UPDATE preview_jobs SET status = 'processing' WHERE id = ?")
-            .bind(job.id)
-            .execute(jobs_ctx.pool)
-            .await;
-        match claimed {
-            Ok(_) => process_job(&jobs_ctx, &job).await,
-            Err(e) => tracing::error!("Failed to update job status to processing: {}", e),
-        }
-
-        // Yield execution between items to allow other async runtime tasks to progress
-        tokio::task::yield_now().await;
-    }
-    true
-}
-
 pub fn start_preview_worker(state: Arc<AppState>) {
     tauri::async_runtime::spawn(async move {
         // Crash-recovery: Reset any orphaned jobs left in 'processing' ONCE at startup
@@ -715,7 +684,7 @@ pub fn start_preview_worker(state: Arc<AppState>) {
 
             let mut processed_any = false;
             for lib in &libs {
-                processed_any |= process_library(&state, lib).await;
+                processed_any |= queue::process_library(&state, lib).await;
             }
 
             if !processed_any {
