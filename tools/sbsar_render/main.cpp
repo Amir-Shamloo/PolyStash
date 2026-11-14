@@ -1,8 +1,10 @@
 // PolyStash SBSAR renderer.
 //
 // Loads a Substance archive through the vendored Adobe Substance SDK, renders
-// every graph output at a native 2048x2048 resolution, converts the result to
-// 8-bit RGBA and writes one PNG per output named after its real identifier.
+// every output the graph exposes at a native 2048x2048 resolution, converts each
+// result to 8-bit RGBA and writes one PNG named after its real identifier.
+// Rendering uses the D3D11 engine when a headless device can be created, and
+// falls back to the SSE2 CPU engine otherwise.
 //
 // Usage: sbsar_render.exe <input.sbsar> <output-directory>
 //
@@ -16,8 +18,14 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
+
+// windows.h defines min/max macros that break std::min/std::max below.
+#define NOMINMAX
+#include <windows.h>
+#include <d3d11.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -72,6 +80,18 @@ std::string sanitize_identifier(const char* identifier)
 	return name;
 }
 
+std::string lower_identifier(const char* identifier)
+{
+	std::string lower;
+	for (const unsigned char* cursor = reinterpret_cast<const unsigned char*>(identifier); *cursor != 0; ++cursor)
+	{
+		const unsigned char character = *cursor;
+		const bool upper = character >= 'A' && character <= 'Z';
+		lower.push_back(static_cast<char>(upper ? character - 'A' + 'a' : character));
+	}
+	return lower;
+}
+
 bool is_data_identifier(const char* identifier)
 {
 	static const char* const kDataTokens[] = {
@@ -80,14 +100,7 @@ bool is_data_identifier(const char* identifier)
 		"gloss", "smoothness"
 	};
 
-	std::string lower;
-	for (const unsigned char* cursor = reinterpret_cast<const unsigned char*>(identifier); *cursor != 0; ++cursor)
-	{
-		const unsigned char character = *cursor;
-		const bool upper = character >= 'A' && character <= 'Z';
-		lower.push_back(static_cast<char>(upper ? character - 'A' + 'a' : character));
-	}
-
+	const std::string lower = lower_identifier(identifier);
 	for (const char* token : kDataTokens)
 	{
 		if (lower.find(token) != std::string::npos)
@@ -635,6 +648,89 @@ bool convert_surface(const Surface& surface, bool color_output, std::vector<unsi
 }
 
 // ---------------------------------------------------------------------------
+// Engine selection
+// ---------------------------------------------------------------------------
+
+constexpr char kD3D11Engine[] = "substance_d3d11_blend.dll";
+
+// Directory holding the running executable, where the engine DLLs are extracted.
+std::filesystem::path executable_directory()
+{
+	char path[MAX_PATH];
+	const DWORD length = GetModuleFileNameA(nullptr, path, MAX_PATH);
+	if (length == 0 || length == MAX_PATH)
+		return {};
+	return std::filesystem::path(path).parent_path();
+}
+
+// Hands the headless device to the engine. The framework passes an agnostic
+// device buffer whose first slot the d3d11 engine reads as the device handle.
+struct DeviceCallbacks : SubstanceAir::RenderCallbacks
+{
+	ID3D11Device* d3d = nullptr;
+
+	void fillSubstanceDevice(SubstanceEngineIDEnum, SubstanceDevice_* device) override
+	{
+		std::memcpy(device, &d3d, sizeof(d3d));
+	}
+};
+
+// Owns the headless device so it outlives every renderer that uses it.
+struct D3D11Device
+{
+	ID3D11Device* device = nullptr;
+	ID3D11DeviceContext* context = nullptr;
+
+	~D3D11Device()
+	{
+		release();
+	}
+
+	void release()
+	{
+		if (context != nullptr)
+			context->Release();
+		if (device != nullptr)
+			device->Release();
+		context = nullptr;
+		device = nullptr;
+	}
+
+	HRESULT create()
+	{
+		D3D_FEATURE_LEVEL level;
+		return D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+			D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION,
+			&device, &level, &context);
+	}
+};
+
+// D3D11 when a headless device and its DLL are both available, SSE2 otherwise.
+std::unique_ptr<SubstanceAir::Renderer> create_renderer(D3D11Device& d3d, DeviceCallbacks& callbacks)
+{
+	HMODULE engine = nullptr;
+	if (SUCCEEDED(d3d.create()))
+	{
+		engine = LoadLibraryA((executable_directory() / kD3D11Engine).string().c_str());
+		if (engine == nullptr)
+			engine = LoadLibraryA((executable_directory() / "../../third_party/substance/bin" / kD3D11Engine).string().c_str());
+	}
+
+	if (engine == nullptr)
+	{
+		d3d.release();
+		std::fprintf(stderr, "ENGINE sse2\n");
+		return std::make_unique<SubstanceAir::Renderer>();
+	}
+
+	callbacks.d3d = d3d.device;
+	auto renderer = std::make_unique<SubstanceAir::Renderer>(SubstanceAir::RenderOptions(), engine);
+	renderer->setRenderCallbacks(&callbacks);
+	std::fprintf(stderr, "ENGINE d3d11\n");
+	return renderer;
+}
+
+// ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
 
@@ -715,6 +811,8 @@ size_t render_graph(SubstanceAir::GraphInstance& graph, const std::filesystem::p
 
 int main(int argc, char** argv)
 {
+	stbi_write_png_compression_level = 1;
+
 	if (argc < 3)
 	{
 		std::fprintf(stderr, "usage: sbsar_render <input.sbsar> <output-directory>\n");
@@ -750,14 +848,18 @@ int main(int argc, char** argv)
 	SubstanceAir::instantiate(instances, package);
 	apply_native_output_size(instances);
 
+	// GPU first: the D3D11 engine needs both a headless device and its DLL.
+	D3D11Device d3d;
+	DeviceCallbacks callbacks;
+	auto renderer = create_renderer(d3d, callbacks);
+
 	// Render one graph at a time so each graph's PNGs are on disk before the
 	// next job starts: a timeout leaves the completed graphs behind.
-	SubstanceAir::Renderer renderer;
 	size_t rendered = 0;
 	for (const auto& instance : instances)
 	{
-		renderer.push(*instance);
-		renderer.run();
+		renderer->push(*instance);
+		renderer->run();
 		rendered += render_graph(*instance, output_dir);
 	}
 

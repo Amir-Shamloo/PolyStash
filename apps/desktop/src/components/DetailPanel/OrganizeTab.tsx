@@ -11,6 +11,7 @@ import {
   IconTag,
   IconCollection,
 } from '../Icons';
+import { tagColorCss } from '../../lib/tagColor';
 import styles from './DetailPanel.module.css';
 
 const COLOR_LABELS: ColorLabel[] = [
@@ -204,7 +205,7 @@ interface TagItemProps {
 }
 
 function TagItem({ tag, isAssigned, onToggle }: TagItemProps) {
-  const dotColor = tag.color ? `var(--swatch-${tag.color})` : 'var(--color-text-muted)';
+  const dotColor = tagColorCss(tag.color);
   const title = isAssigned ? 'Click to remove tag' : 'Click to assign tag';
 
   return (

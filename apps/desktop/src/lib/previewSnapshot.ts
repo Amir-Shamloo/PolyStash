@@ -7,6 +7,7 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { IESLoader } from 'three/examples/jsm/loaders/IESLoader.js';
 import { useState, useEffect, useRef } from 'react';
 import type { Asset } from '../types';
@@ -158,9 +159,20 @@ function disposeSceneHierarchy(scene: THREE.Scene, renderer: THREE.WebGLRenderer
     if (obj instanceof THREE.Mesh) {
       obj.geometry?.dispose();
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-      mats.forEach((m) => m?.dispose());
+      mats.forEach((m) => {
+        if (!m) return;
+        const mRecord = m as unknown as Record<string, unknown>;
+        for (const key of Object.keys(mRecord)) {
+          const val = mRecord[key];
+          if (val && typeof val === 'object' && 'isTexture' in val && typeof (val as THREE.Texture).dispose === 'function') {
+            (val as THREE.Texture).dispose();
+          }
+        }
+        m.dispose();
+      });
     }
   });
+  scene.environment?.dispose();
   renderer.dispose();
   renderer.forceContextLoss();
 }
@@ -190,6 +202,21 @@ function setupSnapshotSceneLights(scene: THREE.Scene, cleanExt: string): void {
   scene.add(dirLight);
   scene.add(new THREE.HemisphereLight(0xe3edfc, 0x1e293b, 0.75));
   scene.add(new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.85));
+}
+
+/** Same RoomEnvironment IBL as the interactive viewer, so card balls match it. */
+function applySnapshotEnvironment(scene: THREE.Scene, renderer: THREE.WebGLRenderer): void {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const roomEnv = new RoomEnvironment();
+  scene.environment = pmrem.fromScene(roomEnv, 0.04).texture;
+  roomEnv.dispose();
+  pmrem.dispose();
+}
+
+function setupSnapshotEnvironment(scene: THREE.Scene, renderer: THREE.WebGLRenderer, cleanExt: string): void {
+  if (cleanExt === 'ies' || cleanExt === 'ldt') return;
+  applySnapshotEnvironment(scene, renderer);
 }
 
 function prepareSnapshotSceneObject(params: {
@@ -224,7 +251,7 @@ export async function captureModelSnapshot(
   let renderer: THREE.WebGLRenderer | null = null;
   const scene = new THREE.Scene();
   const cleanExt = extension.toLowerCase();
-  const resolution = options?.resolution ?? (cleanExt === 'sbsar' ? 1080 : 512);
+  const resolution = options?.resolution ?? 512;
 
   try {
     const canvas = document.createElement('canvas');
@@ -233,6 +260,7 @@ export async function captureModelSnapshot(
 
     renderer = createSnapshotRenderer(canvas, { width: resolution, height: resolution });
     setupSnapshotSceneLights(scene, cleanExt);
+    setupSnapshotEnvironment(scene, renderer, cleanExt);
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     const fileUrl = /^(http|asset:|blob:)/.test(url) ? url : convertFileSrc(url);
@@ -280,8 +308,7 @@ export function isEligibleForSnapshot(asset: Asset | null | undefined): boolean 
   if (!asset) return false;
   const ext = asset.extension.toLowerCase();
   if (ext === 'sbsar') {
-    // An archive-embedded preview already is a raster thumbnail; only render the ball without one.
-    return Boolean(extractSbsarTextures(asset.metadata)) && !hasRasterThumbnail(asset);
+    return Boolean(extractSbsarTextures(asset.metadata));
   }
   if (hasRasterThumbnail(asset)) return false;
   if (!SNAPSHOT_ELIGIBLE_EXTENSIONS.has(ext)) return false;
@@ -439,6 +466,11 @@ export interface LazySnapshotState {
   ref: React.RefObject<HTMLDivElement>;
   snapshotUrl: string | null;
   isGenerating: boolean;
+}
+
+export function clearSnapshotCache(assetId: string): void {
+  snapshotUrlCache.delete(assetId);
+  failedSnapshotAssets.delete(assetId);
 }
 
 function getCachedSnapshot(assetId: string | undefined): string | null {

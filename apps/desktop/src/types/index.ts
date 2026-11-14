@@ -62,8 +62,15 @@ export type ColorLabel =
 export interface Tag {
   id: string;
   name: string;
-  color?: ColorLabel;
-  parentId?: string;
+  color?: string | null;
+  parentId?: string | null;
+  iconId?: string | null;
+}
+
+export interface TagPatch {
+  parentId?: string | null;
+  color?: string | null;
+  iconId?: string | null;
 }
 
 export interface AssetMeta {

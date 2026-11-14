@@ -6,6 +6,7 @@ import { api } from '../../api';
 import { AssetCard } from './AssetCard';
 import { AssetListRow } from './AssetListRow';
 import { FilterBar } from './FilterBar';
+import { useVisibleAssetPreviewRequest } from './useVisibleAssetPreviewRequest';
 import { IconFolder } from '../Icons';
 import type { Asset } from '../../types';
 import styles from './AssetGrid.module.css';
@@ -295,6 +296,9 @@ export function AssetGrid() {
     [displayAssets, visibleCount]
   );
 
+  const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
+  useVisibleAssetPreviewRequest(scrollNode, visibleAssets);
+
   const tileSize = GRID_COLS[gridSize];
   const isEmpty = displayAssets.length === 0 && subfolders.length === 0;
 
@@ -310,7 +314,7 @@ export function AssetGrid() {
   return (
     <div className={styles.container}>
       <FilterBar />
-      <div className={styles.scrollArea} onClick={handleBackdropClick}>
+      <div ref={setScrollNode} className={styles.scrollArea} onClick={handleBackdropClick}>
         <GridItemsView
           viewMode={viewMode}
           tileSize={tileSize}

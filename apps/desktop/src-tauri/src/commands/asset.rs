@@ -682,15 +682,15 @@ async fn sync_asset_tags(
     let _ = sqlx::query("DELETE FROM asset_tags WHERE asset_id = ?")
         .bind(asset_id).execute(pool).await;
     for tag_id in tags {
-        let tag_def = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
-            "SELECT id, name, color, parent_id FROM tags WHERE id = ?"
+        let tag_def = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, Option<String>)>(
+            "SELECT id, name, color, parent_id, icon_id FROM tags WHERE id = ?"
         )
         .bind(tag_id)
         .fetch_optional(&state.db.master_pool).await.unwrap_or(None);
 
-        if let Some((tid, tname, tcolor, tparent)) = tag_def {
-            let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id) VALUES (?, ?, ?, ?)")
-                .bind(&tid).bind(&tname).bind(&tcolor).bind(&tparent)
+        if let Some((tid, tname, tcolor, tparent, ticon)) = tag_def {
+            let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name, color, parent_id, icon_id) VALUES (?, ?, ?, ?, ?)")
+                .bind(&tid).bind(&tname).bind(&tcolor).bind(&tparent).bind(&ticon)
                 .execute(pool).await;
         } else {
             let _ = sqlx::query("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)")

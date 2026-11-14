@@ -9,11 +9,12 @@ import {
 import {
   IconFolder, IconCollection, IconTag,
   IconChevronDown, IconChevronRight, IconPlus,
-  IconCheck, IconX, IconTrash,
+  IconCheck, IconX, IconTrash, IconLayers,
 } from '../Icons';
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
 import { FolderTree } from './FolderTree';
 import { SectionSettingsPopover } from './SectionSettingsPopover';
+import { tagColorCss } from '../../lib/tagColor';
 import type { Collection } from '../../types';
 import styles from './Sidebar.module.css';
 
@@ -566,6 +567,18 @@ export function Sidebar() {
         icon={<IconTag size={14} />}
         expanded={expanded.tags}
         onToggle={() => toggle('tags')}
+        headerActions={
+          <button
+            type="button"
+            className={styles.addBtn}
+            onClick={() => useUIStore.getState().setTagForgeOpen(true)}
+            title="Open Tag Forge"
+            aria-label="Open Tag Forge"
+            id="open-tag-forge"
+          >
+            <IconLayers size={12} />
+          </button>
+        }
         onAdd={() => {
           setExpanded((e) => ({ ...e, tags: true }));
           setIsCreatingTag(true);
@@ -640,7 +653,7 @@ export function Sidebar() {
             >
               <span
                 className={styles.tagDot}
-                style={{ background: tag.color ? `var(--swatch-${tag.color})` : 'hsl(220 85% 60%)' }}
+                style={{ background: tag.color ? tagColorCss(tag.color) : 'hsl(220 85% 60%)' }}
               />
               <span className={clsx(styles.itemName, 'truncate')}>{tag.name}</span>
               {isActiveFilter && (

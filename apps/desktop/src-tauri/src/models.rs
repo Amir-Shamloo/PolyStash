@@ -120,6 +120,29 @@ pub struct Tag {
     pub color: Option<String>,
     #[serde(rename = "parentId")]
     pub parent_id: Option<String>,
+    #[serde(rename = "iconId")]
+    pub icon_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TagDraft {
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "parentId")]
+    pub parent_id: Option<String>,
+    pub color: Option<String>,
+    #[serde(rename = "iconId")]
+    pub icon_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TagPatch {
+    #[serde(rename = "parentId", default)]
+    pub parent_id: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(rename = "iconId", default)]
+    pub icon_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

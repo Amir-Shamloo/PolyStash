@@ -21,7 +21,7 @@ import {
 } from './ThreeViewerUtils';
 
 export type SbsarTextures = Partial<
-  Record<'baseColor' | 'normal' | 'roughness' | 'metallic' | 'height' | 'opacity', string>
+  Record<'baseColor' | 'normal' | 'roughness' | 'metallic' | 'height' | 'ambientOcclusion' | 'opacity', string>
 >;
 
 export interface ModelLoadProps {
@@ -298,9 +298,11 @@ export function extractSbsarTextures(
 ): SbsarTextures | undefined {
   const raw = metadata?.sbsar_textures;
   if (!isPlainObject(raw)) return undefined;
-  const entries = Object.entries(raw).filter(
-    ([, val]) => typeof val === 'string' && val.trim().length > 0
-  );
+  const entries = Object.entries(raw).filter(([slot, val]) => {
+    if (typeof val !== 'string' || val.trim().length === 0) return false;
+    if (slot === 'opacity' && /(?:^|[\\/])mask\.png$/i.test(val)) return false;
+    return true;
+  });
   if (entries.length === 0) return undefined;
   return Object.fromEntries(entries) as SbsarTextures;
 }
@@ -348,6 +350,7 @@ interface LoadedSbsarMaps {
   roughness: THREE.Texture | null;
   metallic: THREE.Texture | null;
   height: THREE.Texture | null;
+  ambientOcclusion: THREE.Texture | null;
   opacity: THREE.Texture | null;
 }
 
@@ -370,12 +373,21 @@ function buildSbsarMaterialFromMaps(maps: LoadedSbsarMaps): THREE.MeshStandardMa
     roughness: maps.roughness ? 1.0 : 0.35,
     metalnessMap: maps.metallic,
     metalness: maps.metallic ? 1.0 : 0.15,
+    aoMap: maps.ambientOcclusion,
+    aoMapIntensity: 1.0,
     bumpMap: maps.normal ? null : maps.height,
     bumpScale: 0.02,
     alphaMap: maps.opacity,
     alphaTest: maps.opacity ? 0.5 : 0,
     side: maps.opacity ? THREE.DoubleSide : THREE.FrontSide,
   });
+}
+
+/** aoMap samples the uv1 channel in three.js; mirror uv so AO lines up with the other maps. */
+function createSbsarSphereGeometry(): THREE.SphereGeometry {
+  const geom = new THREE.SphereGeometry(1, 128, 64);
+  geom.setAttribute('uv1', geom.attributes.uv);
+  return geom;
 }
 
 export function createSbsarMaterialSync(textures?: SbsarTextures): THREE.MeshStandardMaterial {
@@ -393,6 +405,7 @@ export function createSbsarMaterialSync(textures?: SbsarTextures): THREE.MeshSta
     roughness: loadSbsarTexture({ loader, rawPath: textures.roughness, srgb: false }),
     metallic: loadSbsarTexture({ loader, rawPath: textures.metallic, srgb: false }),
     height: loadSbsarTexture({ loader, rawPath: textures.height, srgb: false }),
+    ambientOcclusion: loadSbsarTexture({ loader, rawPath: textures.ambientOcclusion, srgb: false }),
     opacity: loadSbsarTexture({ loader, rawPath: textures.opacity, srgb: false }),
   });
 }
@@ -400,18 +413,19 @@ export function createSbsarMaterialSync(textures?: SbsarTextures): THREE.MeshSta
 export async function createSbsarShaderBallObject(
   textures?: SbsarTextures
 ): Promise<THREE.Mesh> {
-  const geom = new THREE.SphereGeometry(1, 128, 64);
+  const geom = createSbsarSphereGeometry();
   if (!textures) {
     const mat = createSbsarMaterialSync();
     return new THREE.Mesh(geom, mat);
   }
   const loader = new THREE.TextureLoader();
-  const [baseColor, normal, roughness, metallic, height, opacity] = await Promise.all([
+  const [baseColor, normal, roughness, metallic, height, ambientOcclusion, opacity] = await Promise.all([
     loadSbsarTextureAsync({ loader, rawPath: textures.baseColor, srgb: true }),
     loadSbsarTextureAsync({ loader, rawPath: textures.normal, srgb: false }),
     loadSbsarTextureAsync({ loader, rawPath: textures.roughness, srgb: false }),
     loadSbsarTextureAsync({ loader, rawPath: textures.metallic, srgb: false }),
     loadSbsarTextureAsync({ loader, rawPath: textures.height, srgb: false }),
+    loadSbsarTextureAsync({ loader, rawPath: textures.ambientOcclusion, srgb: false }),
     loadSbsarTextureAsync({ loader, rawPath: textures.opacity, srgb: false }),
   ]);
   const mat = buildSbsarMaterialFromMaps({
@@ -420,6 +434,7 @@ export async function createSbsarShaderBallObject(
     roughness,
     metallic,
     height,
+    ambientOcclusion,
     opacity,
   });
   return new THREE.Mesh(geom, mat);
@@ -432,22 +447,36 @@ export function SbsarShaderBall({
   sbsarTextures?: SbsarTextures;
   onLoaded?: (obj: THREE.Object3D) => void;
 }) {
-  const { baseColor, normal, roughness, metallic, height, opacity } = sbsarTextures ?? {};
+  const { baseColor, normal, roughness, metallic, height, ambientOcclusion, opacity } = sbsarTextures ?? {};
   const mesh = useMemo(() => {
-    const geom = new THREE.SphereGeometry(1, 128, 64);
+    const geom = createSbsarSphereGeometry();
     const mat = createSbsarMaterialSync({
       baseColor,
       normal,
       roughness,
       metallic,
       height,
+      ambientOcclusion,
       opacity,
     });
     return new THREE.Mesh(geom, mat);
-  }, [baseColor, normal, roughness, metallic, height, opacity]);
+  }, [baseColor, normal, roughness, metallic, height, ambientOcclusion, opacity]);
 
   useEffect(() => {
     onLoaded?.(mesh);
+    return () => {
+      mesh.geometry?.dispose();
+      if (mesh.material instanceof THREE.Material) {
+        const matRecord = mesh.material as unknown as Record<string, unknown>;
+        for (const key of Object.keys(matRecord)) {
+          const val = matRecord[key];
+          if (val && typeof val === 'object' && 'isTexture' in val && typeof (val as THREE.Texture).dispose === 'function') {
+            (val as THREE.Texture).dispose();
+          }
+        }
+        mesh.material.dispose();
+      }
+    };
   }, [mesh, onLoaded]);
 
   return <primitive object={mesh} />;

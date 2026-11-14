@@ -72,6 +72,15 @@ function CardThumbPlaceholder({ asset }: { asset: Asset }) {
   );
 }
 
+function isSbsarLoading(asset: Asset, snapshotUrl: string | null): boolean {
+  if (asset.extension.toLowerCase() !== 'sbsar') return false;
+  const cleanThumb = asset.thumbnailPath?.trim();
+  const hasRasterThumb = Boolean(cleanThumb && !cleanThumb.endsWith('.glb'));
+  if (snapshotUrl || hasRasterThumb) return false;
+  if (asset.previewStatus === 'error') return false;
+  return true;
+}
+
 function canRenderAnimatedGif(asset: Asset, mediaError: boolean): boolean {
   if (mediaError || !asset.filePath) return false;
   return asset.extension.toLowerCase() === 'gif';
@@ -195,12 +204,14 @@ function CardThumbArea({
   isGenerating,
   onToggleFavorite,
 }: CardThumbAreaProps) {
+  const showSpinner = isGenerating || isSbsarLoading(asset, snapshotUrl);
+
   return (
     <div className={styles.thumb}>
       <CardThumbMedia asset={asset} snapshotUrl={snapshotUrl} />
 
-      {isGenerating && (
-        <div className={styles.spinnerOverlay} aria-label="Generating 3D preview">
+      {showSpinner && (
+        <div className={styles.spinnerOverlay} aria-label="Generating preview">
           <div className={styles.spinnerCircle} />
         </div>
       )}

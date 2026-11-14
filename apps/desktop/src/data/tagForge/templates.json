@@ -1,0 +1,3211 @@
+[
+  {
+    "name": "Advertising",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "3dff1ca4-a973-484f-bef4-e1155bd64067",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 15
+        },
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "cb7b6298-825c-490f-8021-dc4c997e9864",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 6
+        },
+        {
+          "guid": "6e8fb63c-a9d3-43fe-8168-aac5a426a193",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 11
+        },
+        {
+          "guid": "c374bf39-1ad4-47b6-9195-827defdf39ce",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 8
+        },
+        {
+          "guid": "5437fc9b-88a8-437d-b367-aacf945b7f2d",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 8
+        },
+        {
+          "guid": "41174113-3980-402a-bf52-8ec3376633f9",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 10
+        },
+        {
+          "guid": "b4a9d167-5a82-4e6f-94c9-ffbb4887c5bb",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 7
+        },
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "2d1d2619-4ca6-4941-8053-5ca518cf3ae6",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 5
+        },
+        {
+          "guid": "0265c8eb-0d1f-4df1-9105-6bfd2591f1cd",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "4969e554-ce7f-4f45-ac1b-0472b6d95e34",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 5
+        },
+        {
+          "guid": "63a9d9b9-6139-44c2-9711-c6ab0d8af138",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 10
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "496ab48c-08ce-4e72-ae87-168acd7d3d39",
+          "category": "Lighting and Atmospheric Conditions",
+          "name": "Lighting and Atmospheric Conditions",
+          "totalTags": 17
+        },
+        {
+          "guid": "06f9a457-e262-45db-9424-cfdb95355a64",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 27
+        },
+        {
+          "guid": "332f25c6-c8fe-4d2b-8fa9-636a5163bd2a",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 24
+        },
+        {
+          "guid": "0da5c44a-0c1a-4a22-bce2-2010d6df65d6",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 41
+        },
+        {
+          "guid": "05523568-090f-4e8e-a19f-95effdfde554",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 25
+        },
+        {
+          "guid": "d7fb9b15-5c10-424d-b051-52e56b1fae1e",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 16
+        },
+        {
+          "guid": "ce240f79-7452-47ad-83a9-08abe84f28a4",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 33
+        },
+        {
+          "guid": "05751634-401b-4b2e-bbe7-ac059bc4a576",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 23
+        },
+        {
+          "guid": "21a42e4b-16d7-4e2e-ada6-c71a0b461d8b",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 37
+        },
+        {
+          "guid": "7c10f84e-6f0f-4527-9b30-ba96f25aa15e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 27
+        },
+        {
+          "guid": "c20fb6c3-ff4d-4bea-8fa7-3366787bcff3",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 32
+        },
+        {
+          "guid": "9fba8f0a-d3d2-462e-8855-158b02057447",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 24
+        },
+        {
+          "guid": "7a5aa204-873a-4993-be82-83b3debc6884",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 17
+        },
+        {
+          "guid": "3eb0a031-1816-4b74-98e9-d3ad43b22e2a",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 29
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "d001a20e-f7b5-46d5-ae13-a1466dc5eaa1",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 23
+        },
+        {
+          "guid": "dd265179-c48a-434c-8531-e82774955644",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 30
+        },
+        {
+          "guid": "d56340f0-914e-48b1-9ce4-36c43fa8c075",
+          "category": "Indoor Plants",
+          "name": "Indoor Plants",
+          "totalTags": 8
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "e8e0a260-4f99-4bca-a052-04385914c4ef",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 79
+        },
+        {
+          "guid": "397bbb70-f945-4d9f-9845-94c5753a4f15",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 95
+        },
+        {
+          "guid": "9276ae6d-6ab6-4169-96d1-66a6a94d7042",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 83
+        },
+        {
+          "guid": "fcef4111-3f3c-42b6-98c7-f71cb9f40ccf",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 19
+        },
+        {
+          "guid": "9c0e8a35-4666-4e01-9e21-0074020d09fd",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 45
+        },
+        {
+          "guid": "dab85884-ed5d-4d68-af4e-cbdede6d1928",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 47
+        },
+        {
+          "guid": "ee068105-c1b2-4e83-86cb-4433fdc86fb3",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 89
+        },
+        {
+          "guid": "34a1b969-8e40-42ab-b262-87085cd7cc3e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 44
+        },
+        {
+          "guid": "72bc07ac-ac19-4796-9aa5-e34310e4921a",
+          "category": "Indoor Plants",
+          "name": "Indoor Plants",
+          "totalTags": 22
+        },
+        {
+          "guid": "8e7746aa-a325-4358-b794-3d4a6fb7df29",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 47
+        },
+        {
+          "guid": "496ab48c-08ce-4e72-ae87-168acd7d3d39",
+          "category": "Lighting and Atmospheric Conditions",
+          "name": "Lighting and Atmospheric Conditions",
+          "totalTags": 17
+        },
+        {
+          "guid": "9734f47c-e273-4200-aca7-8f306a882418",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 27
+        },
+        {
+          "guid": "80998850-80c5-41a2-96fe-2bbe0d2da935",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 69
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        },
+        {
+          "guid": "1abe5508-d01a-4cac-a31e-e00291e0dc1a",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 78
+        },
+        {
+          "guid": "2314e92e-1be1-427a-8d59-a23b9958bb6c",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 60
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        },
+        {
+          "guid": "ea9956eb-93db-44a0-b01a-8ff3f73e52c5",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 41
+        },
+        {
+          "guid": "3e76e1f9-31fe-4ce6-86c3-4676403b7a5f",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 76
+        }
+      ]
+    }
+  },
+  {
+    "name": "Architecture",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "41174113-3980-402a-bf52-8ec3376633f9",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 10
+        },
+        {
+          "guid": "6e8fb63c-a9d3-43fe-8168-aac5a426a193",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 11
+        },
+        {
+          "guid": "5437fc9b-88a8-437d-b367-aacf945b7f2d",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 8
+        },
+        {
+          "guid": "b4a9d167-5a82-4e6f-94c9-ffbb4887c5bb",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 7
+        },
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "2d1d2619-4ca6-4941-8053-5ca518cf3ae6",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 5
+        },
+        {
+          "guid": "bef934ce-a0fd-41d8-9fef-97a13cfbec83",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 11
+        },
+        {
+          "guid": "0265c8eb-0d1f-4df1-9105-6bfd2591f1cd",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "4969e554-ce7f-4f45-ac1b-0472b6d95e34",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 5
+        },
+        {
+          "guid": "af83b85a-9f7e-4e16-b436-771e9edb79b9",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 10
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "13895853-f766-4243-8917-38a13f84ac09",
+          "category": "Providers",
+          "name": "Providers",
+          "totalTags": 16
+        },
+        {
+          "guid": "ce0666a3-0bd5-420a-a0d9-2220127940f1",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 6
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        },
+        {
+          "guid": "aed6af83-70d7-43d7-9334-ec1de6211f17",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 41
+        },
+        {
+          "guid": "5d2a0ce0-c589-4f66-b5db-a53c7189616a",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 14
+        },
+        {
+          "guid": "0da5c44a-0c1a-4a22-bce2-2010d6df65d6",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 41
+        },
+        {
+          "guid": "d7fb9b15-5c10-424d-b051-52e56b1fae1e",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 16
+        },
+        {
+          "guid": "ce240f79-7452-47ad-83a9-08abe84f28a4",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 33
+        },
+        {
+          "guid": "21a42e4b-16d7-4e2e-ada6-c71a0b461d8b",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 37
+        },
+        {
+          "guid": "986d5077-c596-436b-b0cc-43f37b528813",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 23
+        },
+        {
+          "guid": "7c10f84e-6f0f-4527-9b30-ba96f25aa15e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 27
+        },
+        {
+          "guid": "9fba8f0a-d3d2-462e-8855-158b02057447",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 24
+        },
+        {
+          "guid": "7a5aa204-873a-4993-be82-83b3debc6884",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 17
+        },
+        {
+          "guid": "0dd03563-e00b-425d-8c72-9ddcec33f1c5",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 42
+        },
+        {
+          "guid": "3eb0a031-1816-4b74-98e9-d3ad43b22e2a",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 29
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "83281cd1-eee9-4e23-b67a-34acf552c4f2",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 21
+        },
+        {
+          "guid": "d001a20e-f7b5-46d5-ae13-a1466dc5eaa1",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 23
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "0644a617-2d81-4112-a492-8ec9d67d43b4",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 80
+        },
+        {
+          "guid": "e43fee46-2071-4997-812d-8a939d91e3ae",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 21
+        },
+        {
+          "guid": "397bbb70-f945-4d9f-9845-94c5753a4f15",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 95
+        },
+        {
+          "guid": "fcef4111-3f3c-42b6-98c7-f71cb9f40ccf",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 19
+        },
+        {
+          "guid": "9c0e8a35-4666-4e01-9e21-0074020d09fd",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 45
+        },
+        {
+          "guid": "ee068105-c1b2-4e83-86cb-4433fdc86fb3",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 89
+        },
+        {
+          "guid": "f25557a8-3b13-4b68-8fc0-6b45af57c917",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 48
+        },
+        {
+          "guid": "34a1b969-8e40-42ab-b262-87085cd7cc3e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 44
+        },
+        {
+          "guid": "8e7746aa-a325-4358-b794-3d4a6fb7df29",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 47
+        },
+        {
+          "guid": "496ab48c-08ce-4e72-ae87-168acd7d3d39",
+          "category": "Lighting and Atmospheric Conditions",
+          "name": "Lighting and Atmospheric Conditions",
+          "totalTags": 17
+        },
+        {
+          "guid": "9734f47c-e273-4200-aca7-8f306a882418",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 27
+        },
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "ea0d7bc3-ec7e-4bc4-b9eb-750ab97dde93",
+          "category": "Materials - Natural Surfaces and Vegetation",
+          "name": "Materials - Natural Surfaces and Vegetation",
+          "totalTags": 31
+        },
+        {
+          "guid": "480bcc6e-3f75-4b7f-b683-205c74baec32",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 98
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "13895853-f766-4243-8917-38a13f84ac09",
+          "category": "Providers",
+          "name": "Providers",
+          "totalTags": 16
+        },
+        {
+          "guid": "ce0666a3-0bd5-420a-a0d9-2220127940f1",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 6
+        },
+        {
+          "guid": "4c4cfa8a-02b9-41cf-b38c-3697ccbd9a77",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 47
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        },
+        {
+          "guid": "1abe5508-d01a-4cac-a31e-e00291e0dc1a",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 78
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        }
+      ]
+    }
+  },
+  {
+    "name": "Archviz",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "0265c8eb-0d1f-4df1-9105-6bfd2591f1cd",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "02905c3c-b9f3-4525-bfeb-02cdcf35da16",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 8
+        },
+        {
+          "guid": "41174113-3980-402a-bf52-8ec3376633f9",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 10
+        },
+        {
+          "guid": "c374bf39-1ad4-47b6-9195-827defdf39ce",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 8
+        },
+        {
+          "guid": "5437fc9b-88a8-437d-b367-aacf945b7f2d",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 8
+        },
+        {
+          "guid": "9ad603cd-3225-416e-8ef7-3577edc60302",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 13
+        },
+        {
+          "guid": "d56340f0-914e-48b1-9ce4-36c43fa8c075",
+          "category": "Indoor Plants",
+          "name": "Indoor Plants",
+          "totalTags": 8
+        },
+        {
+          "guid": "b4a9d167-5a82-4e6f-94c9-ffbb4887c5bb",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 7
+        },
+        {
+          "guid": "ed25a9ed-7ffa-4cb9-9075-303917b10278",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 10
+        },
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "2d1d2619-4ca6-4941-8053-5ca518cf3ae6",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 5
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "4f7469f6-4e67-4e39-aa24-235b96a4a899",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 17
+        },
+        {
+          "guid": "25b44482-fc4b-4db3-a696-6f1d91189450",
+          "category": "Providers",
+          "name": "Providers",
+          "totalTags": 11
+        },
+        {
+          "guid": "4969e554-ce7f-4f45-ac1b-0472b6d95e34",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 5
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "af83b85a-9f7e-4e16-b436-771e9edb79b9",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 10
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        },
+        {
+          "guid": "aed6af83-70d7-43d7-9334-ec1de6211f17",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 41
+        },
+        {
+          "guid": "5d2a0ce0-c589-4f66-b5db-a53c7189616a",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 14
+        },
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "cb7b6298-825c-490f-8021-dc4c997e9864",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 6
+        },
+        {
+          "guid": "d7fb9b15-5c10-424d-b051-52e56b1fae1e",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 16
+        },
+        {
+          "guid": "ce240f79-7452-47ad-83a9-08abe84f28a4",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 33
+        },
+        {
+          "guid": "05751634-401b-4b2e-bbe7-ac059bc4a576",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 23
+        },
+        {
+          "guid": "21a42e4b-16d7-4e2e-ada6-c71a0b461d8b",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 37
+        },
+        {
+          "guid": "986d5077-c596-436b-b0cc-43f37b528813",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 23
+        },
+        {
+          "guid": "72bc07ac-ac19-4796-9aa5-e34310e4921a",
+          "category": "Indoor Plants",
+          "name": "Indoor Plants",
+          "totalTags": 22
+        },
+        {
+          "guid": "7c10f84e-6f0f-4527-9b30-ba96f25aa15e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 27
+        },
+        {
+          "guid": "332f25c6-c8fe-4d2b-8fa9-636a5163bd2a",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 24
+        },
+        {
+          "guid": "c20fb6c3-ff4d-4bea-8fa7-3366787bcff3",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 32
+        },
+        {
+          "guid": "9fba8f0a-d3d2-462e-8855-158b02057447",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 24
+        },
+        {
+          "guid": "7a5aa204-873a-4993-be82-83b3debc6884",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 17
+        },
+        {
+          "guid": "0265c8eb-0d1f-4df1-9105-6bfd2591f1cd",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "95b87265-de2d-4892-bca2-d7f1a1a88b1a",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 23
+        },
+        {
+          "guid": "764d86bb-49b6-4465-a084-016e469a8671",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 24
+        },
+        {
+          "guid": "25b44482-fc4b-4db3-a696-6f1d91189450",
+          "category": "Providers",
+          "name": "Providers",
+          "totalTags": 11
+        },
+        {
+          "guid": "ce0666a3-0bd5-420a-a0d9-2220127940f1",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 6
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "d001a20e-f7b5-46d5-ae13-a1466dc5eaa1",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 23
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "0644a617-2d81-4112-a492-8ec9d67d43b4",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 80
+        },
+        {
+          "guid": "e43fee46-2071-4997-812d-8a939d91e3ae",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 21
+        },
+        {
+          "guid": "0da5c44a-0c1a-4a22-bce2-2010d6df65d6",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 41
+        },
+        {
+          "guid": "fcef4111-3f3c-42b6-98c7-f71cb9f40ccf",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 19
+        },
+        {
+          "guid": "05523568-090f-4e8e-a19f-95effdfde554",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 25
+        },
+        {
+          "guid": "dab85884-ed5d-4d68-af4e-cbdede6d1928",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 47
+        },
+        {
+          "guid": "ee068105-c1b2-4e83-86cb-4433fdc86fb3",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 89
+        },
+        {
+          "guid": "f25557a8-3b13-4b68-8fc0-6b45af57c917",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 48
+        },
+        {
+          "guid": "ccce1bc3-500d-4378-98d8-aac4246a4403",
+          "category": "Indoor Plants",
+          "name": "Indoor Plants",
+          "totalTags": 34
+        },
+        {
+          "guid": "34a1b969-8e40-42ab-b262-87085cd7cc3e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 44
+        },
+        {
+          "guid": "3e76e1f9-31fe-4ce6-86c3-4676403b7a5f",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 76
+        },
+        {
+          "guid": "8e7746aa-a325-4358-b794-3d4a6fb7df29",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 47
+        },
+        {
+          "guid": "496ab48c-08ce-4e72-ae87-168acd7d3d39",
+          "category": "Lighting and Atmospheric Conditions",
+          "name": "Lighting and Atmospheric Conditions",
+          "totalTags": 17
+        },
+        {
+          "guid": "9734f47c-e273-4200-aca7-8f306a882418",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 27
+        },
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "3eb0a031-1816-4b74-98e9-d3ad43b22e2a",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 29
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "e38ba8c5-f4fc-4534-8ff1-d8facb026c61",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 32
+        },
+        {
+          "guid": "b7596346-a72d-4f85-9fd8-45e3fc6ec6c8",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 41
+        },
+        {
+          "guid": "13895853-f766-4243-8917-38a13f84ac09",
+          "category": "Providers",
+          "name": "Providers",
+          "totalTags": 16
+        },
+        {
+          "guid": "caaa7ad8-4dde-4b1c-b413-b3dc3200311b",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 12
+        },
+        {
+          "guid": "4c4cfa8a-02b9-41cf-b38c-3697ccbd9a77",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 47
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        },
+        {
+          "guid": "1abe5508-d01a-4cac-a31e-e00291e0dc1a",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 78
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        },
+        {
+          "guid": "ea9956eb-93db-44a0-b01a-8ff3f73e52c5",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 41
+        },
+        {
+          "guid": "9c0e8a35-4666-4e01-9e21-0074020d09fd",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 45
+        }
+      ]
+    }
+  },
+  {
+    "name": "Construction",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "af83b85a-9f7e-4e16-b436-771e9edb79b9",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 10
+        },
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "f63713ed-197c-4697-a951-a0daeeda2dd1",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 4
+        },
+        {
+          "guid": "0265c8eb-0d1f-4df1-9105-6bfd2591f1cd",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "4f7469f6-4e67-4e39-aa24-235b96a4a899",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 17
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "4969e554-ce7f-4f45-ac1b-0472b6d95e34",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 5
+        },
+        {
+          "guid": "6215d839-eda9-4d3b-ac48-cb69fee1ba78",
+          "category": "Project Phase (BIM)",
+          "name": "Project Phase (BIM)",
+          "totalTags": 8
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "6215d839-eda9-4d3b-ac48-cb69fee1ba78",
+          "category": "Project Phase (BIM)",
+          "name": "Project Phase (BIM)",
+          "totalTags": 8
+        },
+        {
+          "guid": "aed6af83-70d7-43d7-9334-ec1de6211f17",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 41
+        },
+        {
+          "guid": "5d2a0ce0-c589-4f66-b5db-a53c7189616a",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 14
+        },
+        {
+          "guid": "0da5c44a-0c1a-4a22-bce2-2010d6df65d6",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 41
+        },
+        {
+          "guid": "ce240f79-7452-47ad-83a9-08abe84f28a4",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 33
+        },
+        {
+          "guid": "986d5077-c596-436b-b0cc-43f37b528813",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 23
+        },
+        {
+          "guid": "b520f981-3378-47ac-8f34-7c261b99f194",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 18
+        },
+        {
+          "guid": "3eb0a031-1816-4b74-98e9-d3ad43b22e2a",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 29
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "764d86bb-49b6-4465-a084-016e469a8671",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 24
+        },
+        {
+          "guid": "83281cd1-eee9-4e23-b67a-34acf552c4f2",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 21
+        },
+        {
+          "guid": "d001a20e-f7b5-46d5-ae13-a1466dc5eaa1",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 23
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "0644a617-2d81-4112-a492-8ec9d67d43b4",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 80
+        },
+        {
+          "guid": "e43fee46-2071-4997-812d-8a939d91e3ae",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 21
+        },
+        {
+          "guid": "397bbb70-f945-4d9f-9845-94c5753a4f15",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 95
+        },
+        {
+          "guid": "9c0e8a35-4666-4e01-9e21-0074020d09fd",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 45
+        },
+        {
+          "guid": "f25557a8-3b13-4b68-8fc0-6b45af57c917",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 48
+        },
+        {
+          "guid": "e0ea26d0-d878-4073-987c-7eb3855b8195",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 69
+        },
+        {
+          "guid": "80998850-80c5-41a2-96fe-2bbe0d2da935",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 69
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "b7596346-a72d-4f85-9fd8-45e3fc6ec6c8",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 41
+        },
+        {
+          "guid": "4c4cfa8a-02b9-41cf-b38c-3697ccbd9a77",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 47
+        },
+        {
+          "guid": "1abe5508-d01a-4cac-a31e-e00291e0dc1a",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 78
+        },
+        {
+          "guid": "6215d839-eda9-4d3b-ac48-cb69fee1ba78",
+          "category": "Project Phase (BIM)",
+          "name": "Project Phase (BIM)",
+          "totalTags": 8
+        }
+      ]
+    }
+  },
+  {
+    "name": "Film & Animation",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "ce0666a3-0bd5-420a-a0d9-2220127940f1",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 6
+        },
+        {
+          "guid": "3dff1ca4-a973-484f-bef4-e1155bd64067",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 15
+        },
+        {
+          "guid": "2f243089-ad32-40f3-9284-43003312c1bb",
+          "category": "Creatures and Animals",
+          "name": "Creatures and Animals",
+          "totalTags": 11
+        },
+        {
+          "guid": "2bb35489-13c7-47be-bbc0-7c942db47433",
+          "category": "Environments",
+          "name": "Environments",
+          "totalTags": 20
+        },
+        {
+          "guid": "6e8fb63c-a9d3-43fe-8168-aac5a426a193",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 11
+        },
+        {
+          "guid": "b86869f0-6369-467e-b9ec-817b6c7140f5",
+          "category": "Food and Drinks",
+          "name": "Food and Drinks",
+          "totalTags": 12
+        },
+        {
+          "guid": "c0ba676d-09fd-45ca-b0f1-d8632f48d246",
+          "category": "Materials - Natural Surfaces and Vegetation",
+          "name": "Materials - Natural Surfaces and Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "1dc479e5-e441-4782-8a3e-7e1ef1b0452a",
+          "category": "Materials - Organic",
+          "name": "Materials - Organic",
+          "totalTags": 8
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "b1aeadbb-ec82-4f70-bdc5-b4e7560c0686",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 14
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "cf1cd79f-7231-4e90-9db0-491acbbee99d",
+          "category": "Vehicles (Game)",
+          "name": "Vehicles (Game)",
+          "totalTags": 7
+        },
+        {
+          "guid": "63a9d9b9-6139-44c2-9711-c6ab0d8af138",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 10
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "496ab48c-08ce-4e72-ae87-168acd7d3d39",
+          "category": "Lighting and Atmospheric Conditions",
+          "name": "Lighting and Atmospheric Conditions",
+          "totalTags": 17
+        },
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "06f9a457-e262-45db-9424-cfdb95355a64",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 27
+        },
+        {
+          "guid": "9f0d719b-4df4-4d06-9b09-19f888848e54",
+          "category": "Creatures and Animals",
+          "name": "Creatures and Animals",
+          "totalTags": 22
+        },
+        {
+          "guid": "76dacfb6-2e40-4bf0-ae8e-63b8b24d9d1b",
+          "category": "Environments",
+          "name": "Environments",
+          "totalTags": 24
+        },
+        {
+          "guid": "ce240f79-7452-47ad-83a9-08abe84f28a4",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 33
+        },
+        {
+          "guid": "a0d75bf6-0223-4787-9788-a876d7cef202",
+          "category": "Food and Drinks",
+          "name": "Food and Drinks",
+          "totalTags": 37
+        },
+        {
+          "guid": "7c9bba84-6086-4007-9eea-3224f7a4c837",
+          "category": "Materials - Natural Surfaces and Vegetation",
+          "name": "Materials - Natural Surfaces and Vegetation",
+          "totalTags": 15
+        },
+        {
+          "guid": "7231a3d1-7845-4e1f-a18a-1a3103df0933",
+          "category": "Materials - Organic",
+          "name": "Materials - Organic",
+          "totalTags": 27
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "95b87265-de2d-4892-bca2-d7f1a1a88b1a",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 23
+        },
+        {
+          "guid": "ce0666a3-0bd5-420a-a0d9-2220127940f1",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 6
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "281c3cee-1e76-4ba0-bf18-166a3ed6886c",
+          "category": "Vehicles (Game)",
+          "name": "Vehicles (Game)",
+          "totalTags": 50
+        },
+        {
+          "guid": "dd265179-c48a-434c-8531-e82774955644",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 30
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "e8e0a260-4f99-4bca-a052-04385914c4ef",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 79
+        },
+        {
+          "guid": "07357bf8-e067-4979-b08a-00d38d08db58",
+          "category": "Creatures and Animals",
+          "name": "Creatures and Animals",
+          "totalTags": 43
+        },
+        {
+          "guid": "1c087055-9455-4895-afef-0ccc1aab62fd",
+          "category": "Environments",
+          "name": "Environments",
+          "totalTags": 99
+        },
+        {
+          "guid": "9c0e8a35-4666-4e01-9e21-0074020d09fd",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 45
+        },
+        {
+          "guid": "ac3690e6-bcfa-4ddd-999c-650b0afa18f2",
+          "category": "Food and Drinks",
+          "name": "Food and Drinks",
+          "totalTags": 80
+        },
+        {
+          "guid": "496ab48c-08ce-4e72-ae87-168acd7d3d39",
+          "category": "Lighting and Atmospheric Conditions",
+          "name": "Lighting and Atmospheric Conditions",
+          "totalTags": 17
+        },
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "ea0d7bc3-ec7e-4bc4-b9eb-750ab97dde93",
+          "category": "Materials - Natural Surfaces and Vegetation",
+          "name": "Materials - Natural Surfaces and Vegetation",
+          "totalTags": 31
+        },
+        {
+          "guid": "8ad9373f-62c9-458a-a2bf-74442e87d523",
+          "category": "Materials - Organic",
+          "name": "Materials - Organic",
+          "totalTags": 39
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "e38ba8c5-f4fc-4534-8ff1-d8facb026c61",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 32
+        },
+        {
+          "guid": "caaa7ad8-4dde-4b1c-b413-b3dc3200311b",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 12
+        },
+        {
+          "guid": "4c4cfa8a-02b9-41cf-b38c-3697ccbd9a77",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 47
+        },
+        {
+          "guid": "66f0aa62-b7b3-4e30-ba53-a46b989a25ac",
+          "category": "Vehicles (Game)",
+          "name": "Vehicles (Game)",
+          "totalTags": 138
+        },
+        {
+          "guid": "2314e92e-1be1-427a-8d59-a23b9958bb6c",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 60
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        }
+      ]
+    }
+  },
+  {
+    "name": "Furniture Brand",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "140457ef-b904-48ab-88e2-10f2d44f9d9c",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 10
+        },
+        {
+          "guid": "02905c3c-b9f3-4525-bfeb-02cdcf35da16",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 8
+        },
+        {
+          "guid": "41174113-3980-402a-bf52-8ec3376633f9",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 10
+        },
+        {
+          "guid": "5437fc9b-88a8-437d-b367-aacf945b7f2d",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 8
+        },
+        {
+          "guid": "9ad603cd-3225-416e-8ef7-3577edc60302",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 13
+        },
+        {
+          "guid": "b4a9d167-5a82-4e6f-94c9-ffbb4887c5bb",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 7
+        },
+        {
+          "guid": "ed25a9ed-7ffa-4cb9-9075-303917b10278",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 10
+        },
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "2d1d2619-4ca6-4941-8053-5ca518cf3ae6",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 5
+        },
+        {
+          "guid": "bef934ce-a0fd-41d8-9fef-97a13cfbec83",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 11
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "b1aeadbb-ec82-4f70-bdc5-b4e7560c0686",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 14
+        },
+        {
+          "guid": "4f7469f6-4e67-4e39-aa24-235b96a4a899",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 17
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "5d2a0ce0-c589-4f66-b5db-a53c7189616a",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 14
+        },
+        {
+          "guid": "332f25c6-c8fe-4d2b-8fa9-636a5163bd2a",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 24
+        },
+        {
+          "guid": "d7fb9b15-5c10-424d-b051-52e56b1fae1e",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 16
+        },
+        {
+          "guid": "05751634-401b-4b2e-bbe7-ac059bc4a576",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 23
+        },
+        {
+          "guid": "21a42e4b-16d7-4e2e-ada6-c71a0b461d8b",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 37
+        },
+        {
+          "guid": "986d5077-c596-436b-b0cc-43f37b528813",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 23
+        },
+        {
+          "guid": "7c10f84e-6f0f-4527-9b30-ba96f25aa15e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 27
+        },
+        {
+          "guid": "c20fb6c3-ff4d-4bea-8fa7-3366787bcff3",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 32
+        },
+        {
+          "guid": "9fba8f0a-d3d2-462e-8855-158b02057447",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 24
+        },
+        {
+          "guid": "7a5aa204-873a-4993-be82-83b3debc6884",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 17
+        },
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "0dd03563-e00b-425d-8c72-9ddcec33f1c5",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 42
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "95b87265-de2d-4892-bca2-d7f1a1a88b1a",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 23
+        },
+        {
+          "guid": "764d86bb-49b6-4465-a084-016e469a8671",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 24
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "e43fee46-2071-4997-812d-8a939d91e3ae",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 21
+        },
+        {
+          "guid": "ea9956eb-93db-44a0-b01a-8ff3f73e52c5",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 41
+        },
+        {
+          "guid": "fcef4111-3f3c-42b6-98c7-f71cb9f40ccf",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 19
+        },
+        {
+          "guid": "dab85884-ed5d-4d68-af4e-cbdede6d1928",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 47
+        },
+        {
+          "guid": "ee068105-c1b2-4e83-86cb-4433fdc86fb3",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 89
+        },
+        {
+          "guid": "f25557a8-3b13-4b68-8fc0-6b45af57c917",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 48
+        },
+        {
+          "guid": "34a1b969-8e40-42ab-b262-87085cd7cc3e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 44
+        },
+        {
+          "guid": "3e76e1f9-31fe-4ce6-86c3-4676403b7a5f",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 76
+        },
+        {
+          "guid": "8e7746aa-a325-4358-b794-3d4a6fb7df29",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 47
+        },
+        {
+          "guid": "9734f47c-e273-4200-aca7-8f306a882418",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 27
+        },
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "480bcc6e-3f75-4b7f-b683-205c74baec32",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 98
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "e38ba8c5-f4fc-4534-8ff1-d8facb026c61",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 32
+        },
+        {
+          "guid": "b7596346-a72d-4f85-9fd8-45e3fc6ec6c8",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 41
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        }
+      ]
+    }
+  },
+  {
+    "name": "Game Dev",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "3dff1ca4-a973-484f-bef4-e1155bd64067",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 15
+        },
+        {
+          "guid": "01cb6854-c87b-49e9-ac9c-3b0ef6b6318a",
+          "category": "Characters - Class",
+          "name": "Characters - Class",
+          "totalTags": 13
+        },
+        {
+          "guid": "5fa4f73b-e108-4a2f-9739-312e11ee1ee8",
+          "category": "Characters - Race",
+          "name": "Characters - Race",
+          "totalTags": 6
+        },
+        {
+          "guid": "c2cf59ea-001d-4032-ab34-6a26e7f6580d",
+          "category": "Characters - Roles",
+          "name": "Characters - Roles",
+          "totalTags": 4
+        },
+        {
+          "guid": "2f243089-ad32-40f3-9284-43003312c1bb",
+          "category": "Creatures and Animals",
+          "name": "Creatures and Animals",
+          "totalTags": 11
+        },
+        {
+          "guid": "2bb35489-13c7-47be-bbc0-7c942db47433",
+          "category": "Environments",
+          "name": "Environments",
+          "totalTags": 20
+        },
+        {
+          "guid": "6e8fb63c-a9d3-43fe-8168-aac5a426a193",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 11
+        },
+        {
+          "guid": "c0ba676d-09fd-45ca-b0f1-d8632f48d246",
+          "category": "Materials - Natural Surfaces and Vegetation",
+          "name": "Materials - Natural Surfaces and Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "1dc479e5-e441-4782-8a3e-7e1ef1b0452a",
+          "category": "Materials - Organic",
+          "name": "Materials - Organic",
+          "totalTags": 8
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "b1aeadbb-ec82-4f70-bdc5-b4e7560c0686",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 14
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "cf1cd79f-7231-4e90-9db0-491acbbee99d",
+          "category": "Vehicles (Game)",
+          "name": "Vehicles (Game)",
+          "totalTags": 7
+        },
+        {
+          "guid": "63a9d9b9-6139-44c2-9711-c6ab0d8af138",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 10
+        },
+        {
+          "guid": "cb7b6298-825c-490f-8021-dc4c997e9864",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 6
+        },
+        {
+          "guid": "403eee7c-40b0-4263-a91a-7d04cdd46635",
+          "category": "Item properties",
+          "name": "Item properties",
+          "totalTags": 8
+        },
+        {
+          "guid": "bef934ce-a0fd-41d8-9fef-97a13cfbec83",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 11
+        },
+        {
+          "guid": "4f7469f6-4e67-4e39-aa24-235b96a4a899",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 17
+        },
+        {
+          "guid": "fa866ea4-a2ce-45be-90d6-fce248e36cb1",
+          "category": "Weapons",
+          "name": "Weapons",
+          "totalTags": 10
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "4c4cfa8a-02b9-41cf-b38c-3697ccbd9a77",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 47
+        },
+        {
+          "guid": "66f0aa62-b7b3-4e30-ba53-a46b989a25ac",
+          "category": "Vehicles (Game)",
+          "name": "Vehicles (Game)",
+          "totalTags": 138
+        },
+        {
+          "guid": "2314e92e-1be1-427a-8d59-a23b9958bb6c",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 60
+        },
+        {
+          "guid": "9d008560-ce72-4857-bf62-0d3eacff2b62",
+          "category": "Weapons",
+          "name": "Weapons",
+          "totalTags": 61
+        },
+        {
+          "guid": "06f9a457-e262-45db-9424-cfdb95355a64",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 27
+        },
+        {
+          "guid": "736bdd46-7c3a-444d-a7e5-68890b6a2d0a",
+          "category": "Characters - Class",
+          "name": "Characters - Class",
+          "totalTags": 21
+        },
+        {
+          "guid": "74748b6c-c5c9-40b8-bbaf-8de3679e4ccc",
+          "category": "Characters - Race",
+          "name": "Characters - Race",
+          "totalTags": 27
+        },
+        {
+          "guid": "6489c0ee-3d68-4cb7-973a-7af5fc541064",
+          "category": "Characters - Roles",
+          "name": "Characters - Roles",
+          "totalTags": 8
+        },
+        {
+          "guid": "05523568-090f-4e8e-a19f-95effdfde554",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 25
+        },
+        {
+          "guid": "9f0d719b-4df4-4d06-9b09-19f888848e54",
+          "category": "Creatures and Animals",
+          "name": "Creatures and Animals",
+          "totalTags": 22
+        },
+        {
+          "guid": "76dacfb6-2e40-4bf0-ae8e-63b8b24d9d1b",
+          "category": "Environments",
+          "name": "Environments",
+          "totalTags": 24
+        },
+        {
+          "guid": "ce240f79-7452-47ad-83a9-08abe84f28a4",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 33
+        },
+        {
+          "guid": "986d5077-c596-436b-b0cc-43f37b528813",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 23
+        },
+        {
+          "guid": "4de7ad64-588b-48d8-9531-5d741efcbfcf",
+          "category": "Inventory Tools",
+          "name": "Inventory Tools",
+          "totalTags": 29
+        },
+        {
+          "guid": "3e8b3631-068a-4f4b-aa9a-96459b915a3d",
+          "category": "Item properties",
+          "name": "Item properties",
+          "totalTags": 11
+        },
+        {
+          "guid": "7c9bba84-6086-4007-9eea-3224f7a4c837",
+          "category": "Materials - Natural Surfaces and Vegetation",
+          "name": "Materials - Natural Surfaces and Vegetation",
+          "totalTags": 15
+        },
+        {
+          "guid": "7231a3d1-7845-4e1f-a18a-1a3103df0933",
+          "category": "Materials - Organic",
+          "name": "Materials - Organic",
+          "totalTags": 27
+        },
+        {
+          "guid": "0dd03563-e00b-425d-8c72-9ddcec33f1c5",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 42
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "95b87265-de2d-4892-bca2-d7f1a1a88b1a",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 23
+        },
+        {
+          "guid": "4f7469f6-4e67-4e39-aa24-235b96a4a899",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 17
+        },
+        {
+          "guid": "ce0666a3-0bd5-420a-a0d9-2220127940f1",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 6
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "0d2e4873-0e0b-4286-92ec-047f95dcddc2",
+          "category": "Material Properties",
+          "name": "Material Properties",
+          "totalTags": 28
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        },
+        {
+          "guid": "e8e0a260-4f99-4bca-a052-04385914c4ef",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 79
+        },
+        {
+          "guid": "3240e9ff-100f-4b71-b262-043259f9b9b1",
+          "category": "Characters - Class",
+          "name": "Characters - Class",
+          "totalTags": 32
+        },
+        {
+          "guid": "0fb68ae7-5325-498e-b12d-9d3214947b15",
+          "category": "Characters - Race",
+          "name": "Characters - Race",
+          "totalTags": 63
+        },
+        {
+          "guid": "9889320a-7c33-4270-b745-a12bc8628aed",
+          "category": "Characters - Roles",
+          "name": "Characters - Roles",
+          "totalTags": 17
+        },
+        {
+          "guid": "441dbecd-1540-48e6-adf6-49b192d28033",
+          "category": "Characters - Specialization",
+          "name": "Characters - Specialization",
+          "totalTags": 33
+        },
+        {
+          "guid": "9276ae6d-6ab6-4169-96d1-66a6a94d7042",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 83
+        },
+        {
+          "guid": "07357bf8-e067-4979-b08a-00d38d08db58",
+          "category": "Creatures and Animals",
+          "name": "Creatures and Animals",
+          "totalTags": 43
+        },
+        {
+          "guid": "1c087055-9455-4895-afef-0ccc1aab62fd",
+          "category": "Environments",
+          "name": "Environments",
+          "totalTags": 99
+        },
+        {
+          "guid": "9c0e8a35-4666-4e01-9e21-0074020d09fd",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 45
+        },
+        {
+          "guid": "ac3690e6-bcfa-4ddd-999c-650b0afa18f2",
+          "category": "Food and Drinks",
+          "name": "Food and Drinks",
+          "totalTags": 80
+        },
+        {
+          "guid": "f25557a8-3b13-4b68-8fc0-6b45af57c917",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 48
+        },
+        {
+          "guid": "6fb2d4f8-ca81-4ac6-b1e8-4f9a295c3d30",
+          "category": "Inventory Tools",
+          "name": "Inventory Tools",
+          "totalTags": 71
+        },
+        {
+          "guid": "692120d2-5a9e-408e-b71d-c84ef92bbf4d",
+          "category": "Item properties",
+          "name": "Item properties",
+          "totalTags": 19
+        },
+        {
+          "guid": "ea0d7bc3-ec7e-4bc4-b9eb-750ab97dde93",
+          "category": "Materials - Natural Surfaces and Vegetation",
+          "name": "Materials - Natural Surfaces and Vegetation",
+          "totalTags": 31
+        },
+        {
+          "guid": "8ad9373f-62c9-458a-a2bf-74442e87d523",
+          "category": "Materials - Organic",
+          "name": "Materials - Organic",
+          "totalTags": 39
+        },
+        {
+          "guid": "480bcc6e-3f75-4b7f-b683-205c74baec32",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 98
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "e38ba8c5-f4fc-4534-8ff1-d8facb026c61",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 32
+        },
+        {
+          "guid": "764d86bb-49b6-4465-a084-016e469a8671",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 24
+        },
+        {
+          "guid": "caaa7ad8-4dde-4b1c-b413-b3dc3200311b",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 12
+        },
+        {
+          "guid": "4c4cfa8a-02b9-41cf-b38c-3697ccbd9a77",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 47
+        },
+        {
+          "guid": "66f0aa62-b7b3-4e30-ba53-a46b989a25ac",
+          "category": "Vehicles (Game)",
+          "name": "Vehicles (Game)",
+          "totalTags": 138
+        },
+        {
+          "guid": "2314e92e-1be1-427a-8d59-a23b9958bb6c",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 60
+        },
+        {
+          "guid": "9d008560-ce72-4857-bf62-0d3eacff2b62",
+          "category": "Weapons",
+          "name": "Weapons",
+          "totalTags": 61
+        }
+      ]
+    }
+  },
+  {
+    "name": "Manufacture",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "af83b85a-9f7e-4e16-b436-771e9edb79b9",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 10
+        },
+        {
+          "guid": "02905c3c-b9f3-4525-bfeb-02cdcf35da16",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 8
+        },
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "cb7b6298-825c-490f-8021-dc4c997e9864",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 6
+        },
+        {
+          "guid": "41174113-3980-402a-bf52-8ec3376633f9",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 10
+        },
+        {
+          "guid": "6e8fb63c-a9d3-43fe-8168-aac5a426a193",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 11
+        },
+        {
+          "guid": "5437fc9b-88a8-437d-b367-aacf945b7f2d",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 8
+        },
+        {
+          "guid": "b4a9d167-5a82-4e6f-94c9-ffbb4887c5bb",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 7
+        },
+        {
+          "guid": "ed25a9ed-7ffa-4cb9-9075-303917b10278",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 10
+        },
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "2d1d2619-4ca6-4941-8053-5ca518cf3ae6",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 5
+        },
+        {
+          "guid": "bef934ce-a0fd-41d8-9fef-97a13cfbec83",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 11
+        },
+        {
+          "guid": "f63713ed-197c-4697-a951-a0daeeda2dd1",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 4
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "4f7469f6-4e67-4e39-aa24-235b96a4a899",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 17
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "aed6af83-70d7-43d7-9334-ec1de6211f17",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 41
+        },
+        {
+          "guid": "332f25c6-c8fe-4d2b-8fa9-636a5163bd2a",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 24
+        },
+        {
+          "guid": "0da5c44a-0c1a-4a22-bce2-2010d6df65d6",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 41
+        },
+        {
+          "guid": "05523568-090f-4e8e-a19f-95effdfde554",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 25
+        },
+        {
+          "guid": "d7fb9b15-5c10-424d-b051-52e56b1fae1e",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 16
+        },
+        {
+          "guid": "ce240f79-7452-47ad-83a9-08abe84f28a4",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 33
+        },
+        {
+          "guid": "c374bf39-1ad4-47b6-9195-827defdf39ce",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 8
+        },
+        {
+          "guid": "21a42e4b-16d7-4e2e-ada6-c71a0b461d8b",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 37
+        },
+        {
+          "guid": "9ad603cd-3225-416e-8ef7-3577edc60302",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 13
+        },
+        {
+          "guid": "7c10f84e-6f0f-4527-9b30-ba96f25aa15e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 27
+        },
+        {
+          "guid": "c20fb6c3-ff4d-4bea-8fa7-3366787bcff3",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 32
+        },
+        {
+          "guid": "9fba8f0a-d3d2-462e-8855-158b02057447",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 24
+        },
+        {
+          "guid": "7a5aa204-873a-4993-be82-83b3debc6884",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 17
+        },
+        {
+          "guid": "0dd03563-e00b-425d-8c72-9ddcec33f1c5",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 42
+        },
+        {
+          "guid": "b520f981-3378-47ac-8f34-7c261b99f194",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 18
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "764d86bb-49b6-4465-a084-016e469a8671",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 24
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "0644a617-2d81-4112-a492-8ec9d67d43b4",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 80
+        },
+        {
+          "guid": "ea9956eb-93db-44a0-b01a-8ff3f73e52c5",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 41
+        },
+        {
+          "guid": "397bbb70-f945-4d9f-9845-94c5753a4f15",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 95
+        },
+        {
+          "guid": "9276ae6d-6ab6-4169-96d1-66a6a94d7042",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 83
+        },
+        {
+          "guid": "fcef4111-3f3c-42b6-98c7-f71cb9f40ccf",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 19
+        },
+        {
+          "guid": "9c0e8a35-4666-4e01-9e21-0074020d09fd",
+          "category": "File Type (Purpose)",
+          "name": "File Type (Purpose)",
+          "totalTags": 45
+        },
+        {
+          "guid": "05751634-401b-4b2e-bbe7-ac059bc4a576",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 23
+        },
+        {
+          "guid": "ee068105-c1b2-4e83-86cb-4433fdc86fb3",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 89
+        },
+        {
+          "guid": "986d5077-c596-436b-b0cc-43f37b528813",
+          "category": "HDRI",
+          "name": "High Dynamic Range Imaging",
+          "totalTags": 23
+        },
+        {
+          "guid": "34a1b969-8e40-42ab-b262-87085cd7cc3e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 44
+        },
+        {
+          "guid": "3e76e1f9-31fe-4ce6-86c3-4676403b7a5f",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 76
+        },
+        {
+          "guid": "8e7746aa-a325-4358-b794-3d4a6fb7df29",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 47
+        },
+        {
+          "guid": "9734f47c-e273-4200-aca7-8f306a882418",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 27
+        },
+        {
+          "guid": "480bcc6e-3f75-4b7f-b683-205c74baec32",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 98
+        },
+        {
+          "guid": "e0ea26d0-d878-4073-987c-7eb3855b8195",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 69
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "b7596346-a72d-4f85-9fd8-45e3fc6ec6c8",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 41
+        },
+        {
+          "guid": "83281cd1-eee9-4e23-b67a-34acf552c4f2",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 21
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        }
+      ]
+    }
+  },
+  {
+    "name": "Planning",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "661d49dc-1c69-486c-96a6-b4b429034330"
+        },
+        {
+          "guid": "140457ef-b904-48ab-88e2-10f2d44f9d9c",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 10
+        },
+        {
+          "guid": "02905c3c-b9f3-4525-bfeb-02cdcf35da16",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 8
+        },
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "5437fc9b-88a8-437d-b367-aacf945b7f2d",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 8
+        },
+        {
+          "guid": "b4a9d167-5a82-4e6f-94c9-ffbb4887c5bb",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 7
+        },
+        {
+          "guid": "ed25a9ed-7ffa-4cb9-9075-303917b10278",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 10
+        },
+        {
+          "guid": "bef934ce-a0fd-41d8-9fef-97a13cfbec83",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 11
+        },
+        {
+          "guid": "0265c8eb-0d1f-4df1-9105-6bfd2591f1cd",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "b1aeadbb-ec82-4f70-bdc5-b4e7560c0686",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 14
+        },
+        {
+          "guid": "4f7469f6-4e67-4e39-aa24-235b96a4a899",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 17
+        },
+        {
+          "guid": "d338205b-c6f8-48f8-ba5d-92c6bff28fb4",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 5
+        },
+        {
+          "guid": "4969e554-ce7f-4f45-ac1b-0472b6d95e34",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 5
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        },
+        {
+          "guid": "aed6af83-70d7-43d7-9334-ec1de6211f17",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 41
+        },
+        {
+          "guid": "5d2a0ce0-c589-4f66-b5db-a53c7189616a",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 14
+        },
+        {
+          "guid": "332f25c6-c8fe-4d2b-8fa9-636a5163bd2a",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 24
+        },
+        {
+          "guid": "0da5c44a-0c1a-4a22-bce2-2010d6df65d6",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 41
+        },
+        {
+          "guid": "21a42e4b-16d7-4e2e-ada6-c71a0b461d8b",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 37
+        },
+        {
+          "guid": "7c10f84e-6f0f-4527-9b30-ba96f25aa15e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 27
+        },
+        {
+          "guid": "c20fb6c3-ff4d-4bea-8fa7-3366787bcff3",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 32
+        },
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "7a5aa204-873a-4993-be82-83b3debc6884",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 17
+        },
+        {
+          "guid": "0dd03563-e00b-425d-8c72-9ddcec33f1c5",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 42
+        },
+        {
+          "guid": "3eb0a031-1816-4b74-98e9-d3ad43b22e2a",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 29
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "95b87265-de2d-4892-bca2-d7f1a1a88b1a",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 23
+        },
+        {
+          "guid": "764d86bb-49b6-4465-a084-016e469a8671",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 24
+        },
+        {
+          "guid": "83281cd1-eee9-4e23-b67a-34acf552c4f2",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 21
+        },
+        {
+          "guid": "d001a20e-f7b5-46d5-ae13-a1466dc5eaa1",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 23
+        },
+        {
+          "guid": "e0ea26d0-d878-4073-987c-7eb3855b8195",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 69
+        },
+        {
+          "guid": "fc19d0a8-fbb2-4e31-b1b8-192faf46a884",
+          "category": "Providers (BIM)",
+          "name": "Providers (BIM)",
+          "totalTags": 6
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "0644a617-2d81-4112-a492-8ec9d67d43b4",
+          "category": "Architectural Elements",
+          "name": "Architectural Elements",
+          "totalTags": 80
+        },
+        {
+          "guid": "e43fee46-2071-4997-812d-8a939d91e3ae",
+          "category": "Architectural Style",
+          "name": "Architectural Style",
+          "totalTags": 21
+        },
+        {
+          "guid": "ea9956eb-93db-44a0-b01a-8ff3f73e52c5",
+          "category": "Bathroom",
+          "name": "Bathroom",
+          "totalTags": 41
+        },
+        {
+          "guid": "397bbb70-f945-4d9f-9845-94c5753a4f15",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 95
+        },
+        {
+          "guid": "ee068105-c1b2-4e83-86cb-4433fdc86fb3",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 89
+        },
+        {
+          "guid": "34a1b969-8e40-42ab-b262-87085cd7cc3e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 44
+        },
+        {
+          "guid": "3e76e1f9-31fe-4ce6-86c3-4676403b7a5f",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 76
+        },
+        {
+          "guid": "9fba8f0a-d3d2-462e-8855-158b02057447",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 24
+        },
+        {
+          "guid": "9734f47c-e273-4200-aca7-8f306a882418",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 27
+        },
+        {
+          "guid": "480bcc6e-3f75-4b7f-b683-205c74baec32",
+          "category": "Materials - Surfaces",
+          "name": "Materials - Surfaces",
+          "totalTags": 98
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "e38ba8c5-f4fc-4534-8ff1-d8facb026c61",
+          "category": "Performance and Visual Fidelity",
+          "name": "Performance and Visual Fidelity",
+          "totalTags": 32
+        },
+        {
+          "guid": "b7596346-a72d-4f85-9fd8-45e3fc6ec6c8",
+          "category": "Photos",
+          "name": "Photos",
+          "totalTags": 41
+        },
+        {
+          "guid": "ce0666a3-0bd5-420a-a0d9-2220127940f1",
+          "category": "Render Engine",
+          "name": "Render Engine",
+          "totalTags": 6
+        },
+        {
+          "guid": "4c4cfa8a-02b9-41cf-b38c-3697ccbd9a77",
+          "category": "Road Surfaces and Paths",
+          "name": "Road Surfaces and Paths",
+          "totalTags": 47
+        },
+        {
+          "guid": "f65b5bfe-5d46-4515-8341-a8a5c2ccd873",
+          "category": "Spaces (Location)",
+          "name": "Spaces (Location)",
+          "totalTags": 12
+        },
+        {
+          "guid": "cef1d01d-6bd6-4c5a-972d-d54c5ae12488",
+          "category": "Workflows",
+          "name": "Workflows",
+          "totalTags": 8
+        },
+        {
+          "guid": "1abe5508-d01a-4cac-a31e-e00291e0dc1a",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 78
+        },
+        {
+          "guid": "80998850-80c5-41a2-96fe-2bbe0d2da935",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 69
+        },
+        {
+          "guid": "e0ea26d0-d878-4073-987c-7eb3855b8195",
+          "category": "Mechanical, Electrical, and Plumbing (MEP)",
+          "name": "Mechanical, Electrical, and Plumbing (MEP)",
+          "totalTags": 69
+        },
+        {
+          "guid": "6215d839-eda9-4d3b-ac48-cb69fee1ba78",
+          "category": "Project Phase (BIM)",
+          "name": "Project Phase (BIM)",
+          "totalTags": 8
+        },
+        {
+          "guid": "fc19d0a8-fbb2-4e31-b1b8-192faf46a884",
+          "category": "Providers (BIM)",
+          "name": "Providers (BIM)",
+          "totalTags": 6
+        }
+      ]
+    }
+  },
+  {
+    "name": "Simulation",
+    "granularityEntries": {
+      "Summary": [
+        {
+          "guid": "3dff1ca4-a973-484f-bef4-e1155bd64067",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 15
+        },
+        {
+          "guid": "3c04c3b0-e277-4dde-98d7-ccdc045c1efc",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 8
+        },
+        {
+          "guid": "cb7b6298-825c-490f-8021-dc4c997e9864",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 6
+        },
+        {
+          "guid": "5437fc9b-88a8-437d-b367-aacf945b7f2d",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 8
+        },
+        {
+          "guid": "b4a9d167-5a82-4e6f-94c9-ffbb4887c5bb",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 7
+        },
+        {
+          "guid": "1846c21b-c2d4-4308-bccb-2d378c2c814a",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 7
+        },
+        {
+          "guid": "2d1d2619-4ca6-4941-8053-5ca518cf3ae6",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 5
+        },
+        {
+          "guid": "0265c8eb-0d1f-4df1-9105-6bfd2591f1cd",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 9
+        },
+        {
+          "guid": "91dc1734-c77d-4631-9862-53addf2ed83d",
+          "category": "People",
+          "name": "People",
+          "totalTags": 37
+        },
+        {
+          "guid": "4969e554-ce7f-4f45-ac1b-0472b6d95e34",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 5
+        },
+        {
+          "guid": "63a9d9b9-6139-44c2-9711-c6ab0d8af138",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 10
+        }
+      ],
+      "Balanced": [
+        {
+          "guid": "06f9a457-e262-45db-9424-cfdb95355a64",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 27
+        },
+        {
+          "guid": "0da5c44a-0c1a-4a22-bce2-2010d6df65d6",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 41
+        },
+        {
+          "guid": "05523568-090f-4e8e-a19f-95effdfde554",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 25
+        },
+        {
+          "guid": "05751634-401b-4b2e-bbe7-ac059bc4a576",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 23
+        },
+        {
+          "guid": "21a42e4b-16d7-4e2e-ada6-c71a0b461d8b",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 37
+        },
+        {
+          "guid": "7c10f84e-6f0f-4527-9b30-ba96f25aa15e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 27
+        },
+        {
+          "guid": "c20fb6c3-ff4d-4bea-8fa7-3366787bcff3",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 32
+        },
+        {
+          "guid": "9fba8f0a-d3d2-462e-8855-158b02057447",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 24
+        },
+        {
+          "guid": "7a5aa204-873a-4993-be82-83b3debc6884",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 17
+        },
+        {
+          "guid": "3eb0a031-1816-4b74-98e9-d3ad43b22e2a",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 29
+        },
+        {
+          "guid": "4961f801-f25c-49f9-b9a8-b4b2d4789191",
+          "category": "People",
+          "name": "People",
+          "totalTags": 60
+        },
+        {
+          "guid": "d001a20e-f7b5-46d5-ae13-a1466dc5eaa1",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 23
+        },
+        {
+          "guid": "dd265179-c48a-434c-8531-e82774955644",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 30
+        }
+      ],
+      "Comprehensive": [
+        {
+          "guid": "e8e0a260-4f99-4bca-a052-04385914c4ef",
+          "category": "Audio and SFX",
+          "name": "Audio and SFX",
+          "totalTags": 79
+        },
+        {
+          "guid": "397bbb70-f945-4d9f-9845-94c5753a4f15",
+          "category": "Buildings",
+          "name": "Buildings",
+          "totalTags": 95
+        },
+        {
+          "guid": "9276ae6d-6ab6-4169-96d1-66a6a94d7042",
+          "category": "Clothes and Accessories",
+          "name": "Clothes and Accessories",
+          "totalTags": 83
+        },
+        {
+          "guid": "fcef4111-3f3c-42b6-98c7-f71cb9f40ccf",
+          "category": "Decor",
+          "name": "Decor",
+          "totalTags": 19
+        },
+        {
+          "guid": "dab85884-ed5d-4d68-af4e-cbdede6d1928",
+          "category": "Food and Beverages",
+          "name": "Food and Beverages",
+          "totalTags": 47
+        },
+        {
+          "guid": "ee068105-c1b2-4e83-86cb-4433fdc86fb3",
+          "category": "Furniture",
+          "name": "Furniture",
+          "totalTags": 89
+        },
+        {
+          "guid": "ccce1bc3-500d-4378-98d8-aac4246a4403",
+          "category": "Indoor Plants",
+          "name": "Indoor Plants",
+          "totalTags": 34
+        },
+        {
+          "guid": "34a1b969-8e40-42ab-b262-87085cd7cc3e",
+          "category": "Interior Finishes and Textiles",
+          "name": "Interior Finishes and Textiles",
+          "totalTags": 44
+        },
+        {
+          "guid": "3e76e1f9-31fe-4ce6-86c3-4676403b7a5f",
+          "category": "Kitchen",
+          "name": "Kitchen",
+          "totalTags": 76
+        },
+        {
+          "guid": "8e7746aa-a325-4358-b794-3d4a6fb7df29",
+          "category": "Lighting",
+          "name": "Lighting",
+          "totalTags": 47
+        },
+        {
+          "guid": "9734f47c-e273-4200-aca7-8f306a882418",
+          "category": "Living and Lifestyle Collection",
+          "name": "Living and Lifestyle Collection",
+          "totalTags": 27
+        },
+        {
+          "guid": "80998850-80c5-41a2-96fe-2bbe0d2da935",
+          "category": "Park and Outdoor Vegetation",
+          "name": "Park and Outdoor Vegetation",
+          "totalTags": 69
+        },
+        {
+          "guid": "64761752-42a3-48bb-8b39-2411071f4b0b",
+          "category": "People",
+          "name": "People",
+          "totalTags": 88
+        },
+        {
+          "guid": "1abe5508-d01a-4cac-a31e-e00291e0dc1a",
+          "category": "Vehicles",
+          "name": "Vehicles",
+          "totalTags": 78
+        },
+        {
+          "guid": "2314e92e-1be1-427a-8d59-a23b9958bb6c",
+          "category": "VFX and Simulations",
+          "name": "VFX and Simulations",
+          "totalTags": 60
+        }
+      ]
+    }
+  }
+]
