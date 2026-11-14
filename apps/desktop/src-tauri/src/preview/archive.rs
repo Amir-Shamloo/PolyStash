@@ -646,3 +646,37 @@ pub(crate) async fn render_sbsar_maps(
     }
     Some(maps)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{sbsar_map_key, sbsar_map_rank};
+
+    /// `basecolor` is the canonical name, so it must win the slot.
+    #[test]
+    fn basecolor_outranks_diffuse() {
+        let basecolor = sbsar_map_rank("baseColor", "basecolor");
+        let diffuse = sbsar_map_rank("baseColor", "diffuse");
+        assert!(basecolor < diffuse);
+    }
+
+    /// `albedo` and unknown variants both lose to `basecolor` but beat `diffuse`.
+    #[test]
+    fn albedo_and_unknown_names_beat_diffuse() {
+        let diffuse = sbsar_map_rank("baseColor", "diffuse");
+        assert!(sbsar_map_rank("baseColor", "albedo") < diffuse);
+        assert!(sbsar_map_rank("baseColor", "base_color_v2") < diffuse);
+    }
+
+    /// Slots with a single output keep rank 0 so the file path decides.
+    #[test]
+    fn other_slots_rank_zero() {
+        assert_eq!(0, sbsar_map_rank("normal", "diffuse"));
+        assert_eq!(0, sbsar_map_rank("roughness", "basecolor"));
+    }
+
+    /// The slot mapping itself: `diffuse` is still published as `baseColor`.
+    #[test]
+    fn diffuse_maps_to_basecolor() {
+        assert_eq!(Some("baseColor"), sbsar_map_key("diffuse"));
+    }
+}
