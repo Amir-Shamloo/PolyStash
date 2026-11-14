@@ -148,8 +148,11 @@ fn is_thumbnail_name(name: &str) -> bool {
     lower.contains("thumb") && (lower.ends_with(".png") || lower.ends_with(".jpg") || lower.ends_with(".jpeg"))
 }
 
-/// Entry-name rank for the Substance preview: exact `preview.png` first.
-const SBSAR_PREFERRED: u8 = 0;
+/// Entry-name ranks for the fallback scan, best first.
+const SBSAR_ICON_NAME: u8 = 0;
+const SBSAR_PREVIEW_NAME: u8 = 1;
+const SBSAR_NAMED_IMAGE: u8 = 2;
+const SBSAR_ANY_IMAGE: u8 = 3;
 
 /// Directory holding the graph XML and the icon image it names.
 const SBSAR_GRAPH_DIR: &str = "assemblies/content/0000/";
@@ -163,6 +166,8 @@ pub(crate) fn extract_sbsar_thumb(source: &Path, output: &Path) -> Result<()> {
     save_thumb(&img, output)
 }
 
+/// Graph-declared icon first, then the filename tiers ranked by
+/// `sbsar_entry_priority`.
 fn sbsar_preview(source: &Path) -> Option<DynamicImage> {
     sbsar_icon_preview(source).or_else(|| sbsar_heuristic_preview(source))
 }
@@ -252,18 +257,19 @@ fn read_archive_entry(source: &Path, wanted: &str) -> Option<Vec<u8>> {
     bytes
 }
 
-/// Priority heuristic used when the graph declares no usable icon.
+/// Priority heuristic used when the graph declares no usable icon. Substance
+/// names its standard icon `icon.png` or `icon<uid>.png`.
 fn sbsar_heuristic_preview(source: &Path) -> Option<DynamicImage> {
     let mut archive = SevenZReader::open(source, Password::empty()).ok()?;
     let mut best: Option<(u8, Vec<u8>)> = None;
-    let mut found_preferred = false;
+    let mut found_best = false;
     let mut has_image = false;
 
     // Sevenz entries must be read in order, so every entry is drained and only
     // the best-ranked image is retained.
     let _ = archive.for_each_entries(|entry, input| {
         let priority = sbsar_entry_priority(entry.name());
-        found_preferred |= priority == Some(SBSAR_PREFERRED);
+        found_best |= priority == Some(SBSAR_ICON_NAME);
         has_image |= priority.is_some();
 
         let bytes = read_entry(input, priority.is_some())?;
@@ -272,7 +278,7 @@ fn sbsar_heuristic_preview(source: &Path) -> Option<DynamicImage> {
                 best = Some((priority, bytes));
             }
         }
-        Ok(!found_preferred)
+        Ok(!found_best)
     });
 
     if !has_image {
@@ -305,13 +311,26 @@ fn sbsar_entry_priority(name: &str) -> Option<u8> {
     }
 
     let file_name = lower.rsplit(['/', '\\']).next().unwrap_or_default();
-    if file_name == "preview.png" {
-        Some(SBSAR_PREFERRED)
+    if is_icon_name(file_name) {
+        Some(SBSAR_ICON_NAME)
+    } else if file_name == "preview.png" {
+        Some(SBSAR_PREVIEW_NAME)
     } else if lower.contains("preview") || lower.contains("thumb") {
-        Some(1)
+        Some(SBSAR_NAMED_IMAGE)
     } else {
-        Some(2)
+        Some(SBSAR_ANY_IMAGE)
     }
+}
+
+/// Substance's standard icon name: `icon.png` or `icon<uid>.png`.
+fn is_icon_name(file_name: &str) -> bool {
+    let Some(stem) = file_name.strip_suffix(".png") else {
+        return false;
+    };
+    let Some(uid) = stem.strip_prefix("icon") else {
+        return false;
+    };
+    uid.is_empty() || uid.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn is_image_name(name: &str) -> bool {
@@ -341,15 +360,26 @@ const SBSAR_RENDER_CONCURRENCY: usize = 2;
 static SBSAR_RENDERER: OnceLock<Option<PathBuf>> = OnceLock::new();
 static SBSAR_RENDER_SLOTS: OnceLock<tokio::sync::Semaphore> = OnceLock::new();
 
+/// Serializes the check-and-extract of the shared helper directory. Two
+/// concurrent jobs can both find the directory stale and write the same files;
+/// one would then run a half-written executable.
+static SBSAR_HELPER_LOCK: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
+
 fn sbsar_render_slots() -> &'static tokio::sync::Semaphore {
     SBSAR_RENDER_SLOTS.get_or_init(|| tokio::sync::Semaphore::new(SBSAR_RENDER_CONCURRENCY))
 }
 
-fn file_matches(path: &Path, bytes: &[u8]) -> bool {
+/// True when `path` already holds exactly `bytes` (length check only).
+pub(crate) fn file_matches(path: &Path, bytes: &[u8]) -> bool {
     std::fs::metadata(path).is_ok_and(|metadata| metadata.len() == bytes.len() as u64)
 }
 
 fn extract_sbsar_helper() -> Option<PathBuf> {
+    let _guard = SBSAR_HELPER_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
     let exe_bytes = embedded_helper::SBSAR_RENDER_EXE?;
     let linker_bytes = embedded_helper::SBSAR_LINKER_DLL?;
     let sse2_bytes = embedded_helper::SBSAR_SSE2_DLL?;
