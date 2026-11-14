@@ -159,7 +159,17 @@ function disposeSceneHierarchy(scene: THREE.Scene, renderer: THREE.WebGLRenderer
     if (obj instanceof THREE.Mesh) {
       obj.geometry?.dispose();
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-      mats.forEach((m) => m?.dispose());
+      mats.forEach((m) => {
+        if (!m) return;
+        const mRecord = m as unknown as Record<string, unknown>;
+        for (const key of Object.keys(mRecord)) {
+          const val = mRecord[key];
+          if (val && typeof val === 'object' && 'isTexture' in val && typeof (val as THREE.Texture).dispose === 'function') {
+            (val as THREE.Texture).dispose();
+          }
+        }
+        m.dispose();
+      });
     }
   });
   scene.environment?.dispose();
@@ -241,7 +251,7 @@ export async function captureModelSnapshot(
   let renderer: THREE.WebGLRenderer | null = null;
   const scene = new THREE.Scene();
   const cleanExt = extension.toLowerCase();
-  const resolution = options?.resolution ?? (cleanExt === 'sbsar' ? 1080 : 512);
+  const resolution = options?.resolution ?? 512;
 
   try {
     const canvas = document.createElement('canvas');

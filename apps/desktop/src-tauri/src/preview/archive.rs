@@ -223,7 +223,7 @@ fn sbsar_renderer_exe() -> Option<PathBuf> {
 
 /// Map a Substance output identifier onto the frontend's PBR slot names.
 fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
-    const KEYS: [(&str, &str); 24] = [
+    const KEYS: [(&str, &str); 25] = [
         ("basecolor", "baseColor"),
         ("albedo", "baseColor"),
         ("diffuse", "baseColor"),
@@ -234,20 +234,21 @@ fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
         ("bump", "normal"),
         ("roughness", "roughness"),
         ("rough", "roughness"),
-        ("glossiness", "roughness"),
         ("metallic", "metallic"),
         ("metalness", "metallic"),
         ("metal", "metallic"),
         ("height", "height"),
         ("displacement", "height"),
+        ("displace", "height"),
         ("disp", "height"),
         ("ambientocclusion", "ambientOcclusion"),
         ("occlusion", "ambientOcclusion"),
         ("ao", "ambientOcclusion"),
+        ("opacitymask", "opacity"),
+        ("alphamask", "opacity"),
         ("opacity", "opacity"),
         ("alpha", "opacity"),
         ("transparency", "opacity"),
-        ("mask", "opacity"),
     ];
     // Graphs name outputs `base_color`, `Base Color`, `baseColor`, ...
     let normalized: String = identifier
@@ -255,6 +256,17 @@ fn sbsar_map_key(identifier: &str) -> Option<&'static str> {
         .filter(|c| c.is_ascii_alphanumeric())
         .map(|c| c.to_ascii_lowercase())
         .collect();
+
+    // Utility masks (e.g. vein mask, grunge mask, pattern mask, dirt mask)
+    // are procedural blending aids, never PBR textures or opacity cutouts.
+    if normalized == "mask"
+        || (normalized.ends_with("mask")
+            && !normalized.ends_with("opacitymask")
+            && !normalized.ends_with("alphamask"))
+    {
+        return None;
+    }
+
     KEYS.iter()
         .find(|(needle, _)| normalized.ends_with(needle))
         .map(|(_, key)| *key)
@@ -279,17 +291,18 @@ fn strip_map_suffix(normalized: &str) -> Option<&str> {
         .find_map(|suffix| normalized.strip_suffix(suffix))
 }
 
-/// Identifiers preferred inside the `baseColor` slot, best first.
+/// Identifiers preferred inside specific PBR slots, best first.
 const BASECOLOR_PREFERRED: [&str; 3] = ["basecolor", "albedo", "color"];
+const ROUGHNESS_PREFERRED: [&str; 2] = ["roughness", "rough"];
+const NORMAL_PREFERRED: [&str; 3] = ["normal", "normaldirectx", "normalopengl"];
+const METALLIC_PREFERRED: [&str; 3] = ["metallic", "metalness", "metal"];
+const HEIGHT_PREFERRED: [&str; 4] = ["height", "displacement", "displace", "disp"];
+const AO_PREFERRED: [&str; 3] = ["ambientocclusion", "ao", "occlusion"];
+const OPACITY_PREFERRED: [&str; 5] = ["opacity", "alpha", "transparency", "opacitymask", "alphamask"];
 
-/// Rank an identifier inside its slot, lower wins. Only `baseColor` has
-/// competing outputs; every other slot keeps rank 0 so the path still decides.
-/// `diffuse` always loses because some graphs export it black.
+/// Rank an identifier inside its slot, lower wins. Canonical PBR slot names
+/// outrank secondary or fallback variants (e.g. bump maps or diffuse).
 fn sbsar_map_rank(key: &str, identifier: &str) -> usize {
-    if key != "baseColor" {
-        return 0;
-    }
-
     let normalized: String = identifier
         .chars()
         .filter(|c| c.is_ascii_alphanumeric())
@@ -298,13 +311,47 @@ fn sbsar_map_rank(key: &str, identifier: &str) -> usize {
     let bare = strip_map_suffix(&normalized).unwrap_or(&normalized);
     let ends_with = |suffix: &str| normalized.ends_with(suffix) || bare.ends_with(suffix);
 
-    if ends_with("diffuse") {
-        return BASECOLOR_PREFERRED.len() + 1;
+    match key {
+        "baseColor" => {
+            if ends_with("diffuse") {
+                return BASECOLOR_PREFERRED.len() + 1;
+            }
+            BASECOLOR_PREFERRED
+                .iter()
+                .position(|needle| ends_with(needle))
+                .unwrap_or(BASECOLOR_PREFERRED.len())
+        }
+        "roughness" => ROUGHNESS_PREFERRED
+            .iter()
+            .position(|needle| ends_with(needle))
+            .unwrap_or(ROUGHNESS_PREFERRED.len()),
+        "normal" => {
+            if ends_with("bump") {
+                return NORMAL_PREFERRED.len() + 1;
+            }
+            NORMAL_PREFERRED
+                .iter()
+                .position(|needle| ends_with(needle))
+                .unwrap_or(NORMAL_PREFERRED.len())
+        }
+        "metallic" => METALLIC_PREFERRED
+            .iter()
+            .position(|needle| ends_with(needle))
+            .unwrap_or(METALLIC_PREFERRED.len()),
+        "height" => HEIGHT_PREFERRED
+            .iter()
+            .position(|needle| ends_with(needle))
+            .unwrap_or(HEIGHT_PREFERRED.len()),
+        "ambientOcclusion" => AO_PREFERRED
+            .iter()
+            .position(|needle| ends_with(needle))
+            .unwrap_or(AO_PREFERRED.len()),
+        "opacity" => OPACITY_PREFERRED
+            .iter()
+            .position(|needle| ends_with(needle))
+            .unwrap_or(OPACITY_PREFERRED.len()),
+        _ => 0,
     }
-    BASECOLOR_PREFERRED
-        .iter()
-        .position(|needle| ends_with(needle))
-        .unwrap_or(BASECOLOR_PREFERRED.len())
 }
 
 /// Maps already rendered for `file_stem`, read back from the output folder.
@@ -495,11 +542,68 @@ mod tests {
         assert!(sbsar_map_rank("baseColor", "base_color_v2") < diffuse);
     }
 
-    /// Slots with a single output keep rank 0 so the file path decides.
+    /// Metallic canonical name outranks variants.
     #[test]
-    fn other_slots_rank_zero() {
-        assert_eq!(0, sbsar_map_rank("normal", "diffuse"));
-        assert_eq!(0, sbsar_map_rank("roughness", "basecolor"));
+    fn metallic_outranks_variants() {
+        assert!(sbsar_map_rank("metallic", "metallic") < sbsar_map_rank("metallic", "metalness"));
+        assert!(sbsar_map_rank("metallic", "metalness") < sbsar_map_rank("metallic", "metal"));
+    }
+
+    /// Height canonical name outranks displacement and abbreviation variants.
+    #[test]
+    fn height_outranks_variants() {
+        assert!(sbsar_map_rank("height", "height") < sbsar_map_rank("height", "displacement"));
+        assert!(sbsar_map_rank("height", "displacement") < sbsar_map_rank("height", "displace"));
+        assert!(sbsar_map_rank("height", "displace") < sbsar_map_rank("height", "disp"));
+    }
+
+    /// Ambient occlusion canonical name outranks abbreviation and generic occlusion.
+    #[test]
+    fn ambient_occlusion_outranks_variants() {
+        assert!(sbsar_map_rank("ambientOcclusion", "ambientocclusion") < sbsar_map_rank("ambientOcclusion", "ao"));
+        assert!(sbsar_map_rank("ambientOcclusion", "ao") < sbsar_map_rank("ambientOcclusion", "occlusion"));
+    }
+
+    /// Opacity canonical name outranks alpha and transparency variants.
+    #[test]
+    fn opacity_outranks_variants() {
+        assert!(sbsar_map_rank("opacity", "opacity") < sbsar_map_rank("opacity", "alpha"));
+        assert!(sbsar_map_rank("opacity", "alpha") < sbsar_map_rank("opacity", "transparency"));
+        assert!(sbsar_map_rank("opacity", "transparency") < sbsar_map_rank("opacity", "opacitymask"));
+    }
+
+    /// Roughness canonical name outranks abbreviated `rough`.
+    #[test]
+    fn roughness_outranks_rough() {
+        assert!(sbsar_map_rank("roughness", "roughness") < sbsar_map_rank("roughness", "rough"));
+    }
+
+    /// Normal maps outrank greyscale bump fallbacks.
+    #[test]
+    fn normal_outranks_bump() {
+        assert!(sbsar_map_rank("normal", "normal") < sbsar_map_rank("normal", "bump"));
+    }
+
+    /// Glossiness is the inverse of roughness and must never map to the roughness slot.
+    #[test]
+    fn glossiness_does_not_map_to_roughness() {
+        assert_eq!(None, sbsar_map_key("glossiness"));
+        assert_eq!(None, sbsar_map_key("gloss"));
+    }
+
+    /// Procedural utility masks (e.g. vein masks, dirt masks, pattern masks)
+    /// must never map to opacity or any other PBR channel.
+    #[test]
+    fn utility_masks_do_not_map_to_opacity_or_other_slots() {
+        assert_eq!(None, sbsar_map_key("mask"));
+        assert_eq!(None, sbsar_map_key("marble_mask"));
+        assert_eq!(None, sbsar_map_key("vein_mask"));
+        assert_eq!(None, sbsar_map_key("veins_mask"));
+        assert_eq!(None, sbsar_map_key("dirt_mask"));
+        assert_eq!(None, sbsar_map_key("pattern_mask"));
+        assert_eq!(None, sbsar_map_key("color_mask"));
+        assert_eq!(None, sbsar_map_key("roughness_mask"));
+        assert_eq!(None, sbsar_map_key("ao_mask"));
     }
 
     /// The slot mapping itself: `diffuse` is still published as `baseColor`.
@@ -521,12 +625,12 @@ mod tests {
             ("bump", "normal"),
             ("roughness", "roughness"),
             ("rough", "roughness"),
-            ("glossiness", "roughness"),
             ("metallic", "metallic"),
             ("metalness", "metallic"),
             ("metal", "metallic"),
             ("height", "height"),
             ("displacement", "height"),
+            ("displace", "height"),
             ("disp", "height"),
             ("ambient_occlusion", "ambientOcclusion"),
             ("ao", "ambientOcclusion"),
@@ -534,10 +638,62 @@ mod tests {
             ("opacity", "opacity"),
             ("alpha", "opacity"),
             ("transparency", "opacity"),
-            ("mask", "opacity"),
+            ("opacity_mask", "opacity"),
+            ("alpha_mask", "opacity"),
         ];
         for (identifier, slot) in cases {
             assert_eq!(Some(slot), sbsar_map_key(identifier), "{identifier}");
         }
+    }
+
+    /// When both roughness and glossiness outputs are present on disk, roughness
+    /// must be selected and glossiness must be completely ignored.
+    #[test]
+    fn collect_sbsar_maps_picks_roughness_over_glossiness() {
+        let temp_dir = std::env::temp_dir().join(format!("sbsar_test_{}", std::time::SystemTime::now().elapsed().unwrap().as_nanos()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        std::fs::write(temp_dir.join("wood_basecolor.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("wood_diffuse.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("wood_roughness.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("wood_glossiness.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("wood_normal.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("wood_bump.png"), b"").unwrap();
+
+        let maps = super::collect_sbsar_maps(&temp_dir, "wood");
+        let map_dict: std::collections::HashMap<String, String> = maps.into_iter().collect();
+
+        assert_eq!(map_dict.get("baseColor").unwrap(), ".polystash/thumbs/wood_sbsar/wood_basecolor.png");
+        assert_eq!(map_dict.get("roughness").unwrap(), ".polystash/thumbs/wood_sbsar/wood_roughness.png");
+        assert_eq!(map_dict.get("normal").unwrap(), ".polystash/thumbs/wood_sbsar/wood_normal.png");
+        assert!(!map_dict.values().any(|path| path.contains("glossiness")));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    /// Solid materials with utility masks (like marble vein masks) must not map
+    /// the mask to opacity or any other slot.
+    #[test]
+    fn collect_sbsar_maps_ignores_utility_masks() {
+        let temp_dir = std::env::temp_dir().join(format!("sbsar_mask_test_{}", std::time::SystemTime::now().elapsed().unwrap().as_nanos()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        std::fs::write(temp_dir.join("marble_basecolor.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("marble_roughness.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("marble_normal.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("marble_height.png"), b"").unwrap();
+        std::fs::write(temp_dir.join("marble_mask.png"), b"").unwrap();
+
+        let maps = super::collect_sbsar_maps(&temp_dir, "marble");
+        let map_dict: std::collections::HashMap<String, String> = maps.into_iter().collect();
+
+        assert_eq!(map_dict.get("baseColor").unwrap(), ".polystash/thumbs/marble_sbsar/marble_basecolor.png");
+        assert_eq!(map_dict.get("roughness").unwrap(), ".polystash/thumbs/marble_sbsar/marble_roughness.png");
+        assert_eq!(map_dict.get("normal").unwrap(), ".polystash/thumbs/marble_sbsar/marble_normal.png");
+        assert_eq!(map_dict.get("height").unwrap(), ".polystash/thumbs/marble_sbsar/marble_height.png");
+        assert_eq!(None, map_dict.get("opacity"));
+        assert!(!map_dict.values().any(|path| path.contains("mask")));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

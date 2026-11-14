@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { api } from '../../api';
+import { useAssetStore } from '../../store';
 import type { Asset } from '../../types';
 
 const THROTTLE_MS = 150;
@@ -31,6 +32,8 @@ function trackVisibility(inView: Set<string>, entries: IntersectionObserverEntry
 
 function requestPreviews(ids: string[], requested: Set<string>) {
   ids.forEach((id) => requested.add(id));
+  const setPreviewStatus = useAssetStore.getState().setPreviewStatus;
+  ids.forEach((id) => setPreviewStatus(id, 'pending'));
   api.requestPreview(ids).catch(() => ids.forEach((id) => requested.delete(id)));
 }
 

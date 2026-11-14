@@ -44,17 +44,23 @@ export default function App() {
     );
 
     // Real-time preview updates from background engine
-    const unlistenDone = listen<{ assetId: string; thumbnailPath?: string; previewModel?: string }>(
+    const unlistenDone = listen<{
+      assetId: string;
+      thumbnailPath?: string;
+      previewModel?: string;
+      sbsarTextures?: Record<string, string>;
+    }>(
       'preview:done',
       (event) => {
-        const { assetId } = event.payload;
+        const { assetId, thumbnailPath, previewModel, sbsarTextures } = event.payload;
         const state = useAssetStore.getState();
         const asset = state.assetMap.get(assetId) ?? state.assets.find((a) => a.id === assetId);
         if (asset?.extension.toLowerCase() === 'sbsar') clearSnapshotCache(assetId);
         state.updateAssetPreview(
           assetId,
-          event.payload.thumbnailPath,
-          event.payload.previewModel
+          thumbnailPath,
+          previewModel,
+          sbsarTextures
         );
       }
     );
