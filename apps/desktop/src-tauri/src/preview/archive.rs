@@ -452,6 +452,33 @@ fn strip_map_suffix(normalized: &str) -> Option<&str> {
         .find_map(|suffix| normalized.strip_suffix(suffix))
 }
 
+/// Identifiers preferred inside the `baseColor` slot, best first.
+const BASECOLOR_PREFERRED: [&str; 3] = ["basecolor", "albedo", "color"];
+
+/// Rank an identifier inside its slot, lower wins. Only `baseColor` has
+/// competing outputs; every other slot keeps rank 0 so the path still decides.
+/// `diffuse` always loses because some graphs export it black.
+fn sbsar_map_rank(key: &str, identifier: &str) -> usize {
+    if key != "baseColor" {
+        return 0;
+    }
+
+    let normalized: String = identifier
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect();
+    let bare = strip_map_suffix(&normalized).unwrap_or(&normalized);
+    let ends_with = |suffix: &str| normalized.ends_with(suffix) || bare.ends_with(suffix);
+
+    if ends_with("diffuse") {
+        return BASECOLOR_PREFERRED.len() + 1;
+    }
+    BASECOLOR_PREFERRED
+        .iter()
+        .position(|needle| ends_with(needle))
+        .unwrap_or(BASECOLOR_PREFERRED.len())
+}
+
 /// Maps already rendered for `file_stem`, read back from the output folder.
 pub(crate) fn existing_sbsar_maps(thumb_dir: &Path, file_stem: &str) -> Vec<(String, String)> {
     collect_sbsar_maps(&thumb_dir.join(format!("{file_stem}_sbsar")), file_stem)
@@ -548,7 +575,7 @@ fn collect_sbsar_maps(out_dir: &Path, file_stem: &str) -> Vec<(String, String)> 
         return Vec::new();
     };
 
-    let mut maps: Vec<(String, String)> = entries
+    let mut maps: Vec<(String, usize, String)> = entries
         .flatten()
         .filter_map(|entry| {
             let path = entry.path();
@@ -562,15 +589,19 @@ fn collect_sbsar_maps(out_dir: &Path, file_stem: &str) -> Vec<(String, String)> 
 
             // The helper names every PNG after the output's real identifier.
             let name = path.file_name()?.to_str()?;
-            let identifier = path.file_stem()?.to_str()?;
-            let key = sbsar_map_key(&identifier.to_ascii_lowercase())?;
-            Some((key.to_string(), format!(".polystash/thumbs/{folder}/{name}")))
+            let identifier = path.file_stem()?.to_str()?.to_ascii_lowercase();
+            let key = sbsar_map_key(&identifier)?;
+            let rank = sbsar_map_rank(key, &identifier);
+            Some((key.to_string(), rank, format!(".polystash/thumbs/{folder}/{name}")))
         })
         .collect();
 
-    maps.sort();
+    // Best-ranked identifier per slot, then path so the result stays stable.
+    maps.sort_by(|a, b| (&a.0, a.1, &a.2).cmp(&(&b.0, b.1, &b.2)));
     maps.dedup_by(|a, b| a.0 == b.0);
-    maps
+    maps.into_iter()
+        .map(|(key, _, path)| (key, path))
+        .collect()
 }
 
 /// Render the PBR maps for an SBSAR, or return the ones already on disk when

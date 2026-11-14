@@ -459,6 +459,11 @@ export interface LazySnapshotState {
   isGenerating: boolean;
 }
 
+export function clearSnapshotCache(assetId: string): void {
+  snapshotUrlCache.delete(assetId);
+  failedSnapshotAssets.delete(assetId);
+}
+
 function getCachedSnapshot(assetId: string | undefined): string | null {
   if (!assetId) return null;
   return snapshotUrlCache.get(assetId) ?? null;
